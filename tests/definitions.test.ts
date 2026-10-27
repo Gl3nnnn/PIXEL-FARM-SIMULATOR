@@ -5,6 +5,7 @@ import {
   BUILDINGS,
   CROPS,
   DAILY_TEMPLATES,
+  FESTIVALS,
   ITEMS,
   MAIN_QUESTS,
   PLOTS,
@@ -72,6 +73,27 @@ describe('content definitions', () => {
       expect(quest.title.length).toBeGreaterThan(0);
       expect(quest.target).toBeGreaterThan(0);
       expect(quest.metric.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('ships one festival with three valid contracts per season', () => {
+    const ids = new Set<string>();
+    for (const season of SEASONS) {
+      const festival = FESTIVALS[season];
+      expect(festival.season).toBe(season);
+      expect(festival.name.length).toBeGreaterThan(0);
+      expect(festival.bonusCoins).toBeGreaterThan(0);
+      expect(festival.bonusXp).toBeGreaterThan(0);
+      expect(festival.contracts).toHaveLength(3);
+      for (const contract of festival.contracts) {
+        expect(contract.title.length).toBeGreaterThan(0);
+        expect(contract.metric.length).toBeGreaterThan(0);
+        expect(contract.target).toBeGreaterThan(0);
+        expect(contract.coins).toBeGreaterThan(0);
+        expect(contract.xp).toBeGreaterThan(0);
+        expect(ids.has(contract.id)).toBe(false);
+        ids.add(contract.id);
+      }
     }
   });
 

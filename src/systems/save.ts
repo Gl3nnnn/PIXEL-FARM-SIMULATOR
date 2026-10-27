@@ -1,5 +1,26 @@
-import { CURRENT_SAVE_VERSION, DEFAULT_SETTINGS, levelFromXp } from '../data/definitions';
-import type { InventoryStack, Quality, SaveData, SaveSlotInfo, Settings } from '../types';
+import {
+  AUTOMATION,
+  COLLECTION_SETS,
+  CURRENT_SAVE_VERSION,
+  DEFAULT_SETTINGS,
+  FESTIVAL_RIBBONS,
+  NPCS,
+  levelFromXp
+} from '../data/definitions';
+import { MINE_NODES } from './world';
+import type {
+  AutomationSave,
+  CollectionSave,
+  FestivalSave,
+  InventoryStack,
+  NpcSave,
+  Quality,
+  SaveData,
+  SaveSlotInfo,
+  SeasonalSave,
+  Settings,
+  Stats
+} from '../types';
 
 const DB_NAME = 'pixel-farm-simulator';
 const DB_STORE = 'saves';
@@ -7,6 +28,15 @@ const DB_VERSION = 1;
 const LAST_SLOT_KEY = 'pfs:lastSlot';
 const SETTINGS_KEY = 'pfs:settings';
 export const SLOT_COUNT = 3;
+export const MAX_SAVE_FILE_BYTES = 1_000_000;
+
+const COLLECTION_ITEM_IDS = new Set(COLLECTION_SETS.flatMap((set) => set.itemIds));
+const COLLECTION_REWARD_IDS = new Set(
+  COLLECTION_SETS.flatMap((set) => set.milestones.map((milestone) => milestone.id))
+);
+const AUTOMATION_IDS = new Set(AUTOMATION.map((entry) => entry.id));
+const RIBBON_IDS = new Set(FESTIVAL_RIBBONS.map((ribbon) => ribbon.id));
+const MINE_NODE_IDS = new Set(MINE_NODES.map((node) => node.id));
 
 interface StoredRecord {
   slot: number;
@@ -59,6 +89,140 @@ function toBool(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+const SEASONS = ['spring', 'summer', 'fall', 'winter'] as const;
+
+function sanitizeStats(raw: unknown): Stats {
+  const stats: Record<string, unknown> = isRecord(raw) ? raw : {};
+  return {
+    harvests: Math.max(0, toFinite(stats.harvests, 0)),
+    cropsSold: Math.max(0, toFinite(stats.cropsSold, 0)),
+    productsCollected: Math.max(0, toFinite(stats.productsCollected, 0)),
+    coinsEarned: Math.max(0, toFinite(stats.coinsEarned, 0)),
+    buildingsBuilt: Math.max(0, toFinite(stats.buildingsBuilt, 0)),
+    crafts: Math.max(0, toFinite(stats.crafts, 0)),
+    waters: Math.max(0, toFinite(stats.waters, 0)),
+    tills: Math.max(0, toFinite(stats.tills, 0)),
+    planted: Math.max(0, toFinite(stats.planted, 0)),
+    animalsOwned: Math.max(0, toFinite(stats.animalsOwned, 0)),
+    goldHarvests: Math.max(0, toFinite(stats.goldHarvests, 0)),
+    daysPlayed: Math.max(0, toFinite(stats.daysPlayed, 0)),
+    carrotsHarvested: Math.max(0, toFinite(stats.carrotsHarvested, 0)),
+    eggsCollected: Math.max(0, toFinite(stats.eggsCollected, 0)),
+    fishCaught: Math.max(0, toFinite(stats.fishCaught, 0)),
+    fishingCasts: Math.max(0, toFinite(stats.fishingCasts, 0)),
+    rocksMined: Math.max(0, toFinite(stats.rocksMined, 0)),
+    oresMined: Math.max(0, toFinite(stats.oresMined, 0))
+  };
+}
+
+function sanitizeCollection(raw: unknown): CollectionSave {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const entries = Array.isArray(record.entries)
+    ? record.entries
+        .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+        .map((entry) => {
+          const qualities = Array.isArray(entry.qualities)
+            ? entry.qualities.filter(
+                (q): q is Quality => q === 'normal' || q === 'silver' || q === 'gold'
+              )
+            : [];
+          return {
+            itemId: typeof entry.itemId === 'string' ? entry.itemId : '',
+            qualities
+          };
+        })
+        .filter((entry) => COLLECTION_ITEM_IDS.has(entry.itemId))
+    : [];
+  const claimedRewards = Array.isArray(record.claimedRewards)
+    ? record.claimedRewards.filter(
+        (id): id is string => typeof id === 'string' && COLLECTION_REWARD_IDS.has(id)
+      )
+    : [];
+  return { entries, claimedRewards };
+}
+
+function sanitizeAutomation(raw: unknown): AutomationSave {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  return {
+    purchased: Array.isArray(record.purchased)
+      ? record.purchased.filter((id): id is string => typeof id === 'string' && AUTOMATION_IDS.has(id))
+      : [],
+    disabled: Array.isArray(record.disabled)
+      ? record.disabled.filter((id): id is string => typeof id === 'string' && AUTOMATION_IDS.has(id))
+      : []
+  };
+}
+
+function sanitizeFestival(raw: unknown): FestivalSave | null {
+  if (!isRecord(raw)) return null;
+  if (!SEASONS.includes(raw.season as never)) return null;
+  const tier = raw.tier === 'bronze' || raw.tier === 'silver' || raw.tier === 'gold' ? raw.tier : 'none';
+  return {
+    season: raw.season as FestivalSave['season'],
+    year: Math.max(1, Math.floor(toFinite(raw.year, 1))),
+    submitted: toBool(raw.submitted, false),
+    score: Math.max(0, toFinite(raw.score, 0)),
+    tier,
+    claimed: toBool(raw.claimed, false)
+  };
+}
+
+function sanitizeNpcs(raw: unknown): Record<string, NpcSave> {
+  const result: Record<string, NpcSave> = {};
+  if (!isRecord(raw)) return result;
+  for (const [id, value] of Object.entries(raw)) {
+    if (!isRecord(value) || !NPCS[id]) continue;
+    result[id] = {
+      id,
+      friendship: Math.max(0, Math.min(1000, toFinite(value.friendship, 0))),
+      talkedDay: Math.max(0, toFinite(value.talkedDay, 0)),
+      giftedDay: Math.max(0, toFinite(value.giftedDay, 0)),
+      met: toBool(value.met, false),
+      requestWeek: Math.max(0, Math.floor(toFinite(value.requestWeek, 0)))
+    };
+  }
+  return result;
+}
+
+function sanitizeMineNodes(raw: unknown): SaveData['mineNodes'] {
+  const result: SaveData['mineNodes'] = {};
+  if (!isRecord(raw)) return result;
+  for (const [id, value] of Object.entries(raw)) {
+    if (!isRecord(value) || !MINE_NODE_IDS.has(id)) continue;
+    result[id] = {
+      hp: Math.max(0, Math.min(3, Math.floor(toFinite(value.hp, 3)))),
+      respawnDay: Math.max(0, Math.floor(toFinite(value.respawnDay, 0)))
+    };
+  }
+  return result;
+}
+
+function sanitizeSeasonal(raw: unknown): SeasonalSave | null {
+  if (!isRecord(raw)) return null;
+  if (!SEASONS.includes(raw.season as never)) return null;
+  if (!Array.isArray(raw.list)) return null;
+  const list = raw.list
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .map((entry) => ({
+      id: typeof entry.id === 'string' ? entry.id : '',
+      target: Math.max(1, Math.floor(toFinite(entry.target, 1))),
+      coins: Math.max(0, Math.floor(toFinite(entry.coins, 0))),
+      xp: Math.max(0, Math.floor(toFinite(entry.xp, 0))),
+      claimed: toBool(entry.claimed, false)
+    }))
+    .filter((entry) => entry.id.length > 0);
+  if (list.length === 0) return null;
+  return {
+    season: raw.season as SeasonalSave['season'],
+    year: Math.max(1, Math.floor(toFinite(raw.year, 1))),
+    list,
+    startStats: sanitizeStats(raw.startStats),
+    bonusCoins: Math.max(0, Math.floor(toFinite(raw.bonusCoins, 0))),
+    bonusXp: Math.max(0, Math.floor(toFinite(raw.bonusXp, 0))),
+    bonusClaimed: toBool(raw.bonusClaimed, false)
+  };
+}
+
 /** Upgrades older save shapes. Exported for tests. */
 export function migrateSave(raw: unknown): SaveData {
   if (!isRecord(raw)) throw new Error('Save data is not an object.');
@@ -86,6 +250,36 @@ export function migrateSave(raw: unknown): SaveData {
     data.version = 2;
   }
 
+  if (version < 3) {
+    if (!isRecord(data.seasonal)) data.seasonal = null;
+    data.version = 3;
+  }
+  if (version < 4) {
+    if (!isRecord(data.collection)) data.collection = { entries: [], claimedRewards: [] };
+    data.version = 4;
+  }
+  if (version < 5) {
+    if (!isRecord(data.automation)) data.automation = { purchased: [], disabled: [] };
+    data.version = 5;
+  }
+  if (version < 6) {
+    if (!isRecord(data.festival)) data.festival = null;
+    if (!Array.isArray(data.ribbons)) data.ribbons = [];
+    data.version = 6;
+  }
+  if (version < 7) {
+    data.version = 7;
+  }
+  if (version < 8) {
+    if (!isRecord(data.mineNodes)) data.mineNodes = {};
+    data.version = 8;
+  }
+  if (version < 9) {
+    if (!isRecord(data.npcs)) data.npcs = {};
+    if (typeof data.spouseId !== 'string') data.spouseId = null;
+    data.version = 9;
+  }
+
   data.version = CURRENT_SAVE_VERSION;
   return sanitizeSave(data);
 }
@@ -109,8 +303,6 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
       })
     : [];
 
-  const stats: Record<string, unknown> = isRecord(d.stats) ? d.stats : {};
-  const seasons = ['spring', 'summer', 'fall', 'winter'] as const;
   const weathers = ['sunny', 'cloudy', 'rain', 'storm'] as const;
   const facings = ['down', 'up', 'left', 'right'] as const;
   const playerRecord: Record<string, unknown> = isRecord(d.player) ? d.player : {};
@@ -129,7 +321,7 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
     },
     coins: Math.max(0, Math.floor(toFinite(d.coins, 250))),
     day: Math.min(28, Math.max(1, Math.floor(toFinite(d.day, 1)))),
-    season: seasons.includes(d.season as never) ? (d.season as SaveData['season']) : 'spring',
+    season: SEASONS.includes(d.season as never) ? (d.season as SaveData['season']) : 'spring',
     year: Math.max(1, Math.floor(toFinite(d.year, 1))),
     minute: Math.min(1439, Math.max(0, Math.floor(toFinite(d.minute, 360)))),
     weather: weathers.includes(d.weather as never)
@@ -149,7 +341,9 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
       farming: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.farming : 0, 0)),
       animal: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.animal : 0, 0)),
       crafting: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.crafting : 0, 0)),
-      business: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.business : 0, 0))
+      business: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.business : 0, 0)),
+      fishing: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.fishing : 0, 0)),
+      mining: Math.max(0, toFinite(isRecord(d.xp) ? d.xp.mining : 0, 0))
     },
     upgrades: {
       hoe: Math.max(0, Math.floor(toFinite(isRecord(d.upgrades) ? d.upgrades.hoe : 0, 0))),
@@ -157,22 +351,7 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
       boots: Math.max(0, Math.floor(toFinite(isRecord(d.upgrades) ? d.upgrades.boots : 0, 0))),
       backpack: Math.max(0, Math.floor(toFinite(isRecord(d.upgrades) ? d.upgrades.backpack : 0, 0)))
     },
-    stats: {
-      harvests: Math.max(0, toFinite(stats.harvests, 0)),
-      cropsSold: Math.max(0, toFinite(stats.cropsSold, 0)),
-      productsCollected: Math.max(0, toFinite(stats.productsCollected, 0)),
-      coinsEarned: Math.max(0, toFinite(stats.coinsEarned, 0)),
-      buildingsBuilt: Math.max(0, toFinite(stats.buildingsBuilt, 0)),
-      crafts: Math.max(0, toFinite(stats.crafts, 0)),
-      waters: Math.max(0, toFinite(stats.waters, 0)),
-      tills: Math.max(0, toFinite(stats.tills, 0)),
-      planted: Math.max(0, toFinite(stats.planted, 0)),
-      animalsOwned: Math.max(0, toFinite(stats.animalsOwned, 0)),
-      goldHarvests: Math.max(0, toFinite(stats.goldHarvests, 0)),
-      daysPlayed: Math.max(0, toFinite(stats.daysPlayed, 0)),
-      carrotsHarvested: Math.max(0, toFinite(stats.carrotsHarvested, 0)),
-      eggsCollected: Math.max(0, toFinite(stats.eggsCollected, 0))
-    },
+    stats: sanitizeStats(d.stats),
     claimedQuests: Array.isArray(d.claimedQuests)
       ? d.claimedQuests.filter((q): q is string => typeof q === 'string')
       : [],
@@ -182,6 +361,17 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
     daily: isRecord(d.daily) && Array.isArray(d.daily.list)
       ? (d.daily as unknown as SaveData['daily'])
       : null,
+    seasonal: sanitizeSeasonal(d.seasonal),
+    collection: sanitizeCollection(d.collection),
+    automation: sanitizeAutomation(d.automation),
+    festival: sanitizeFestival(d.festival),
+    ribbons: Array.isArray(d.ribbons)
+      ? d.ribbons.filter((id): id is string => typeof id === 'string' && RIBBON_IDS.has(id))
+      : [],
+    mineNodes: sanitizeMineNodes(d.mineNodes),
+    npcs: sanitizeNpcs(d.npcs),
+    spouseId:
+      typeof d.spouseId === 'string' && NPCS[d.spouseId]?.romanceable ? d.spouseId : null,
     tutorialStep: Math.max(0, Math.floor(toFinite(d.tutorialStep, 0))),
     tutorialDone: toBool(d.tutorialDone, false),
     selectedItemId: typeof d.selectedItemId === 'string' ? d.selectedItemId : 'hoe'
@@ -196,6 +386,32 @@ export function serializeSave(data: SaveData): string {
 
 export function deserializeSave(text: string): SaveData {
   const parsed: unknown = JSON.parse(text);
+  return migrateSave(parsed);
+}
+
+export function exportSaveText(data: SaveData): string {
+  return JSON.stringify(data, null, 2);
+}
+
+export function importSaveText(text: string): SaveData {
+  if (text.trim().length === 0) throw new Error('The save file is empty.');
+  if (text.length > MAX_SAVE_FILE_BYTES) {
+    throw new Error('The save file is too large.');
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('The file is not valid JSON.');
+  }
+  if (!isRecord(parsed)) throw new Error('The save file is not valid.');
+  const version = toFinite(parsed.version, 0);
+  if (version > CURRENT_SAVE_VERSION) {
+    throw new Error('This save was created by a newer version of the game.');
+  }
+  const looksLikeSave =
+    version > 0 || ('player' in parsed && ('inventory' in parsed || 'coins' in parsed));
+  if (!looksLikeSave) throw new Error('This file does not look like a Pixel Farm save.');
   return migrateSave(parsed);
 }
 

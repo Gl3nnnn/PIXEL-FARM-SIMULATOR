@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { ANIMALS, BUILDINGS, CROPS, ITEMS, SEASONS, SEASON_INFO } from '../data/definitions';
-import type { AnimalDef, CropDef, Season } from '../types';
+import { ANIMALS, BUILDINGS, CROPS, ITEMS, NPCS, SEASONS, SEASON_INFO } from '../data/definitions';
+import type { AnimalDef, CropDef, NpcDef, Season } from '../types';
 import { mulberry32 } from '../systems/util';
 
 type Ctx = CanvasRenderingContext2D;
@@ -117,6 +117,39 @@ function drawRock(ctx: Ctx): void {
   px(ctx, 3, 13, 10, 1, '#5f646b');
 }
 
+function drawMineRock(ctx: Ctx, kind: 'stone' | 'copper' | 'iron' | 'gold' | 'gem' | 'broken'): void {
+  px(ctx, 0, 0, 16, 16, 'rgba(0,0,0,0)');
+  if (kind === 'broken') {
+    px(ctx, 4, 11, 8, 4, '#6f747a');
+    px(ctx, 5, 10, 3, 2, '#8b9096');
+    px(ctx, 10, 9, 2, 2, '#8b9096');
+    px(ctx, 7, 8, 2, 2, '#5f646b');
+    return;
+  }
+  px(ctx, 2, 7, 12, 8, '#7d838a');
+  px(ctx, 3, 5, 10, 4, '#959ba1');
+  px(ctx, 5, 4, 6, 2, '#adb3b8');
+  px(ctx, 11, 9, 2, 4, '#666c73');
+  px(ctx, 2, 14, 12, 1, '#555a61');
+  const ore: Record<string, [string, string]> = {
+    stone: ['#a8adb2', '#c4c9cc'],
+    copper: ['#c87a3a', '#e0a060'],
+    iron: ['#b8c0c8', '#d8e0e8'],
+    gold: ['#e0b840', '#f8dc70'],
+    gem: ['#8a6ad8', '#c0a8f8']
+  };
+  const [dark, light] = ore[kind];
+  px(ctx, 5, 8, 2, 2, dark);
+  px(ctx, 5, 8, 1, 1, light);
+  px(ctx, 9, 6, 2, 2, dark);
+  px(ctx, 10, 6, 1, 1, light);
+  px(ctx, 8, 11, 2, 2, dark);
+  px(ctx, 9, 11, 1, 1, light);
+  if (kind === 'gem') {
+    px(ctx, 11, 11, 1, 2, '#f0e8ff');
+  }
+}
+
 function drawWater(ctx: Ctx, frame: number): void {
   px(ctx, 0, 0, 16, 16, '#4e93c4');
   for (let y = 0; y < 16; y += 4) {
@@ -225,6 +258,48 @@ function drawPlayer(ctx: Ctx, dir: 'down' | 'up' | 'left' | 'right', frame: numb
     if (dir === 'down') {
       px(ctx, 5, 5, 6, 1, '#c09a4a');
     }
+  }
+}
+
+
+function drawNpc(ctx: Ctx, def: NpcDef, frame: number): void {
+  px(ctx, 0, 0, 16, 24, 'rgba(0,0,0,0)');
+  const hair = hex(def.colors[0] ?? 0x6a5a4a);
+  const shirt = hex(def.colors[1] ?? 0x6a9a5a);
+  const accent = hex(def.colors[2] ?? 0x8a5a3a);
+  const skin = '#f0c9a0';
+  const skinDark = '#d8a878';
+  const boot = '#4a3a2a';
+  const bob = frame % 2;
+  px(ctx, 6, 20 - bob, 2, 4, boot);
+  px(ctx, 9, 20 + bob, 2, 4 - bob, boot);
+  px(ctx, 5, 12, 6, 8, shirt);
+  px(ctx, 5, 15, 6, 2, accent);
+  px(ctx, 4, 13, 2, 4, skin);
+  px(ctx, 11, 13, 2, 4, skin);
+  px(ctx, 5, 6, 6, 6, skin);
+  px(ctx, 5, 6, 1, 6, skinDark);
+  px(ctx, 6, 8, 1, 1, '#2a1a0a');
+  px(ctx, 9, 8, 1, 1, '#2a1a0a');
+  px(ctx, 7, 10, 2, 1, '#c88a72');
+  px(ctx, 4, 4, 8, 3, hair);
+  px(ctx, 5, 3, 6, 2, shade(parseInt(hair.slice(1), 16), 18));
+  px(ctx, 4, 6, 1, 4, hair);
+  px(ctx, 11, 6, 1, 4, hair);
+  if (def.id === 'mira') {
+    px(ctx, 11, 3, 2, 2, '#f8d8e8');
+    px(ctx, 12, 2, 1, 1, '#fff0f4');
+  } else if (def.id === 'rowan') {
+    px(ctx, 4, 2, 8, 2, accent);
+    px(ctx, 11, 2, 3, 1, accent);
+  } else if (def.id === 'tessa') {
+    px(ctx, 3, 3, 10, 2, accent);
+    px(ctx, 5, 2, 6, 1, shade(parseInt(accent.slice(1), 16), 20));
+  } else if (def.id === 'orin') {
+    px(ctx, 6, 8, 3, 1, '#3a4a5a');
+    px(ctx, 9, 8, 3, 1, '#3a4a5a');
+  } else if (def.id === 'june') {
+    px(ctx, 5, 11, 6, 1, accent);
   }
 }
 
@@ -582,6 +657,26 @@ function drawBuilding(ctx: Ctx, id: string, w: number, h: number): void {
       px(ctx, 2, h - 1, w - 4, 1, 'rgba(0,0,0,0.2)');
       break;
     }
+    case 'helper_hut': {
+      px(ctx, 3, 14, w - 6, h - 16, '#d8c09a');
+      px(ctx, 3, 14, w - 6, 2, '#efe0c0');
+      px(ctx, 3, 14, 2, h - 16, '#b89a72');
+      px(ctx, 0, 8, w, 8, '#4f7a6a');
+      px(ctx, 3, 4, w - 6, 5, '#5f8a7a');
+      px(ctx, 0, 15, w, 2, '#365a4c');
+      for (let x = 4; x < w - 4; x += 7) px(ctx, x, 8, 3, 7, '#3f6a5a');
+      px(ctx, w / 2 - 5, h - 15, 10, 13, '#6b4426');
+      px(ctx, w / 2 - 4, h - 14, 8, 11, '#8a5a34');
+      px(ctx, w / 2 + 2, h - 9, 2, 2, '#e8c86a');
+      px(ctx, 8, 20, 7, 6, '#8ec8d8');
+      px(ctx, 9, 21, 5, 4, '#b8e8f0');
+      px(ctx, w - 15, 20, 7, 6, '#8ec8d8');
+      px(ctx, w - 14, 21, 5, 4, '#b8e8f0');
+      px(ctx, w - 12, 2, 5, 8, '#8a7a6a');
+      px(ctx, w - 12, 2, 5, 2, '#a89a88');
+      px(ctx, 2, h - 2, w - 4, 2, 'rgba(0,0,0,0.18)');
+      break;
+    }
     case 'greenhouse': {
       px(ctx, 2, 10, w - 4, h - 12, '#cfe8d8');
       px(ctx, 2, 10, w - 4, 2, '#e8f8f0');
@@ -694,6 +789,77 @@ function drawItemIcon(ctx: Ctx, itemId: string): void {
     px(ctx, 5, 6, 6, 5, '#a8d86a');
     px(ctx, 6, 7, 2, 2, '#5b9b3a');
     px(ctx, 9, 9, 1, 1, '#5b9b3a');
+  } else if (itemId === 'fishing_rod') {
+    px(ctx, 3, 2, 2, 12, '#8a5a34');
+    px(ctx, 4, 2, 2, 10, '#a87a4a');
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(11, 2);
+    ctx.quadraticCurveTo(15, 7, 12, 14);
+    ctx.stroke();
+    px(ctx, 11, 11, 2, 2, '#c8d0d8');
+    px(ctx, 12, 14, 2, 2, '#e8b840');
+    px(ctx, 5, 7, 3, 3, '#5a6a7a');
+  } else if (itemId === 'pickaxe') {
+    px(ctx, 7, 4, 2, 11, '#8a5a34');
+    px(ctx, 8, 4, 1, 11, '#a87a4a');
+    ctx.fillStyle = '#a8b0b8';
+    ctx.beginPath();
+    ctx.moveTo(2, 5);
+    ctx.lineTo(13, 2);
+    ctx.lineTo(14, 5);
+    ctx.lineTo(4, 8);
+    ctx.closePath();
+    ctx.fill();
+    px(ctx, 3, 5, 7, 1, '#d8e0e8');
+  } else if (itemId === 'bait') {
+    px(ctx, 3, 5, 10, 9, '#8a6a44');
+    px(ctx, 4, 4, 8, 2, '#b8996a');
+    px(ctx, 5, 8, 2, 3, '#e88a8a');
+    px(ctx, 9, 7, 2, 4, '#d87a7a');
+    px(ctx, 4, 12, 8, 1, '#6a4a2a');
+  } else if (item.type === 'fish') {
+    ctx.fillStyle = c2;
+    px(ctx, 2, 6, 3, 5, c2);
+    px(ctx, 1, 7, 2, 3, c2);
+    ctx.fillStyle = c1;
+    ctx.beginPath();
+    ctx.ellipse(8, 9, 5, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    px(ctx, 6, 8, 2, 1, '#ffffff');
+    px(ctx, 6, 8, 1, 1, '#2a1a0a');
+    px(ctx, 10, 7, 3, 1, c2);
+  } else if (item.type === 'ore') {
+    px(ctx, 2, 8, 12, 6, '#7d838a');
+    px(ctx, 4, 5, 7, 4, '#959ba1');
+    px(ctx, 3, 12, 10, 2, '#666c73');
+    px(ctx, 5, 7, 3, 2, c1);
+    px(ctx, 9, 9, 3, 2, c1);
+    px(ctx, 6, 7, 1, 1, c2);
+    px(ctx, 10, 9, 1, 1, c2);
+    if (itemId === 'gem') px(ctx, 11, 10, 1, 1, '#f0e8ff');
+  } else if (itemId === 'grilled_fish') {
+    px(ctx, 3, 6, 10, 6, c1);
+    px(ctx, 2, 7, 2, 4, c2);
+    px(ctx, 11, 8, 3, 2, c2);
+    for (let x = 5; x < 11; x += 2) px(ctx, x, 7, 1, 4, '#5a3a2a');
+    px(ctx, 4, 11, 8, 1, '#c88a5a');
+  } else if (itemId === 'fish_stew') {
+    px(ctx, 3, 8, 10, 5, '#c8a878');
+    px(ctx, 4, 6, 8, 3, c1);
+    px(ctx, 3, 12, 10, 2, '#8a6a44');
+    px(ctx, 6, 7, 2, 2, '#e8b85a');
+    px(ctx, 9, 8, 1, 1, '#f0e0a0');
+    px(ctx, 7, 4, 1, 2, '#e8e8e8');
+  } else if (itemId === 'salmon_dinner') {
+    px(ctx, 2, 9, 12, 4, '#e8e0c8');
+    px(ctx, 3, 10, 10, 2, '#c8b898');
+    px(ctx, 4, 5, 8, 4, c1);
+    px(ctx, 5, 6, 3, 2, c2);
+    px(ctx, 9, 6, 2, 2, '#f0b8a0');
+    px(ctx, 4, 8, 2, 2, '#7aab4a');
+    px(ctx, 10, 8, 2, 2, '#7aab4a');
   } else if (itemId === 'egg' || itemId === 'duck_egg') {
     ctx.fillStyle = c1;
     ctx.beginPath();
@@ -762,6 +928,34 @@ function drawItemIcon(ctx: Ctx, itemId: string): void {
   }
 }
 
+function drawFestivalStall(ctx: Ctx): void {
+  px(ctx, 0, 0, 32, 32, 'rgba(0,0,0,0)');
+  px(ctx, 3, 14, 26, 16, '#c8a06a');
+  px(ctx, 3, 14, 26, 2, '#e0b87a');
+  px(ctx, 3, 14, 2, 16, '#a07a4a');
+  px(ctx, 0, 7, 32, 9, '#c85a4c');
+  for (let x = 0; x < 32; x += 8) {
+    px(ctx, x, 7, 4, 9, '#f0e2c8');
+  }
+  px(ctx, 0, 16, 32, 2, '#8f4034');
+  for (let x = 4; x < 32; x += 8) px(ctx, x, 5, 2, 3, '#8f4034');
+  px(ctx, 6, 19, 8, 8, '#8a5a34');
+  px(ctx, 7, 20, 6, 6, '#b8996a');
+  px(ctx, 18, 20, 8, 4, '#6a8a5a');
+  px(ctx, 19, 19, 6, 2, '#8ab86a');
+  px(ctx, 20, 18, 4, 1, '#f0d060');
+  px(ctx, 2, 30, 28, 2, 'rgba(0,0,0,0.16)');
+}
+
+function drawFestivalBanner(ctx: Ctx): void {
+  px(ctx, 0, 0, 16, 24, 'rgba(0,0,0,0)');
+  px(ctx, 7, 2, 2, 21, '#6b4426');
+  px(ctx, 2, 3, 12, 8, '#c85a4c');
+  px(ctx, 2, 10, 12, 2, '#f0e2c8');
+  px(ctx, 5, 5, 6, 3, '#f8d878');
+  px(ctx, 1, 22, 14, 2, '#8a6a44');
+}
+
 export function generateTextures(scene: Phaser.Scene): void {
   // ---- terrain per season
   for (const season of SEASONS) {
@@ -781,11 +975,24 @@ export function generateTextures(scene: Phaser.Scene): void {
   makeTexture(scene, 'soil_fert', 16, 16, (ctx) => drawSoil(ctx, 'fert'));
   for (let i = 0; i < 4; i++) makeTexture(scene, `flower_${i}`, 16, 16, (ctx) => drawFlower(ctx, i));
   makeTexture(scene, 'rock', 16, 16, drawRock);
+  for (const kind of ['stone', 'copper', 'iron', 'gold', 'gem'] as const) {
+    makeTexture(scene, `rock_${kind}`, 16, 16, (ctx) => drawMineRock(ctx, kind));
+  }
+  makeTexture(scene, 'rock_broken', 16, 16, (ctx) => drawMineRock(ctx, 'broken'));
+  makeTexture(scene, 'festival_stall', 32, 32, drawFestivalStall);
+  makeTexture(scene, 'festival_banner', 16, 24, drawFestivalBanner);
 
   // ---- player
   for (const dir of ['down', 'up', 'left', 'right'] as const) {
     for (let f = 0; f < 3; f++) {
       makeTexture(scene, `player_${dir}_${f}`, 16, 24, (ctx) => drawPlayer(ctx, dir, f));
+    }
+  }
+
+  // ---- visitors
+  for (const npc of Object.values(NPCS)) {
+    for (let f = 0; f < 2; f++) {
+      makeTexture(scene, `npc_${npc.id}`, 16, 24, (ctx) => drawNpc(ctx, npc, f));
     }
   }
 

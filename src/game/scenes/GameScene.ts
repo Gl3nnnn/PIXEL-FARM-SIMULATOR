@@ -1,9 +1,10 @@
-﻿import Phaser from 'phaser';
+import Phaser from 'phaser';
 import {
   ANIMALS,
   BUILDINGS,
   CROPS,
   ITEMS,
+  NPC_SPOTS,
   PLOTS,
   SEASON_INFO,
   START_MINUTE,
@@ -18,9 +19,11 @@ import { audio } from '../../systems/audio';
 import { clamp, formatTime, tileKey } from '../../systems/util';
 import {
   FLOWERS,
+  MINE_NODES,
   isObstacleTile,
   isPathTile,
   isWaterTile,
+  mineNodeAt,
   plotIndexAt,
   worldToTile
 } from '../../systems/world';
@@ -40,6 +43,16 @@ interface TileVisual {
   ready?: Phaser.GameObjects.Text;
 }
 
+interface NpcView {
+  sprite: Phaser.GameObjects.Image;
+  label: Phaser.GameObjects.Text;
+}
+
+interface MineView {
+  sprite: Phaser.GameObjects.Image;
+  label: Phaser.GameObjects.Text;
+}
+
 export class GameScene extends Phaser.Scene {
   private state!: GameState;
   private slot = 1;
@@ -53,10 +66,14 @@ export class GameScene extends Phaser.Scene {
   private groundImages: Phaser.GameObjects.Image[] = [];
   private waterImages: Array<{ image: Phaser.GameObjects.Image; frame: number }> = [];
   private plotDecor: Array<Phaser.GameObjects.GameObject> = [];
+  private festivalDecor: Phaser.GameObjects.GameObject[] = [];
   private tileVisuals = new Map<string, TileVisual>();
   private buildingSprites = new Map<string, Phaser.GameObjects.Image>();
   private animalViews = new Map<string, AnimalView>();
+  private npcViews = new Map<string, NpcView>();
+  private mineViews = new Map<string, MineView>();
   private blockedBuildings = new Set<string>();
+  private lastNpcCheck = 0;
 
   private hoverGfx!: Phaser.GameObjects.Graphics;
   private ghost!: Phaser.GameObjects.Image;
@@ -94,16 +111,23 @@ export class GameScene extends Phaser.Scene {
     this.groundImages = [];
     this.waterImages = [];
     this.plotDecor = [];
+    this.festivalDecor = [];
     this.tileVisuals.clear();
     this.buildingSprites.clear();
     this.animalViews.clear();
+    this.npcViews.clear();
+    this.mineViews.clear();
     this.blockedBuildings.clear();
+    this.lastNpcCheck = 0;
 
     this.buildGround();
     this.lastGroundSeason = this.state.data.season;
     this.buildFarmVisuals();
     this.buildBuildings();
     this.buildLockedPlots();
+    this.buildMineNodes();
+    this.buildNpcs();
+    this.buildFestivalDecor();
     this.createAnimals();
     this.createPlayer();
     this.setupCamera();
@@ -152,6 +176,9 @@ export class GameScene extends Phaser.Scene {
           this.lastGroundSeason = this.state.data.season;
         }
         this.buildFarmVisuals();
+        this.buildMineNodes();
+        this.buildNpcs();
+        this.buildFestivalDecor();
         this.syncAnimals();
         this.applyWeather();
       }),
@@ -475,6 +502,150 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+
+  private buildMineNodes(): void {
+    this.mineViews.forEach((view) => {
+      view.sprite.destroy();
+      view.label.destroy();
+    });
+    this.mineViews.clear();
+    for (const node of MINE_NODES) {
+      const info = this.state.mineNodeState(node.id);
+      if (!info) continue;
+      const broken = info.hp <= 0;
+      const sprite = this.add
+        .image(node.x * TILE + TILE / 2, node.y * TILE + TILE, broken ? 'rock_broken' : `rock_${node.kind}`)
+        .setOrigin(0.5, 1)
+        .setScale(2)
+        .setDepth(node.y * TILE + TILE)
+        .setAlpha(broken ? 0.55 : 1);
+      const label = this.add
+        .text(
+          node.x * TILE + TILE / 2,
+          node.y * TILE - 2,
+          broken ? '' : `${info.hp}/${info.maxHp}`,
+          {
+            fontFamily: '"Courier New", monospace',
+            fontSize: '10px',
+            color: '#f7e6c4',
+            stroke: '#2a1a0a',
+            strokeThickness: 3
+          }
+        )
+        .setOrigin(0.5, 1)
+        .setDepth(node.y * TILE + TILE + 2);
+      this.mineViews.set(node.id, { sprite, label });
+    }
+  }
+
+  private refreshMineNode(id: string): void {
+    const view = this.mineViews.get(id);
+    const info = this.state.mineNodeState(id);
+    if (!view || !info) return;
+    const broken = info.hp <= 0;
+    view.sprite.setTexture(broken ? 'rock_broken' : `rock_${info.node.kind}`);
+    view.sprite.setAlpha(broken ? 0.55 : 1);
+    view.label.setText(broken ? '' : `${info.hp}/${info.maxHp}`);
+  }
+
+  private buildNpcs(): void {
+    this.npcViews.forEach((view) => {
+      view.sprite.destroy();
+      view.label.destroy();
+    });
+    this.npcViews.clear();
+    for (const entry of this.state.npcList()) {
+      const spot = NPC_SPOTS[entry.npc.id];
+      if (!spot) continue;
+      const px = spot.x * TILE + TILE / 2;
+      const py = spot.y * TILE + TILE;
+      const sprite = this.add
+        .image(px, py, `npc_${entry.npc.id}`)
+        .setOrigin(0.5, 1)
+        .setScale(2)
+        .setDepth(py + 2);
+      const label = this.add
+        .text(px, py - 34, entry.npc.name, {
+          fontFamily: '"Courier New", monospace',
+          fontSize: '10px',
+          color: '#fff3d0',
+          backgroundColor: '#1c2b1e',
+          padding: { x: 3, y: 1 }
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(py + 3);
+      this.npcViews.set(entry.npc.id, { sprite, label });
+    }
+    this.updateNpcVisibility();
+  }
+
+  private updateNpcVisibility(): void {
+    const available = new Set(
+      this.state
+        .npcList()
+        .filter((entry) => entry.available)
+        .map((entry) => entry.npc.id)
+    );
+    this.npcViews.forEach((view, id) => {
+      const show = available.has(id);
+      view.sprite.setVisible(show);
+      view.label.setVisible(show);
+    });
+  }
+
+  private buildFestivalDecor(): void {
+    this.festivalDecor.forEach((obj) => obj.destroy());
+    this.festivalDecor = [];
+    if (!this.state.festivalAvailable()) return;
+    const stall = this.add
+      .image(28 * TILE, 10 * TILE, 'festival_stall')
+      .setOrigin(0)
+      .setScale(2)
+      .setDepth(11 * TILE);
+    const banner = this.add
+      .image(21 * TILE + TILE / 2, 10 * TILE, 'festival_banner')
+      .setOrigin(0.5, 1)
+      .setScale(2)
+      .setDepth(11 * TILE);
+    const banner2 = this.add
+      .image(25 * TILE + TILE / 2, 10 * TILE, 'festival_banner')
+      .setOrigin(0.5, 1)
+      .setScale(2)
+      .setDepth(11 * TILE);
+    this.festivalDecor.push(stall, banner, banner2);
+  }
+
+  private npcAt(wx: number, wy: number): string | null {
+    for (const [id, view] of this.npcViews) {
+      if (!view.sprite.visible) continue;
+      if (Phaser.Geom.Rectangle.Contains(view.sprite.getBounds(), wx, wy)) return id;
+    }
+    return null;
+  }
+
+  private interactNpc(id: string): void {
+    const entry = this.state.npcList().find((item) => item.npc.id === id);
+    if (!entry) return;
+    const spot = NPC_SPOTS[id];
+    if (!spot) return;
+    const dist = Phaser.Math.Distance.Between(
+      this.player.x,
+      this.player.y,
+      spot.x * TILE + TILE / 2,
+      spot.y * TILE + TILE
+    );
+    if (dist > TILE * 3.2) {
+      this.ui.notify(`Move closer to talk to ${entry.npc.name}.`, 'error');
+      audio.play('error');
+      return;
+    }
+    if (!entry.available) {
+      this.ui.notify(`${entry.npc.name} is not here right now.`, 'info');
+      return;
+    }
+    this.ui.openNpcDialogue(id);
+  }
+
   // ----------------------------------------------------------------- player
 
   private createPlayer(): void {
@@ -544,6 +715,19 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- actions
 
   private handleWorldClick(wx: number, wy: number): void {
+    const stall = this.festivalDecor[0];
+    if (
+      stall instanceof Phaser.GameObjects.Image &&
+      Phaser.Geom.Rectangle.Contains(stall.getBounds(), wx, wy)
+    ) {
+      this.ui.openPanel('festival');
+      return;
+    }
+    const clickedNpc = this.npcAt(wx, wy);
+    if (clickedNpc) {
+      this.interactNpc(clickedNpc);
+      return;
+    }
     const clickedAnimal = this.animalAt(wx, wy);
     if (clickedAnimal) {
       this.interactWithAnimal(clickedAnimal);
@@ -606,6 +790,45 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const item = this.state.selectedItem();
+    const node = this.state.mineNodeAtTile(x, y);
+    if (node) {
+      if (item !== 'pickaxe') {
+        this.ui.notify('Select the pickaxe to mine this rock.', 'info');
+        audio.play('error');
+        return;
+      }
+      const res = this.state.mineNode(node.id);
+      if (res.ok) {
+        audio.play('till');
+        this.ui.notify(res.message ?? 'The rock cracks.', 'success');
+        this.playSwing();
+        this.spawnActionParticles(x, y, 'soil');
+        this.refreshMineNode(node.id);
+        for (const loot of res.loot ?? []) {
+          this.floatText(
+            `+${loot.qty} ${ITEMS[loot.itemId]?.name ?? loot.itemId}`,
+            0xffe080,
+            x * TILE + TILE / 2,
+            y * TILE
+          );
+        }
+        void this.saveGame();
+      } else {
+        audio.play('error');
+        this.ui.notify(res.message ?? 'You cannot mine that rock.', 'error');
+      }
+      return;
+    }
+
+    if (isWaterTile(x, y)) {
+      if (item === 'fishing_rod') {
+        this.ui.openFishingGame();
+        return;
+      }
+      this.ui.notify('Select the fishing rod, then click the water to cast.', 'info');
+      return;
+    }
+
     let result: { ok: boolean; message?: string } = { ok: false };
     let sfx: 'till' | 'water' | 'plant' | 'harvest' | 'error' = 'error';
     let particle: 'soil' | 'water' | 'sparkle' | null = null;
@@ -670,6 +893,25 @@ export class GameScene extends Phaser.Scene {
 
   private useNearby(): void {
     if (this.state.paused || this.sleeping) return;
+    let closestNpc: string | null = null;
+    let bestNpcDist = Infinity;
+    this.npcViews.forEach((view, id) => {
+      if (!view.sprite.visible) return;
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        view.sprite.x,
+        view.sprite.y
+      );
+      if (dist < TILE * 2.6 && dist < bestNpcDist) {
+        bestNpcDist = dist;
+        closestNpc = id;
+      }
+    });
+    if (closestNpc) {
+      this.interactNpc(closestNpc);
+      return;
+    }
     let closest: string | null = null;
     let bestDist = Infinity;
     this.animalViews.forEach((view, uid) => {
@@ -1093,6 +1335,10 @@ export class GameScene extends Phaser.Scene {
       this.player.anims.stop();
     }
 
+    if (_time - this.lastNpcCheck > 1000) {
+      this.lastNpcCheck = _time;
+      this.updateNpcVisibility();
+    }
     this.updateLighting(delta);
     this.updateAnimalBubbles();
     this.updateHoverFromPointer();

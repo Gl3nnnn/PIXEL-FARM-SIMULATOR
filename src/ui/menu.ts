@@ -1,9 +1,33 @@
-import { SEASON_INFO } from '../data/definitions';
+import { SEASON_INFO, levelFromXp } from '../data/definitions';
 import { audio } from '../systems/audio';
-import { SaveManager, loadSettings, saveSettings, SLOT_COUNT } from '../systems/save';
+import {
+  MAX_SAVE_FILE_BYTES,
+  SaveManager,
+  exportSaveText,
+  importSaveText,
+  loadSettings,
+  saveSettings,
+  SLOT_COUNT
+} from '../systems/save';
 import { formatDate, formatNumber } from '../systems/util';
-import type { SaveSlotInfo, Settings } from '../types';
+import type { SaveData, SaveSlotInfo, Settings } from '../types';
 import { button, confirmDialog, el } from './uiKit';
+
+function saveLevel(data: SaveData): number {
+  return levelFromXp(Object.values(data.xp).reduce((total, xp) => total + xp, 0));
+}
+
+function downloadTextFile(fileName: string, text: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export interface MainMenuHandlers {
   onStart(slot: number, mode: 'new' | 'continue'): Promise<void>;
@@ -102,7 +126,6 @@ export class MainMenu {
     );
     buttons.appendChild(
       button('Load Game', {
-        disabled: !hasSaves,
         onClick: () => this.showSlots('continue')
       })
     );
@@ -132,7 +155,7 @@ export class MainMenu {
     }
 
     const status = el('p', 'menu-status');
-    status.textContent = 'Local saves are stored on this device only.';
+    status.textContent = 'Local saves are stored on this device. Back up or restore them from Load Game.';
     panel.appendChild(status);
     panel.appendChild(el('p', 'menu-footer', 'Original pixel art · Phaser + TypeScript · v2.0'));
 
@@ -235,6 +258,14 @@ export class MainMenu {
       }
       if (info.exists) {
         actions.appendChild(
+          button('Export', {
+            variant: 'ghost',
+            small: true,
+            title: 'Download this save as a backup file',
+            onClick: () => void this.exportSlot(info)
+          })
+        );
+        actions.appendChild(
           button('Delete', {
             variant: 'ghost',
             small: true,
@@ -270,6 +301,166 @@ export class MainMenu {
 
     const footer = el('div', 'panel-footer');
     footer.appendChild(button('Back', { onClick: () => backdrop.remove() }));
+    if (mode === 'continue') {
+      footer.appendChild(
+        button('Import save', {
+          variant: 'primary',
+          disabled: !SaveManager.available(),
+          onClick: () => this.chooseImportFile()
+        })
+      );
+    }
+    body.appendChild(footer);
+  }
+
+  private async exportSlot(info: SaveSlotInfo): Promise<void> {
+    if (this.busy) return;
+    try {
+      const data = await SaveManager.load(info.slot);
+      if (!data) throw new Error('That save slot is empty.');
+      const fileName = `pixel-farm-save-${info.slot}-${data.season}-day-${data.day}-year-${data.year}.json`;
+      downloadTextFile(fileName, exportSaveText(data));
+      audio.play('coin');
+    } catch (error) {
+      this.showMessage(
+        'Export failed',
+        error instanceof Error ? error.message : 'Could not export this save.'
+      );
+    }
+  }
+
+  private chooseImportFile(): void {
+    if (!SaveManager.available()) {
+      this.showMessage('Import unavailable', 'Browser storage is not available in this browser.');
+      return;
+    }
+    audio.play('click');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    const timer = window.setTimeout(() => input.remove(), 120_000);
+    input.addEventListener(
+      'change',
+      () => {
+        window.clearTimeout(timer);
+        const file = input.files?.[0];
+        input.remove();
+        if (file) void this.readImportFile(file);
+      },
+      { once: true }
+    );
+    document.body.appendChild(input);
+    input.click();
+  }
+
+  private async readImportFile(file: File): Promise<void> {
+    if (file.size > MAX_SAVE_FILE_BYTES) {
+      this.showMessage('Import failed', 'The save file is too large.');
+      return;
+    }
+    try {
+      const data = importSaveText(await file.text());
+      this.showImportPreview(data, file.name);
+    } catch (error) {
+      this.showMessage(
+        'Import failed',
+        error instanceof Error ? error.message : 'Could not read this save file.'
+      );
+    }
+  }
+
+  private showImportPreview(data: SaveData, fileName: string): void {
+    audio.play('click');
+    const { body, backdrop } = this.modal(
+      'Import save',
+      'Choose where this backup should be restored.'
+    );
+    body.appendChild(el('p', 'hint', `File: ${fileName}`));
+    body.appendChild(
+      el(
+        'div',
+        'menu-save-preview',
+        `${SEASON_INFO[data.season].name} ${data.day}, Year ${data.year} · ${formatNumber(data.coins)} coins · Farmer level ${saveLevel(data)}`
+      )
+    );
+
+    const grid = el('div', 'slot-grid');
+    for (let slot = 1; slot <= SLOT_COUNT; slot++) {
+      const current = this.slots.find((entry) => entry.slot === slot);
+      const occupied = current?.exists ?? false;
+      const card = el('div', 'slot-card');
+      const head = el('div', 'slot-head');
+      head.appendChild(el('span', 'slot-number', `Save ${slot}`));
+      head.appendChild(
+        el('span', `pill ${occupied ? 'good' : ''}`, occupied ? 'Occupied' : 'Empty')
+      );
+      card.appendChild(head);
+      card.appendChild(
+        el(
+          'p',
+          'slot-meta',
+          occupied
+            ? `${SEASON_INFO[current?.season ?? 'spring'].name} ${current?.day ?? 1}, Year ${current?.year ?? 1}`
+            : 'No existing farm'
+        )
+      );
+      if (occupied) {
+        card.appendChild(
+          el('p', 'hint', `${formatNumber(current?.coins ?? 0)} coins · will replace this save`)
+        );
+      }
+      const actions = el('div', 'slot-actions');
+      actions.appendChild(
+        button(occupied ? 'Overwrite & import' : 'Import here', {
+          variant: occupied ? 'danger' : 'primary',
+          small: true,
+          onClick: () => {
+            if (occupied) {
+              confirmDialog(
+                this.root,
+                `Overwrite Save ${slot}?`,
+                `Save ${slot} contains a farm from ${SEASON_INFO[current?.season ?? 'spring'].name} ${current?.day ?? 1}, Year ${current?.year ?? 1}. This cannot be undone.`,
+                'Overwrite',
+                () => void this.finishImport(slot, data, backdrop),
+                true
+              );
+            } else {
+              void this.finishImport(slot, data, backdrop);
+            }
+          }
+        })
+      );
+      card.appendChild(actions);
+      grid.appendChild(card);
+    }
+    body.appendChild(grid);
+
+    const footer = el('div', 'panel-footer');
+    footer.appendChild(button('Cancel', { onClick: () => backdrop.remove() }));
+    body.appendChild(footer);
+  }
+
+  private async finishImport(slot: number, data: SaveData, backdrop: HTMLElement): Promise<void> {
+    try {
+      await SaveManager.save(slot, data);
+      audio.play('level');
+      backdrop.remove();
+      await this.refreshSlots();
+      this.showSlots('continue');
+    } catch (error) {
+      this.showMessage(
+        'Import failed',
+        error instanceof Error ? error.message : 'Could not write this save.'
+      );
+    }
+  }
+
+  private showMessage(title: string, message: string): void {
+    const { body, backdrop } = this.modal(title);
+    body.appendChild(el('p', 'hint', message));
+    const footer = el('div', 'panel-footer');
+    footer.appendChild(button('Close', { variant: 'primary', onClick: () => backdrop.remove() }));
     body.appendChild(footer);
   }
 

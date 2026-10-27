@@ -13,8 +13,13 @@ import { renderBuild } from './panels/build';
 import { renderAnimals } from './panels/animals';
 import { renderCraft } from './panels/craft';
 import { renderQuests } from './panels/quests';
+import { renderAlmanac } from './panels/almanac';
 import { renderStats } from './panels/stats';
 import { renderSettings } from './panels/settings';
+import { renderFestival } from './panels/festival';
+import { renderPeople } from './panels/people';
+import { ITEMS, QUALITY_LABEL } from '../data/definitions';
+import { npcLine } from '../systems/npcs';
 import type Phaser from 'phaser';
 
 export interface GameUIHandlers {
@@ -66,6 +71,9 @@ export class GameUI {
   private tutorialMoved = false;
   private unsubs: Array<() => void> = [];
   private buildMode = false;
+  private fishingOverlay: HTMLElement | null = null;
+  private fishingTimer: number | null = null;
+  private fishingRaf: number | null = null;
 
   private readonly panelBuilders: Record<string, PanelBuilder> = {
     shop: renderShop,
@@ -75,7 +83,10 @@ export class GameUI {
     animals: renderAnimals,
     craft: renderCraft,
     quests: renderQuests,
+    almanac: renderAlmanac,
     stats: renderStats,
+    festival: renderFestival,
+    people: renderPeople,
     settings: renderSettings
   };
 
@@ -157,6 +168,8 @@ export class GameUI {
       mk('Animals', 'animals'),
       mk('Craft', 'craft'),
       mk('Quests', 'quests', 'Q'),
+      mk('Almanac', 'almanac', 'L'),
+      mk('People', 'people', 'T'),
       mk('Stats', 'stats')
     );
     right.appendChild(
@@ -257,6 +270,7 @@ export class GameUI {
 
   destroy(): void {
     if (this.clockTimer !== null) window.clearInterval(this.clockTimer);
+    this.closeFishingGame();
     this.unsubs.forEach((fn) => fn());
     this.unsubs = [];
     this.root.remove();
@@ -351,7 +365,8 @@ export class GameUI {
         'Watered crops grew overnight. Remember to feed animals each day and water new plants.'
       )
     );
-    hero.appendChild(
+    const actions = el('div', 'row-actions');
+    actions.appendChild(
       button('Start the day', {
         variant: 'primary',
         onClick: () => {
@@ -361,6 +376,18 @@ export class GameUI {
         }
       })
     );
+    if (this.state.festivalAvailable()) {
+      actions.appendChild(
+        button('Visit festival', {
+          variant: 'gold',
+          onClick: () => {
+            this.closePanel();
+            this.openPanel('festival');
+          }
+        })
+      );
+    }
+    hero.appendChild(actions);
     this.panelContent.appendChild(hero);
     this.setPaused(true);
   }
@@ -407,6 +434,272 @@ export class GameUI {
     return box;
   }
 
+
+  openNpcDialogue(id: string): void {
+    const entry = this.state.npcList().find((item) => item.npc.id === id);
+    if (!entry) return;
+    if (this.buildMode) this.cancelBuildMode();
+    if (this.pauseOpen) this.closePause();
+    this.currentPanel = 'npc';
+    this.panelRefresh = null;
+    this.panelContent.innerHTML = '';
+    this.panelTitle.textContent = `${entry.npc.name} · ${entry.npc.role}`;
+    const render = (): void => {
+      const current = this.state.npcList().find((item) => item.npc.id === id);
+      if (!current) return;
+      this.panelContent.innerHTML = '';
+      const head = el('div', 'npc-dialogue-head');
+      const info = el('div', 'list-info grow');
+      info.appendChild(el('h3', undefined, current.npc.name));
+      info.appendChild(el('span', 'hint', current.npc.desc));
+      const tags = el('div', 'tag-row');
+      tags.appendChild(el('span', `pill ${current.status === 'Married' ? 'good' : ''}`, current.status));
+      tags.appendChild(el('span', 'pill', `Birthday ${current.birthday}`));
+      tags.appendChild(
+        el('span', `pill ${current.available ? 'good' : 'warn'}`, current.available ? 'Visiting now' : current.reason)
+      );
+      info.appendChild(tags);
+      head.appendChild(info);
+      this.panelContent.appendChild(head);
+      this.panelContent.appendChild(
+        progressBar(current.hearts, 10, `${current.hearts} / 10 hearts`, 'xp')
+      );
+      const line = el('p', 'npc-line');
+      line.textContent = current.record.met
+        ? npcLine(current.npc, this.state.data)
+        : `You have not met ${current.npc.name} yet. Say hello when they visit the farm.`;
+      this.panelContent.appendChild(line);
+
+      const actions = el('div', 'row-actions');
+      actions.appendChild(
+        button('Talk', {
+          small: true,
+          variant: 'primary',
+          disabled: !current.available,
+          onClick: () => {
+            const result = this.state.npcTalk(id);
+            this.toast(result.message ?? '', result.ok ? 'success' : 'error');
+            audio.play(result.ok ? 'click' : 'error');
+            if (result.ok) void this.requestSave();
+            render();
+          }
+        })
+      );
+      this.panelContent.appendChild(actions);
+
+      const giftSection = el('div', 'gift-section');
+      giftSection.appendChild(el('h4', undefined, 'Give a gift'));
+      const select = el('select', 'gift-select');
+      const seen = new Set<string>();
+      for (const stack of this.state.data.inventory) {
+        if (!stack) continue;
+        const def = ITEMS[stack.itemId];
+        if (!def || def.type === 'tool' || seen.has(`${stack.itemId}:${stack.quality}`)) continue;
+        seen.add(`${stack.itemId}:${stack.quality}`);
+        const option = document.createElement('option');
+        option.value = stack.itemId;
+        option.textContent = `${QUALITY_LABEL[stack.quality]} ${def.name} ×${stack.qty}`.trim();
+        select.appendChild(option);
+      }
+      if (select.options.length === 0) {
+        giftSection.appendChild(el('p', 'hint', 'Nothing suitable to give in your backpack.'));
+      } else {
+        giftSection.appendChild(select);
+        giftSection.appendChild(
+          button('Give gift', {
+            small: true,
+            variant: 'gold',
+            disabled: !current.available,
+            onClick: () => {
+              if (!select.value) return;
+              const result = this.state.giftNpc(id, select.value);
+              this.toast(result.message ?? '', result.ok ? 'success' : 'error');
+              audio.play(result.ok ? 'coin' : 'error');
+              if (result.ok) void this.requestSave();
+              render();
+            }
+          })
+        );
+      }
+      this.panelContent.appendChild(giftSection);
+
+      const requestSection = el('div', 'gift-section');
+      requestSection.appendChild(el('h4', undefined, 'Weekly request'));
+      if (current.request.completed) {
+        requestSection.appendChild(el('p', 'hint', 'Request fulfilled. A new request arrives next week.'));
+      } else {
+        requestSection.appendChild(
+          el(
+            'p',
+            'hint',
+            `${current.npc.name} wants ${current.request.qty} x ${current.request.itemName} for ${current.request.coins} coins and ${current.request.xp} XP.`
+          )
+        );
+        const requestActions = el('div', 'row-actions');
+        requestActions.appendChild(
+          button(current.requestReady ? 'Fulfill request' : `Need ${current.request.qty} x ${current.request.itemName}`, {
+            small: true,
+            variant: 'gold',
+            disabled: !current.available || !current.requestReady,
+            onClick: () => {
+              const result = this.state.completeNpcRequest(id);
+              this.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+              audio.play(result.ok ? 'coin' : 'error');
+              if (result.ok) void this.requestSave();
+              render();
+            }
+          })
+        );
+        requestSection.appendChild(requestActions);
+      }
+      this.panelContent.appendChild(requestSection);
+
+      const footer = el('div', 'panel-footer');
+      if (
+        current.hearts >= 10 &&
+        current.npc.romanceable &&
+        !this.state.data.spouseId &&
+        this.state.data.spouseId !== id
+      ) {
+        footer.appendChild(
+          button('Propose', {
+            variant: 'gold',
+            onClick: () => {
+              const result = this.state.marryNpc(id);
+              this.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+              audio.play(result.ok ? 'level' : 'error');
+              if (result.ok) void this.requestSave();
+              render();
+            }
+          })
+        );
+      }
+      footer.appendChild(button('Close', { onClick: () => this.closePanel() }));
+      this.panelContent.appendChild(footer);
+    };
+    render();
+    this.panelRefresh = render;
+    this.panelLayer.classList.remove('hidden');
+    this.setPaused(true);
+    audio.play('click');
+  }
+
+  openFishingGame(): void {
+    if (!this.state.hasItem('fishing_rod')) {
+      this.toast('You need a fishing rod. Buy one at the store.', 'error');
+      return;
+    }
+    const cast = this.state.registerFishingCast();
+    if (!cast.ok) {
+      this.toast(cast.message ?? 'You cannot fish right now.', 'error');
+      return;
+    }
+    this.closeFishingGame();
+    this.state.paused = true;
+    audio.play('click');
+
+    const overlay = el('div', 'fishing-overlay');
+    const box = el('div', 'fishing-box');
+    const title = el('h3', undefined, 'Fishing');
+    const status = el('p', 'fishing-status', cast.baitUsed ? 'Bait in the water. Waiting for a bite…' : 'Waiting for a bite…');
+    const track = el('div', 'fishing-track');
+    const zone = el('div', 'fishing-zone');
+    const marker = el('div', 'fishing-marker');
+    const zoneWidth = cast.baitUsed ? 28 : 18;
+    const zoneLeft = 12 + Math.random() * (88 - zoneWidth - 12);
+    zone.style.left = `${zoneLeft}%`;
+    zone.style.width = `${zoneWidth}%`;
+    track.append(zone, marker);
+    let finished = false;
+    const reel = button('Reel!', {
+      variant: 'gold',
+      disabled: true,
+      onClick: () => {
+        if (finished) {
+          this.closeFishingGame();
+          return;
+        }
+        if (!biting) {
+          finish(false, 'You reeled too early. The fish got away.');
+          return;
+        }
+        const markerPos = currentMarker();
+        const hit = markerPos >= zoneLeft && markerPos <= zoneLeft + zoneWidth;
+        finish(hit, hit ? '' : 'The fish slipped off the hook.');
+      }
+    });
+    const result = el('p', 'hint center');
+    box.append(title, status, track, reel, result);
+    overlay.appendChild(box);
+    this.root.appendChild(overlay);
+    this.fishingOverlay = overlay;
+
+    let biting = false;
+    let phaseStart = 0;
+    const currentMarker = (): number => {
+      const elapsed = performance.now() - phaseStart;
+      const cycle = 1150 + (cast.baitUsed ? 180 : 0);
+      const t = (elapsed % cycle) / cycle;
+      const wave = (1 - Math.cos(t * Math.PI * 2)) / 2;
+      return 6 + wave * 88;
+    };
+    const tick = (): void => {
+      if (!biting) return;
+      marker.style.left = `${currentMarker()}%`;
+      this.fishingRaf = window.requestAnimationFrame(tick);
+    };
+    this.fishingTimer = window.setTimeout(() => {
+      if (!this.fishingOverlay) return;
+      biting = true;
+      phaseStart = performance.now();
+      status.textContent = 'Bite! Reel when the marker is in the green zone!';
+      reel.disabled = false;
+      audio.play('click');
+      tick();
+    }, 900 + Math.random() * 900);
+
+    const finish = (success: boolean, failure: string): void => {
+      if (!this.fishingOverlay || finished) return;
+      finished = true;
+      biting = false;
+      if (this.fishingRaf !== null) window.cancelAnimationFrame(this.fishingRaf);
+      this.fishingRaf = null;
+      if (this.fishingTimer !== null) window.clearTimeout(this.fishingTimer);
+      this.fishingTimer = null;
+      reel.disabled = true;
+      if (success) {
+        const caught = this.state.catchFish();
+        if (caught.ok) {
+          status.textContent = `Caught a ${caught.name}!`;
+          result.textContent = `${caught.message ?? ''} +10 fishing XP.`;
+          audio.play('harvest');
+          void this.requestSave();
+        } else {
+          status.textContent = 'The line went slack.';
+          result.textContent = caught.message ?? 'You could not land the fish.';
+          audio.play('error');
+        }
+      } else {
+        status.textContent = 'It got away.';
+        result.textContent = failure;
+        audio.play('error');
+      }
+      reel.textContent = 'Close';
+      reel.disabled = false;
+    };
+  }
+
+  closeFishingGame(): void {
+    if (this.fishingTimer !== null) window.clearTimeout(this.fishingTimer);
+    if (this.fishingRaf !== null) window.cancelAnimationFrame(this.fishingRaf);
+    this.fishingTimer = null;
+    this.fishingRaf = null;
+    this.fishingOverlay?.remove();
+    this.fishingOverlay = null;
+    this.setPaused(false);
+  }
+
+
   // ---------------------------------------------------------------- panels
 
   openPanel(id: string): void {
@@ -430,11 +723,13 @@ export class GameUI {
                 ? 'Animals'
                 : id === 'craft'
                   ? 'Workshop'
-                  : id === 'quests'
-                    ? 'Quests'
-                    : id === 'stats'
-                      ? 'Statistics'
-                      : 'Settings';
+                   : id === 'quests'
+                     ? 'Quests'
+                     : id === 'almanac'
+                       ? 'Farm Almanac'
+                       : id === 'stats'
+                         ? 'Statistics'
+                         : 'Settings';
     builder(this.ctx, this.panelContent);
     this.panelLayer.classList.remove('hidden');
     this.setPaused(true);
@@ -646,7 +941,8 @@ export class GameUI {
     controls.innerHTML = `
       <h3>Controls</h3>
       <p><b>Move</b> WASD / arrow keys · <b>Use</b> click the world</p>
-      <p><b>Hotbar</b> 1–0 · <b>Shop</b> H · <b>Market</b> M · <b>Bag</b> I · <b>Build</b> B · <b>Quests</b> Q</p>
+      <p><b>Hotbar</b> 1–0 · <b>Shop</b> H · <b>Market</b> M · <b>Bag</b> I · <b>Build</b> B · <b>Craft</b> C</p>
+      <p><b>Quests</b> Q · <b>Almanac</b> L</p>
       <p><b>Pause</b> Esc · <b>Sleep</b> button in the HUD</p>
       <p class="hint">Mobile: joystick and USE button appear on touch screens.</p>
     `;
@@ -752,6 +1048,8 @@ export class GameUI {
       i: 'inventory',
       b: 'build',
       q: 'quests',
+      l: 'almanac',
+      t: 'people',
       c: 'craft'
     };
     const panel = keys[e.key.toLowerCase()];

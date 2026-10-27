@@ -21,7 +21,7 @@ export function renderStats(ctx: UIContext, root: HTMLElement): void {
 
   const skills = section('Skills');
   const skillGrid = el('div', 'two-col');
-  (['farming', 'animal', 'crafting', 'business'] as const).forEach((skill) => {
+  (['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as const).forEach((skill) => {
     const totalXp = d.xp[skill];
     const prog = xpProgress(totalXp);
     const wrap = el('div', 'skill-block');
@@ -58,6 +58,13 @@ export function renderStats(ctx: UIContext, root: HTMLElement): void {
   life.appendChild(statRow('Tiles watered', formatNumber(d.stats.waters)));
   life.appendChild(statRow('Tiles tilled', formatNumber(d.stats.tills)));
   life.appendChild(statRow('Items crafted', formatNumber(d.stats.crafts)));
+  life.appendChild(statRow('Fish caught', formatNumber(d.stats.fishCaught)));
+  life.appendChild(statRow('Fishing casts', formatNumber(d.stats.fishingCasts)));
+  life.appendChild(statRow('Rocks mined', formatNumber(d.stats.rocksMined)));
+  life.appendChild(statRow('Ore collected', formatNumber(d.stats.oresMined)));
+  const collection = state.collectionState();
+  life.appendChild(statRow('Collection entries', `${collection.total.found} / ${collection.total.total}`));
+  life.appendChild(statRow('Festival ribbons', String(d.ribbons.length)));
   life.appendChild(statRow('Days played', formatNumber(d.stats.daysPlayed)));
   content.appendChild(life);
 

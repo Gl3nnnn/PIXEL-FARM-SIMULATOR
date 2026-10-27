@@ -71,9 +71,9 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
       sec.appendChild(grid);
       content.appendChild(sec);
     } else if (tab === 1) {
-      const sec = section('Supplies', 'Everything your animals and soil need.');
+      const sec = section('Supplies', 'Feed, bait and the tools you need at the pond and quarry.');
       const grid = el('div', 'card-grid');
-      for (const id of ['feed', 'fertilizer']) {
+      for (const id of ['feed', 'fertilizer', 'bait', 'fishing_rod', 'pickaxe']) {
         const item = ITEMS[id];
         const card = el('div', 'shop-card');
         card.appendChild(iconImg(ctx.icon(id), 40, item.name));
@@ -84,7 +84,7 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
         card.appendChild(info);
         const actions = el('div', 'shop-actions');
         actions.appendChild(el('span', 'price', `${item.price}g`));
-        for (const qty of [1, 5, 10]) {
+        for (const qty of item.stack <= 1 ? [1] : [1, 5, 10]) {
           actions.appendChild(
             button(`+${qty}`, {
               small: true,

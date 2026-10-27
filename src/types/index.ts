@@ -4,7 +4,7 @@ export type Season = 'spring' | 'summer' | 'fall' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'storm';
 export type Quality = 'normal' | 'silver' | 'gold';
 export type Facing = 'down' | 'up' | 'left' | 'right';
-export type SkillKey = 'farming' | 'animal' | 'crafting' | 'business';
+export type SkillKey = 'farming' | 'animal' | 'crafting' | 'business' | 'fishing' | 'mining';
 
 export type ItemType =
   | 'seed'
@@ -14,7 +14,9 @@ export type ItemType =
   | 'product'
   | 'crafted'
   | 'feed'
-  | 'fertilizer';
+  | 'fertilizer'
+  | 'fish'
+  | 'ore';
 
 export type AnimalHousing = 'coop' | 'barn';
 
@@ -82,7 +84,8 @@ export type BuildingKind =
   | 'well'
   | 'sprinkler'
   | 'decor'
-  | 'farmhouse';
+  | 'farmhouse'
+  | 'automation';
 
 export interface BuildingDef {
   id: string;
@@ -138,6 +141,142 @@ export interface QuestDef {
   coins: number;
   xp: number;
   tier: 'main' | 'daily' | 'achievement';
+}
+
+export interface SeasonContractDef {
+  id: string;
+  title: string;
+  desc: string;
+  metric: QuestMetric;
+  target: number;
+  coins: number;
+  xp: number;
+}
+
+export interface FestivalDef {
+  season: Season;
+  name: string;
+  desc: string;
+  bonusCoins: number;
+  bonusXp: number;
+  contracts: SeasonContractDef[];
+}
+
+export interface CollectionMilestoneDef {
+  id: string;
+  count: number;
+  coins: number;
+  xp: number;
+}
+
+export interface CollectionSetDef {
+  id: string;
+  name: string;
+  desc: string;
+  itemIds: string[];
+  milestones: CollectionMilestoneDef[];
+}
+
+export interface CollectionEntrySave {
+  itemId: string;
+  qualities: Quality[];
+}
+
+export interface CollectionSave {
+  entries: CollectionEntrySave[];
+  claimedRewards: string[];
+}
+
+export interface AutomationDef {
+  id: string;
+  name: string;
+  desc: string;
+  cost: number;
+  unlockLevel: number;
+}
+
+export interface AutomationSave {
+  purchased: string[];
+  disabled: string[];
+}
+
+export type FestivalTier = 'none' | 'bronze' | 'silver' | 'gold';
+
+export interface FestivalContestDef {
+  season: Season;
+  name: string;
+  desc: string;
+  itemType: ItemType;
+  count: number;
+  themeBonuses: string[];
+  bronze: number;
+  silver: number;
+  gold: number;
+  coins: number;
+  xp: number;
+  ribbon: string;
+}
+
+export interface FestivalSave {
+  season: Season;
+  year: number;
+  submitted: boolean;
+  score: number;
+  tier: FestivalTier;
+  claimed: boolean;
+}
+
+export interface FishDef {
+  id: string;
+  name: string;
+  itemId: string;
+  seasons: Season[];
+  weathers: Weather[];
+  minHour: number;
+  maxHour: number;
+  rarity: number;
+  minSell: number;
+  desc: string;
+}
+
+export type MineNodeKind = 'stone' | 'copper' | 'iron' | 'gold' | 'gem';
+
+export interface MineNodeDef {
+  id: string;
+  x: number;
+  y: number;
+  kind: MineNodeKind;
+}
+
+export interface MineNodeSave {
+  hp: number;
+  respawnDay: number;
+}
+
+export interface NpcDef {
+  id: string;
+  name: string;
+  role: string;
+  birthdaySeason: Season;
+  birthdayDay: number;
+  visitDays: number[];
+  romanceable: boolean;
+  colors: number[];
+  loves: string[];
+  likes: string[];
+  hates: string[];
+  lines: string[];
+  heartLines: string[];
+  desc: string;
+}
+
+export interface NpcSave {
+  id: string;
+  friendship: number;
+  talkedDay: number;
+  giftedDay: number;
+  met: boolean;
+  requestWeek: number;
 }
 
 export interface UpgradeDef {
@@ -203,6 +342,16 @@ export interface DailySave {
   startStats: Stats;
 }
 
+export interface SeasonalSave {
+  season: Season;
+  year: number;
+  list: QuestDailySave[];
+  startStats: Stats;
+  bonusCoins: number;
+  bonusXp: number;
+  bonusClaimed: boolean;
+}
+
 export interface Stats {
   harvests: number;
   cropsSold: number;
@@ -218,6 +367,10 @@ export interface Stats {
   daysPlayed: number;
   carrotsHarvested: number;
   eggsCollected: number;
+  fishCaught: number;
+  fishingCasts: number;
+  rocksMined: number;
+  oresMined: number;
 }
 
 export interface PlayerSave {
@@ -249,6 +402,14 @@ export interface SaveData {
   claimedQuests: string[];
   achievements: string[];
   daily: DailySave | null;
+  seasonal: SeasonalSave | null;
+  collection: CollectionSave;
+  automation: AutomationSave;
+  festival: FestivalSave | null;
+  ribbons: string[];
+  mineNodes: Record<string, MineNodeSave>;
+  npcs: Record<string, NpcSave>;
+  spouseId: string | null;
   tutorialStep: number;
   tutorialDone: boolean;
   selectedItemId: string;

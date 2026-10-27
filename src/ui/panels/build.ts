@@ -1,4 +1,4 @@
-import { BUILDINGS, PLOTS } from '../../data/definitions';
+import { AUTOMATION, BUILDINGS, PLOTS } from '../../data/definitions';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
@@ -119,11 +119,76 @@ export function renderBuild(ctx: UIContext, root: HTMLElement): void {
     );
     content.appendChild(landSec);
 
+    const helperSec = section(
+      'Farm Helpers',
+      state.hasHelperHut()
+        ? 'Hire helpers, then enable or pause each overnight task.'
+        : "Build the Helper's Cottage to unlock overnight automation."
+    );
+    if (!state.hasHelperHut()) {
+      helperSec.appendChild(
+        el('p', 'hint', "The Helper's Cottage costs 2,500g and unlocks at farmer level 6.")
+      );
+    }
+    const helperGrid = el('div', 'card-grid wide');
+    for (const def of AUTOMATION) {
+      const info = state.automationState(def.id);
+      if (!info) continue;
+      const card = el('div', 'build-card');
+      const body = el('div', 'shop-info');
+      body.appendChild(el('strong', undefined, def.name));
+      body.appendChild(el('span', 'hint', def.desc));
+      const tags = el('div', 'tag-row');
+      if (info.purchased) tags.appendChild(pill(info.enabled ? 'Active' : 'Paused', info.enabled ? 'good' : 'warn'));
+      if (state.level < def.unlockLevel) tags.appendChild(pill(`Level ${def.unlockLevel}`, 'warn'));
+      body.appendChild(tags);
+      card.appendChild(body);
+      const actions = el('div', 'shop-actions');
+      if (info.purchased) {
+        actions.appendChild(
+          button(info.enabled ? 'Pause' : 'Enable', {
+            small: true,
+            variant: info.enabled ? 'secondary' : 'primary',
+            onClick: () => {
+              const result = state.toggleAutomation(def.id);
+              ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+              audio.play('click');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+      } else {
+        actions.appendChild(el('span', 'price', `${def.cost}g`));
+        actions.appendChild(
+          button('Hire', {
+            small: true,
+            variant: 'primary',
+            disabled:
+              !state.hasHelperHut() ||
+              state.level < def.unlockLevel ||
+              state.data.coins < def.cost,
+            onClick: () => {
+              const result = state.buyAutomation(def.id);
+              ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+              audio.play(result.ok ? 'level' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+      }
+      card.appendChild(actions);
+      helperGrid.appendChild(card);
+    }
+    helperSec.appendChild(helperGrid);
+    content.appendChild(helperSec);
+
     content.appendChild(
       el(
         'p',
         'hint center',
-        'Greenhouse: plant any season · Workshop: crafting · Shed: +24 slots · Coop/Barn: animal housing · Well/Sprinkler: auto-water.'
+        'Greenhouse: plant any season · Workshop: crafting · Shed: +24 slots · Coop/Barn: animal housing · Well/Sprinkler: auto-water · Helper’s Cottage: overnight automation.'
       )
     );
     const footer = el('div', 'panel-footer');

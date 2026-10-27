@@ -1,8 +1,14 @@
 import type {
   AnimalDef,
+  AutomationDef,
   BuildingDef,
+  CollectionSetDef,
   CropDef,
+  FestivalContestDef,
+  FestivalDef,
+  FishDef,
   ItemDef,
+  NpcDef,
   QuestDef,
   RecipeDef,
   Season,
@@ -17,9 +23,10 @@ export const WORLD_H = 34;
 export const DAYS_PER_SEASON = 28;
 export const START_MINUTE = 6 * 60;
 export const MINUTES_PER_REAL_SECOND = 3;
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 9;
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
+export const SKILLS = ['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as const;
 
 export const SEASON_INFO: Record<
   Season,
@@ -95,7 +102,30 @@ export const ITEMS: Record<string, ItemDef> = {
   cloth: { id: 'cloth', name: 'Wool Cloth', type: 'crafted', price: 130, sell: 130, stack: 99, desc: 'Woven cloth.', color: 0xd8d0bc, color2: 0xa89e86 },
   pumpkin_pie: { id: 'pumpkin_pie', name: 'Pumpkin Pie', type: 'crafted', price: 400, sell: 400, stack: 99, desc: 'Festival favourite.', color: 0xe8a24a, color2: 0xb9762c },
   omelette: { id: 'omelette', name: 'Omelette', type: 'crafted', price: 70, sell: 70, stack: 99, desc: 'Fluffy breakfast.', color: 0xf0cc5c, color2: 0xd9a52f },
-  truffle_oil: { id: 'truffle_oil', name: 'Truffle Oil', type: 'crafted', price: 300, sell: 300, stack: 99, desc: 'Luxury cooking oil.', color: 0xc8a44a, color2: 0x7a5a2a }
+  truffle_oil: { id: 'truffle_oil', name: 'Truffle Oil', type: 'crafted', price: 300, sell: 300, stack: 99, desc: 'Luxury cooking oil.', color: 0xc8a44a, color2: 0x7a5a2a },
+
+  fishing_rod: { id: 'fishing_rod', name: 'Fishing Rod', type: 'tool', price: 450, sell: 0, stack: 1, desc: 'Cast at the pond edge to catch seasonal fish.', color: 0x9a6a3a, color2: 0xd8d8d8 },
+  pickaxe: { id: 'pickaxe', name: 'Pickaxe', type: 'tool', price: 500, sell: 0, stack: 1, desc: 'Break quarry rocks for stone and ore.', color: 0x9aa4ac, color2: 0x8a5a34 },
+  bait: { id: 'bait', name: 'Fishing Bait', type: 'material', price: 8, sell: 2, stack: 99, desc: 'Improves your chance in the fishing minigame.', color: 0xc06a4a, color2: 0x8a4a3a },
+
+  minnow: { id: 'minnow', name: 'Minnow', type: 'fish', price: 18, sell: 18, stack: 99, desc: 'A tiny, quick pond fish.', color: 0x9ab8c8, color2: 0x6a8a9a },
+  carp: { id: 'carp', name: 'Carp', type: 'fish', price: 32, sell: 32, stack: 99, desc: 'A common pond fish.', color: 0xc8a86a, color2: 0x8a6a3a },
+  bass: { id: 'bass', name: 'Bass', type: 'fish', price: 55, sell: 55, stack: 99, desc: 'A feisty freshwater fish.', color: 0x6a8a5a, color2: 0x3f5a3a },
+  trout: { id: 'trout', name: 'Trout', type: 'fish', price: 75, sell: 75, stack: 99, desc: 'A spotted river fish.', color: 0xb8c8a8, color2: 0x6a8a6a },
+  catfish: { id: 'catfish', name: 'Catfish', type: 'fish', price: 110, sell: 110, stack: 99, desc: 'A whiskered night fish.', color: 0x7a6a5a, color2: 0x4a3a2a },
+  salmon: { id: 'salmon', name: 'Salmon', type: 'fish', price: 150, sell: 150, stack: 99, desc: 'A prized autumn catch.', color: 0xe89a7a, color2: 0xb85a4a },
+  koi: { id: 'koi', name: 'Koi', type: 'fish', price: 260, sell: 260, stack: 99, desc: 'A beautiful ornamental fish.', color: 0xf0e8d8, color2: 0xe06a3a },
+  golden_carp: { id: 'golden_carp', name: 'Golden Carp', type: 'fish', price: 600, sell: 600, stack: 99, desc: 'A legendary golden catch.', color: 0xf0c84a, color2: 0xd89a2a },
+
+  stone: { id: 'stone', name: 'Stone', type: 'ore', price: 12, sell: 12, stack: 99, desc: 'A sturdy building stone.', color: 0x9aa0a6, color2: 0x6a7076 },
+  copper_ore: { id: 'copper_ore', name: 'Copper Ore', type: 'ore', price: 35, sell: 35, stack: 99, desc: 'A warm copper nugget.', color: 0xd8844a, color2: 0x9a5a2a },
+  iron_ore: { id: 'iron_ore', name: 'Iron Ore', type: 'ore', price: 70, sell: 70, stack: 99, desc: 'A heavy iron nugget.', color: 0xb8c0c8, color2: 0x7a828a },
+  gold_ore: { id: 'gold_ore', name: 'Gold Ore', type: 'ore', price: 160, sell: 160, stack: 99, desc: 'A glittering gold nugget.', color: 0xf0c84a, color2: 0xb8902a },
+  gem: { id: 'gem', name: 'Gemstone', type: 'ore', price: 400, sell: 400, stack: 99, desc: 'A rare, flawless gem.', color: 0x9ad8f0, color2: 0x5a8ac8 },
+
+  grilled_fish: { id: 'grilled_fish', name: 'Grilled Fish', type: 'crafted', price: 160, sell: 160, stack: 99, desc: 'A simple, filling fish dish.', color: 0xd8a05a, color2: 0x9a6a2a },
+  fish_stew: { id: 'fish_stew', name: 'Fish Stew', type: 'crafted', price: 360, sell: 360, stack: 99, desc: 'A hearty fisherman\'s stew.', color: 0xe8b86a, color2: 0xb87a3a },
+  salmon_dinner: { id: 'salmon_dinner', name: 'Salmon Dinner', type: 'crafted', price: 430, sell: 430, stack: 99, desc: 'A celebratory salmon plate.', color: 0xe88a6a, color2: 0xa85a3a }
 };
 
 export const CROPS: Record<string, CropDef> = {
@@ -128,6 +158,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   greenhouse: { id: 'greenhouse', name: 'Greenhouse', w: 3, h: 2, cost: 1400, unlockLevel: 5, kind: 'greenhouse', desc: 'Allows planting any crop in any season.' },
   well: { id: 'well', name: 'Water Well', w: 2, h: 2, cost: 280, unlockLevel: 2, kind: 'well', radius: 3, desc: 'Waters nearby crops every morning.' },
   sprinkler: { id: 'sprinkler', name: 'Sprinkler', w: 1, h: 1, cost: 450, unlockLevel: 6, kind: 'sprinkler', radius: 1, desc: 'Automatically waters a 3x3 area.' },
+  helper_hut: { id: 'helper_hut', name: "Helper's Cottage", w: 2, h: 2, cost: 2500, unlockLevel: 6, kind: 'automation', desc: 'Unlocks farm helpers: auto-feed, auto-collect, auto-harvest and auto-replant.' },
   fence: { id: 'fence', name: 'Fence', w: 1, h: 1, cost: 18, unlockLevel: 1, kind: 'decor', desc: 'A cosy wooden fence.' },
   path: { id: 'path', name: 'Stone Path', w: 1, h: 1, cost: 8, unlockLevel: 1, kind: 'decor', desc: 'Walk 25% faster on paths.' }
 };
@@ -140,7 +171,10 @@ export const RECIPES: RecipeDef[] = [
   { id: 'cloth', name: 'Wool Cloth', inputs: [{ itemId: 'wool', qty: 2 }], output: { itemId: 'cloth', qty: 1 }, coins: 0, unlockLevel: 3, desc: 'Weave wool into cloth.' },
   { id: 'omelette', name: 'Omelette', inputs: [{ itemId: 'egg', qty: 2 }], output: { itemId: 'omelette', qty: 1 }, coins: 0, unlockLevel: 1, desc: 'Cook breakfast.' },
   { id: 'pumpkin_pie', name: 'Pumpkin Pie', inputs: [{ itemId: 'pumpkins', qty: 1 }, { itemId: 'flour', qty: 1 }, { itemId: 'egg', qty: 1 }], output: { itemId: 'pumpkin_pie', qty: 1 }, coins: 25, unlockLevel: 4, desc: 'A festival treat.' },
-  { id: 'truffle_oil', name: 'Truffle Oil', inputs: [{ itemId: 'truffle', qty: 1 }, { itemId: 'sunflowers', qty: 1 }], output: { itemId: 'truffle_oil', qty: 1 }, coins: 30, unlockLevel: 5, desc: 'Bottle luxury.' }
+  { id: 'truffle_oil', name: 'Truffle Oil', inputs: [{ itemId: 'truffle', qty: 1 }, { itemId: 'sunflowers', qty: 1 }], output: { itemId: 'truffle_oil', qty: 1 }, coins: 30, unlockLevel: 5, desc: 'Bottle luxury.' },
+  { id: 'grilled_fish', name: 'Grilled Fish', inputs: [{ itemId: 'bass', qty: 2 }], output: { itemId: 'grilled_fish', qty: 1 }, coins: 15, unlockLevel: 3, desc: 'Grill a fresh catch over the fire.' },
+  { id: 'fish_stew', name: 'Fish Stew', inputs: [{ itemId: 'trout', qty: 1 }, { itemId: 'carrots', qty: 2 }, { itemId: 'potatoes', qty: 1 }], output: { itemId: 'fish_stew', qty: 1 }, coins: 25, unlockLevel: 5, desc: 'A hearty stew for cold evenings.' },
+  { id: 'salmon_dinner', name: 'Salmon Dinner', inputs: [{ itemId: 'salmon', qty: 1 }, { itemId: 'rice', qty: 2 }, { itemId: 'carrots', qty: 1 }], output: { itemId: 'salmon_dinner', qty: 1 }, coins: 30, unlockLevel: 6, desc: 'A celebratory plate built around a fresh salmon.' }
 ];
 
 export const UPGRADES: UpgradeDef[] = [
@@ -185,6 +219,246 @@ export const DAILY_TEMPLATES: Array<Omit<QuestDef, 'tier'>> = [
   { id: 'd_earn', title: 'Pocket Money', desc: 'Earn 200 coins today.', metric: 'coinsEarned', target: 200, coins: 120, xp: 15 },
   { id: 'd_collect', title: 'Morning Chores', desc: 'Collect 2 animal products today.', metric: 'productsCollected', target: 2, coins: 130, xp: 15 }
 ];
+
+export const FESTIVALS: Record<Season, FestivalDef> = {
+  spring: {
+    season: 'spring',
+    name: 'Blossom Fair',
+    desc: 'Celebrate new growth with planting, harvesting, and market stalls.',
+    bonusCoins: 500,
+    bonusXp: 80,
+    contracts: [
+      { id: 's_spring_plant', title: 'First Planting', desc: 'Plant 12 crops this season.', metric: 'planted', target: 12, coins: 180, xp: 30 },
+      { id: 's_spring_harvest', title: 'Fresh Picks', desc: 'Harvest 10 crops this season.', metric: 'harvests', target: 10, coins: 220, xp: 35 },
+      { id: 's_spring_earn', title: 'Market Bloom', desc: 'Earn 600 coins this season.', metric: 'coinsEarned', target: 600, coins: 260, xp: 40 }
+    ]
+  },
+  summer: {
+    season: 'summer',
+    name: 'Sunfest',
+    desc: 'A bright festival of bumper harvests, animal produce, and crafts.',
+    bonusCoins: 600,
+    bonusXp: 90,
+    contracts: [
+      { id: 's_summer_harvest', title: 'Sun-Cured Bounty', desc: 'Harvest 12 crops this season.', metric: 'harvests', target: 12, coins: 240, xp: 40 },
+      { id: 's_summer_products', title: 'Dairy Dash', desc: 'Collect 6 animal products this season.', metric: 'productsCollected', target: 6, coins: 240, xp: 40 },
+      { id: 's_summer_craft', title: 'Craft Stall', desc: 'Craft 4 goods this season.', metric: 'crafts', target: 4, coins: 280, xp: 45 }
+    ]
+  },
+  fall: {
+    season: 'fall',
+    name: 'Harvest Moon Fair',
+    desc: 'Bring in the bounty and show off the finest goods of the year.',
+    bonusCoins: 700,
+    bonusXp: 100,
+    contracts: [
+      { id: 's_fall_harvest', title: 'Bountiful Harvest', desc: 'Harvest 15 crops this season.', metric: 'harvests', target: 15, coins: 300, xp: 50 },
+      { id: 's_fall_gold', title: 'Golden Ears', desc: 'Harvest 3 gold-quality crops this season.', metric: 'goldHarvests', target: 3, coins: 320, xp: 55 },
+      { id: 's_fall_sell', title: 'Festival Feast', desc: 'Sell 15 goods this season.', metric: 'cropsSold', target: 15, coins: 300, xp: 50 }
+    ]
+  },
+  winter: {
+    season: 'winter',
+    name: 'Lantern Festival',
+    desc: 'Warm the farm with glowing crafts, barn care, and winter trade.',
+    bonusCoins: 700,
+    bonusXp: 100,
+    contracts: [
+      { id: 's_winter_products', title: 'Barn Care', desc: 'Collect 8 animal products this season.', metric: 'productsCollected', target: 8, coins: 300, xp: 50 },
+      { id: 's_winter_craft', title: 'Lantern Crafts', desc: 'Craft 5 goods this season.', metric: 'crafts', target: 5, coins: 320, xp: 55 },
+      { id: 's_winter_earn', title: 'Winter Market', desc: 'Earn 800 coins this season.', metric: 'coinsEarned', target: 800, coins: 350, xp: 60 }
+    ]
+  }
+};
+
+
+export const FISH: Record<string, FishDef> = {
+  minnow: { id: 'minnow', name: 'Minnow', itemId: 'minnow', seasons: ['spring', 'summer', 'fall', 'winter'], weathers: ['sunny', 'cloudy', 'rain'], minHour: 6, maxHour: 18, rarity: 0.34, minSell: 18, desc: 'A tiny fish that nibbles at the shallows.' },
+  carp: { id: 'carp', name: 'Carp', itemId: 'carp', seasons: ['spring', 'summer'], weathers: ['sunny', 'cloudy', 'rain', 'storm'], minHour: 6, maxHour: 20, rarity: 0.26, minSell: 32, desc: 'A patient bottom-feeder.' },
+  bass: { id: 'bass', name: 'Bass', itemId: 'bass', seasons: ['spring', 'fall'], weathers: ['sunny', 'cloudy', 'rain'], minHour: 6, maxHour: 19, rarity: 0.18, minSell: 55, desc: 'A strong fighter on the line.' },
+  trout: { id: 'trout', name: 'Trout', itemId: 'trout', seasons: ['fall', 'winter'], weathers: ['cloudy', 'rain', 'storm'], minHour: 6, maxHour: 18, rarity: 0.13, minSell: 75, desc: 'Prefers cool, cloudy water.' },
+  catfish: { id: 'catfish', name: 'Catfish', itemId: 'catfish', seasons: ['summer', 'fall'], weathers: ['cloudy', 'rain', 'storm'], minHour: 18, maxHour: 24, rarity: 0.1, minSell: 110, desc: 'A whiskered night hunter.' },
+  salmon: { id: 'salmon', name: 'Salmon', itemId: 'salmon', seasons: ['fall'], weathers: ['sunny', 'cloudy', 'rain'], minHour: 6, maxHour: 18, rarity: 0.11, minSell: 150, desc: 'A prized autumn catch.' },
+  koi: { id: 'koi', name: 'Koi', itemId: 'koi', seasons: ['spring', 'summer'], weathers: ['sunny'], minHour: 6, maxHour: 12, rarity: 0.05, minSell: 260, desc: 'A beautiful ornamental fish.' },
+  golden_carp: { id: 'golden_carp', name: 'Golden Carp', itemId: 'golden_carp', seasons: ['spring', 'summer', 'fall', 'winter'], weathers: ['sunny'], minHour: 6, maxHour: 18, rarity: 0.015, minSell: 600, desc: 'A legendary golden catch. Very rare.' }
+};
+
+export const AUTOMATION: AutomationDef[] = [
+  { id: 'auto_feed', name: 'Auto-Feed', desc: 'Feeds every unfed animal each morning using feed from your inventory.', cost: 600, unlockLevel: 6 },
+  { id: 'auto_collect', name: 'Auto-Collect', desc: 'Collects ready animal products each morning.', cost: 900, unlockLevel: 6 },
+  { id: 'auto_harvest', name: 'Auto-Harvest', desc: 'Harvests mature crops each morning. Automated harvests are normal quality and grant no XP.', cost: 1200, unlockLevel: 6 },
+  { id: 'auto_replant', name: 'Auto-Replant', desc: 'Replants harvested tiles using seeds from your inventory.', cost: 700, unlockLevel: 6 }
+];
+
+function collectionMilestones(setId: string, count: number): CollectionSetDef['milestones'] {
+  const counts = [Math.ceil(count * 0.25), Math.ceil(count * 0.5), Math.ceil(count * 0.75), count];
+  return counts.map((target, index) => ({
+    id: `${setId}_${index + 1}`,
+    count: target,
+    coins: [250, 500, 900, 1500][index],
+    xp: [30, 50, 80, 120][index]
+  }));
+}
+
+export const COLLECTION_SETS: CollectionSetDef[] = [
+  {
+    id: 'crops',
+    name: 'Crop Album',
+    desc: 'Every crop harvested on the farm.',
+    itemIds: Object.values(CROPS).map((crop) => crop.harvestId),
+    milestones: collectionMilestones('crops', Object.keys(CROPS).length)
+  },
+  {
+    id: 'products',
+    name: 'Barn & Coop',
+    desc: 'Animal products collected from your livestock.',
+    itemIds: Object.values(ANIMALS).map((animal) => animal.productId),
+    milestones: collectionMilestones('products', Object.keys(ANIMALS).length)
+  },
+  {
+    id: 'crafted',
+    name: 'Artisan Goods',
+    desc: 'Everything crafted at the workshop.',
+    itemIds: RECIPES.map((recipe) => recipe.output.itemId),
+    milestones: collectionMilestones('crafted', RECIPES.length)
+  },
+  {
+    id: 'fish',
+    name: 'Fish Album',
+    desc: 'Seasonal fish caught from the pond.',
+    itemIds: Object.values(FISH).map((fish) => fish.itemId),
+    milestones: collectionMilestones('fish', Object.keys(FISH).length)
+  },
+  {
+    id: 'minerals',
+    name: 'Minerals',
+    desc: 'Stone, ore and gemstones from the quarry.',
+    itemIds: ['stone', 'copper_ore', 'iron_ore', 'gold_ore', 'gem'],
+    milestones: collectionMilestones('minerals', 5)
+  }
+];
+
+export const FESTIVAL_CONTESTS: Record<Season, FestivalContestDef> = {
+  spring: {
+    season: 'spring',
+    name: 'Blossom Crop Show',
+    desc: 'Bring three of your finest spring crops to the judging stand.',
+    itemType: 'crop',
+    count: 3,
+    themeBonuses: ['sunflowers', 'strawberries', 'cabbage'],
+    bronze: 120,
+    silver: 260,
+    gold: 450,
+    coins: 300,
+    xp: 60,
+    ribbon: 'ribbon_spring'
+  },
+  summer: {
+    season: 'summer',
+    name: 'Sunfest Cook-Off',
+    desc: 'Submit two artisan goods for the summer cook-off.',
+    itemType: 'crafted',
+    count: 2,
+    themeBonuses: ['jam', 'cheese', 'omelette'],
+    bronze: 180,
+    silver: 360,
+    gold: 600,
+    coins: 360,
+    xp: 70,
+    ribbon: 'ribbon_summer'
+  },
+  fall: {
+    season: 'fall',
+    name: 'Harvest Moon Show',
+    desc: 'Show three prize fall crops to the harvest judges.',
+    itemType: 'crop',
+    count: 3,
+    themeBonuses: ['pumpkins', 'corn', 'sunflowers'],
+    bronze: 220,
+    silver: 450,
+    gold: 750,
+    coins: 420,
+    xp: 80,
+    ribbon: 'ribbon_fall'
+  },
+  winter: {
+    season: 'winter',
+    name: 'Lantern Display',
+    desc: 'Present three glowing artisan goods for the lantern display.',
+    itemType: 'crafted',
+    count: 3,
+    themeBonuses: ['pumpkin_pie', 'fish_stew', 'truffle_oil'],
+    bronze: 300,
+    silver: 600,
+    gold: 1000,
+    coins: 500,
+    xp: 90,
+    ribbon: 'ribbon_winter'
+  }
+};
+
+export const FESTIVAL_RIBBONS: Array<{ id: string; name: string; season: Season; tier: 'bronze' | 'silver' | 'gold' }> = [];
+for (const season of SEASONS) {
+  for (const tier of ['bronze', 'silver', 'gold'] as const) {
+    FESTIVAL_RIBBONS.push({
+      id: `ribbon_${season}_${tier}`,
+      name: `${SEASON_INFO[season].name} ${tier.charAt(0).toUpperCase() + tier.slice(1)} Ribbon`,
+      season,
+      tier
+    });
+  }
+}
+
+export const NPCS: Record<string, NpcDef> = {
+  mira: {
+    id: 'mira', name: 'Mira', role: 'Florist', birthdaySeason: 'spring', birthdayDay: 12,
+    visitDays: [1, 3, 5], romanceable: true, colors: [0x6a9a5a, 0xe8b8c8, 0x8a5a3a],
+    loves: ['sunflowers', 'jam', 'koi'], likes: ['strawberries', 'cabbage', 'grilled_fish'], hates: ['stone', 'truffle'],
+    lines: ['The flowers are waking up.', 'A farm always smells like possibility.', 'Have you seen the pond in the morning light?'],
+    heartLines: ['Mira smiles when you arrive.', 'Mira saves you a flower from her cart.', 'Mira tells you about her dream garden.', 'Mira asks if you would walk with her at sunset.', 'Mira says the farm feels like home when you are here.'],
+    desc: 'A gentle florist who visits the farm to sketch wildflowers.'
+  },
+  rowan: {
+    id: 'rowan', name: 'Rowan', role: 'Carpenter', birthdaySeason: 'summer', birthdayDay: 8,
+    visitDays: [2, 4, 6], romanceable: true, colors: [0x4f7a8a, 0xd8b88a, 0x8a5a34],
+    loves: ['bread', 'cheese', 'iron_ore'], likes: ['stone', 'copper_ore', 'corn'], hates: ['jam', 'sunflowers'],
+    lines: ['That fence could use a stronger joint.', 'Good timber makes a good farm.', 'I like the sound of a hammer at dawn.'],
+    heartLines: ['Rowan nods approvingly at your work.', 'Rowan offers to fix a loose hinge.', 'Rowan shows you a sketch for a shared porch.', 'Rowan admits he looks forward to your visits.', 'Rowan says he would build a home anywhere with you.'],
+    desc: 'A practical carpenter with sawdust on his sleeves.'
+  },
+  tessa: {
+    id: 'tessa', name: 'Tessa', role: 'Rancher', birthdaySeason: 'fall', birthdayDay: 22,
+    visitDays: [1, 4, 7], romanceable: true, colors: [0xb85a4a, 0xf0e2c8, 0x5a3a24],
+    loves: ['wool', 'milk', 'pumpkin_pie'], likes: ['egg', 'cheese', 'truffle'], hates: ['fish_stew', 'gem'],
+    lines: ['Your animals look well cared for.', 'A happy cow gives the best milk.', 'The barn is my favourite place.'],
+    heartLines: ['Tessa gives you a warm grin.', 'Tessa shares her grandmother\'s recipe.', 'Tessa asks for your opinion on a new calf name.', 'Tessa saves you a seat by the barn fire.', 'Tessa says she cannot imagine a better partner.'],
+    desc: 'A cheerful rancher who knows every animal by name.'
+  },
+  orin: {
+    id: 'orin', name: 'Orin', role: 'Angler', birthdaySeason: 'winter', birthdayDay: 5,
+    visitDays: [2, 5, 7], romanceable: false, colors: [0x3f6a8a, 0x9ad8f0, 0x5a4a3a],
+    loves: ['catfish', 'salmon', 'golden_carp'], likes: ['bait', 'grilled_fish', 'fish_stew'], hates: ['wool', 'pumpkin_pie'],
+    lines: ['The pond is quiet today.', 'A patient angler always eats well.', 'Did you see the ripple by the reeds?'],
+    heartLines: ['Orin shares a fishing spot.', 'Orin teaches you a new knot.', 'Orin tells a tall tale about a golden carp.', 'Orin calls you a true angler.', 'Orin says you are the best fishing partner he has had.'],
+    desc: 'A quiet angler who visits the pond and trades fishing stories.'
+  },
+  june: {
+    id: 'june', name: 'June', role: 'Artist', birthdaySeason: 'spring', birthdayDay: 26,
+    visitDays: [3, 6, 7], romanceable: false, colors: [0x8a6aa8, 0xf0c84a, 0x4a3a5a],
+    loves: ['truffle_oil', 'pumpkin_pie', 'gem'], likes: ['sunflowers', 'koi', 'cloth'], hates: ['stone', 'feed'],
+    lines: ['The light is perfect right now.', 'I am painting the farm from memory.', 'Every season is a different palette.'],
+    heartLines: ['June shows you a tiny sketch.', 'June asks to paint your portrait.', 'June gives you a hand-made card.', 'June calls you her favourite subject.', 'June says your farm is her favourite place to paint.'],
+    desc: 'A dreamy artist who paints the farm through the seasons.'
+  }
+};
+
+export const NPC_SPOTS: Record<string, { x: number; y: number }> = {
+  mira: { x: 9, y: 8 },
+  rowan: { x: 15, y: 8 },
+  tessa: { x: 24, y: 8 },
+  orin: { x: 32, y: 16 },
+  june: { x: 20, y: 12 }
+};
 
 export const SEED_IDS = Object.values(ITEMS)
   .filter((i) => i.type === 'seed')

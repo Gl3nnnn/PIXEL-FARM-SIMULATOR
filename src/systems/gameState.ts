@@ -1,12 +1,18 @@
 import {
   ANIMALS,
+  AUTOMATION,
   BUILDINGS,
+  COLLECTION_SETS,
   CROPS,
   CURRENT_SAVE_VERSION,
   DAYS_PER_SEASON,
+  FESTIVAL_CONTESTS,
+  FESTIVALS,
+  FISH,
   ITEMS,
   MAIN_QUESTS,
   MINUTES_PER_REAL_SECOND,
+  NPCS,
   PLOTS,
   QUALITY_MULTIPLIER,
   RECIPES,
@@ -26,6 +32,9 @@ import type {
   ActionResult,
   AnimalSave,
   BuildingSave,
+  FestivalTier,
+  MineNodeSave,
+  NpcSave,
   Quality,
   QuestDef,
   SaveData,
@@ -43,16 +52,44 @@ import {
   dailyProgress,
   isQuestComplete
 } from './quests';
+import {
+  festivalBestSelection,
+  festivalContest,
+  festivalTierFor,
+  generateSeasonal,
+  readSeasonalContract,
+  seasonalBoardMatches
+} from './festivals';
 import { marketMultiplier } from './market';
 import {
   inBounds,
+  isMineNodeTile,
   isObstacleTile,
   isPathTile,
   isUnlockedTile,
   isWaterTile,
+  mineNodeAt,
   plotIndexAt,
   tileToWorld
 } from './world';
+import { absoluteDay, dayOfWeek } from './calendar';
+import { collectionSetState, collectionTotal, recordCollection } from './collections';
+import { eligibleFish, selectFish } from './fishing';
+import { MINE_NODE_MAX_HP, mineNodeById, miningLoot, nodeHp } from './mining';
+import {
+  birthdayLabel,
+  ensureNpcSave,
+  friendshipHearts,
+  giftPoints,
+  giftReaction,
+  heartEventLine,
+  isNpcBirthday,
+  npcAvailable,
+  npcById,
+  npcLine,
+  npcStatus,
+  npcWeeklyRequest
+} from './npcs';
 import { clamp, pick, randomInt, tileKey, uid } from './util';
 
 export const BASE_CAPACITY = 24;
@@ -71,7 +108,11 @@ const EMPTY_STATS: Stats = {
   goldHarvests: 0,
   daysPlayed: 0,
   carrotsHarvested: 0,
-  eggsCollected: 0
+  eggsCollected: 0,
+  fishCaught: 0,
+  fishingCasts: 0,
+  rocksMined: 0,
+  oresMined: 0
 };
 
 type Handler = (payload?: unknown) => void;
@@ -120,12 +161,20 @@ export function createNewSave(): SaveData {
     inventory,
     unlockedPlots: 1,
     farmhouseLevel: 1,
-    xp: { farming: 0, animal: 0, crafting: 0, business: 0 },
+    xp: { farming: 0, animal: 0, crafting: 0, business: 0, fishing: 0, mining: 0 },
     upgrades: { hoe: 0, can: 0, boots: 0, backpack: 0 },
     stats: { ...EMPTY_STATS },
     claimedQuests: [],
     achievements: [],
     daily: null,
+    seasonal: null,
+    collection: { entries: [], claimedRewards: [] },
+    automation: { purchased: [], disabled: [] },
+    festival: null,
+    ribbons: [],
+    mineNodes: {},
+    npcs: {},
+    spouseId: null,
     tutorialStep: 0,
     tutorialDone: false,
     selectedItemId: 'hoe'
@@ -148,6 +197,39 @@ export class GameState {
     this.lastLevel = this.level;
     if (!this.data.daily) {
       this.data.daily = generateDaily(this.data.day, this.data.stats, this.rng);
+    }
+    this.ensureSeasonalBoard();
+    this.ensureFestivalDay();
+    this.ensureNpcs();
+    this.syncCollectionFromInventory();
+  }
+
+  private ensureNpcs(): void {
+    for (const id of Object.keys(NPCS)) {
+      if (!this.data.npcs[id]) {
+        this.data.npcs[id] = {
+          id,
+          friendship: 0,
+          talkedDay: 0,
+          giftedDay: 0,
+          met: false,
+          requestWeek: 0
+        };
+      }
+    }
+  }
+
+  private syncCollectionFromInventory(): void {
+    for (const stack of this.data.inventory) {
+      if (!stack) continue;
+      recordCollection(this.data, stack.itemId, stack.quality);
+    }
+  }
+
+  private ensureSeasonalBoard(): void {
+    const d = this.data;
+    if (!seasonalBoardMatches(d.seasonal, d.season, d.year)) {
+      d.seasonal = generateSeasonal(d.season, d.year, d.stats);
     }
   }
 
@@ -175,6 +257,18 @@ export class GameState {
 
   hasWorkshop(): boolean {
     return this.data.buildings.some((b) => b.id === 'workshop');
+  }
+
+  hasHelperHut(): boolean {
+    return this.data.buildings.some((b) => b.id === 'helper_hut');
+  }
+
+  get today(): number {
+    return absoluteDay(this.data.season, this.data.year, this.data.day);
+  }
+
+  get spouseName(): string | null {
+    return this.data.spouseId ? NPCS[this.data.spouseId]?.name ?? null : null;
   }
 
   capacity(): number {
@@ -244,6 +338,7 @@ export class GameState {
         left -= add;
       }
     }
+    if (left === 0) recordCollection(this.data, itemId, quality);
     this.emitChange();
     return left === 0;
   }
@@ -275,6 +370,8 @@ export class GameState {
   hotbarItems(): string[] {
     const ids: string[] = ['hoe', 'watering_can'];
     if (this.hasItem('fertilizer')) ids.push('fertilizer');
+    if (this.hasItem('fishing_rod')) ids.push('fishing_rod');
+    if (this.hasItem('pickaxe')) ids.push('pickaxe');
     for (const seedId of SEED_IDS) {
       if (this.hasItem(seedId) && !ids.includes(seedId)) ids.push(seedId);
     }
@@ -483,6 +580,7 @@ export class GameState {
     const def = ITEMS[itemId];
     if (!def) return { ok: false, message: 'Unknown item.' };
     if (qty <= 0 || !Number.isFinite(qty)) return { ok: false, message: 'Invalid quantity.' };
+    if (def.stack <= 1) qty = 1;
     const total = def.price * qty;
     if (def.price <= 0) return { ok: false, message: 'That item is not for sale.' };
     if (this.data.coins < total) return { ok: false, message: 'Not enough coins.' };
@@ -628,7 +726,7 @@ export class GameState {
     }
     for (let ty = y; ty < y + def.h; ty++) {
       for (let tx = x; tx < x + def.w; tx++) {
-        if (isWaterTile(tx, ty) || isObstacleTile(tx, ty)) {
+        if (isWaterTile(tx, ty) || isObstacleTile(tx, ty) || isMineNodeTile(tx, ty)) {
           return { ok: false, message: 'Clear ground is required.' };
         }
         const idx = plotIndexAt(tx, ty);
@@ -895,6 +993,424 @@ export class GameState {
     return { ok: true, message: `A baby ${def.name.toLowerCase()} was born!` };
   }
 
+
+  // ------------------------------------------------------------- collection
+
+  collectionState() {
+    const sets = COLLECTION_SETS.map((set) => collectionSetState(this.data, set));
+    return { sets, total: collectionTotal(this.data), ribbons: this.data.ribbons.slice() };
+  }
+
+  claimCollectionMilestone(setId: string, milestoneId: string): ActionResult {
+    const set = COLLECTION_SETS.find((entry) => entry.id === setId);
+    if (!set) return { ok: false, message: 'Unknown collection.' };
+    const state = collectionSetState(this.data, set);
+    const milestone = state.milestones.find((entry) => entry.def.id === milestoneId);
+    if (!milestone) return { ok: false, message: 'Unknown collection reward.' };
+    if (milestone.claimed) return { ok: false, message: 'That reward is already claimed.' };
+    if (state.found < milestone.def.count) {
+      return { ok: false, message: `Collect ${milestone.def.count - state.found} more entries first.` };
+    }
+    this.data.collection.claimedRewards.push(milestoneId);
+    this.data.coins += milestone.def.coins;
+    this.data.stats.coinsEarned += milestone.def.coins;
+    this.grantXp(milestone.def.xp);
+    this.emitChange();
+    return {
+      ok: true,
+      message: `Collection reward claimed: +${milestone.def.coins} coins and ${milestone.def.xp} XP.`
+    };
+  }
+
+  // -------------------------------------------------------------- automation
+
+  automationState(id: string) {
+    const def = AUTOMATION.find((entry) => entry.id === id);
+    if (!def) return null;
+    const purchased = this.data.automation.purchased.includes(id);
+    const enabled = purchased && !this.data.automation.disabled.includes(id);
+    return { def, purchased, enabled };
+  }
+
+  buyAutomation(id: string): ActionResult {
+    const def = AUTOMATION.find((entry) => entry.id === id);
+    if (!def) return { ok: false, message: 'Unknown helper.' };
+    if (!this.hasHelperHut()) return { ok: false, message: "Build the Helper's Cottage first." };
+    if (this.data.automation.purchased.includes(id)) return { ok: false, message: 'That helper is already hired.' };
+    if (this.level < def.unlockLevel) return { ok: false, message: `Unlocks at farmer level ${def.unlockLevel}.` };
+    if (this.data.coins < def.cost) return { ok: false, message: 'Not enough coins.' };
+    this.data.coins -= def.cost;
+    this.data.automation.purchased.push(id);
+    this.data.automation.disabled = this.data.automation.disabled.filter((entry) => entry !== id);
+    this.addXp('business', 15, false);
+    this.emitChange();
+    return { ok: true, message: `${def.name} hired. It runs overnight while enabled.` };
+  }
+
+  toggleAutomation(id: string): ActionResult {
+    const def = AUTOMATION.find((entry) => entry.id === id);
+    if (!def) return { ok: false, message: 'Unknown helper.' };
+    if (!this.data.automation.purchased.includes(id)) return { ok: false, message: 'Hire that helper first.' };
+    const disabled = this.data.automation.disabled.includes(id);
+    if (disabled) {
+      this.data.automation.disabled = this.data.automation.disabled.filter((entry) => entry !== id);
+    } else {
+      this.data.automation.disabled.push(id);
+    }
+    this.emitChange();
+    return { ok: true, message: `${def.name} ${disabled ? 'enabled' : 'paused'}.` };
+  }
+
+  private runAutomation(messages: string[]): void {
+    if (!this.hasHelperHut()) return;
+    const enabled = (id: string): boolean =>
+      this.data.automation.purchased.includes(id) && !this.data.automation.disabled.includes(id);
+
+    if (enabled('auto_collect')) {
+      let collected = 0;
+      for (const animal of this.data.animals) {
+        const def = ANIMALS[animal.species];
+        if (!def || !animal.productReady) continue;
+        if (this.freeSpaceFor(def.productId) < 1) break;
+        this.addItem(def.productId, 1);
+        animal.productReady = false;
+        this.data.stats.productsCollected += 1;
+        if (def.productId === 'egg' || def.productId === 'duck_egg') this.data.stats.eggsCollected += 1;
+        collected += 1;
+      }
+      if (collected > 0) messages.push(`Helper collected ${collected} animal product${collected === 1 ? '' : 's'}.`);
+    }
+
+    if (enabled('auto_harvest')) {
+      let harvested = 0;
+      for (const [key, tile] of Object.entries(this.data.tiles)) {
+        if (!tile.crop) continue;
+        const def = CROPS[tile.crop.id];
+        if (!def || tile.crop.growth < def.growthDays) continue;
+        const qty = randomInt(def.yieldMin, def.yieldMax, this.rng);
+        if (this.freeSpaceFor(def.harvestId, 'normal') < qty) break;
+        this.addItem(def.harvestId, qty, 'normal');
+        this.data.stats.harvests += 1;
+        if (def.id === 'carrots') this.data.stats.carrotsHarvested += qty;
+        if (def.regrowDays > 0) {
+          tile.crop.growth = Math.max(0, def.growthDays - def.regrowDays);
+          tile.crop.regrows += 1;
+          tile.crop.dryDays = 0;
+          tile.watered = false;
+        } else {
+          tile.crop = undefined;
+          tile.watered = false;
+          tile.fertilized = false;
+          if (!tile.tilled) delete this.data.tiles[key];
+        }
+        harvested += 1;
+      }
+      if (harvested > 0) messages.push(`Helper harvested ${harvested} crop${harvested === 1 ? '' : 's'}.`);
+    }
+
+    if (enabled('auto_replant')) {
+      let planted = 0;
+      for (const tile of Object.values(this.data.tiles)) {
+        if (!tile.tilled || tile.crop) continue;
+        const seed = SEED_IDS.find((seedId) => {
+          const crop = cropForSeed(seedId);
+          return !!crop && this.hasItem(seedId) && this.canPlantCrop(crop.id);
+        });
+        if (!seed) break;
+        const crop = cropForSeed(seed);
+        if (!crop) continue;
+        this.removeItem(seed, 1);
+        tile.crop = { id: crop.id, growth: 0, dryDays: 0, regrows: 0 };
+        this.data.stats.planted += 1;
+        planted += 1;
+      }
+      if (planted > 0) messages.push(`Helper replanted ${planted} tile${planted === 1 ? '' : 's'}.`);
+    }
+
+    if (enabled('auto_feed')) {
+      const hungry = this.data.animals.filter((animal) => !animal.fed);
+      const count = Math.min(hungry.length, this.countItem('feed'));
+      if (count > 0) {
+        this.removeItem('feed', count);
+        for (let i = 0; i < count; i++) hungry[i].fed = true;
+        messages.push(`Helper fed ${count} animal${count === 1 ? '' : 's'}.`);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- festival
+
+  ensureFestivalDay(): void {
+    const d = this.data;
+    if (d.day !== DAYS_PER_SEASON) {
+      if (d.festival && d.festival.season !== d.season) d.festival = null;
+      return;
+    }
+    if (!d.festival || d.festival.season !== d.season || d.festival.year !== d.year) {
+      d.festival = {
+        season: d.season,
+        year: d.year,
+        submitted: false,
+        score: 0,
+        tier: 'none',
+        claimed: false
+      };
+    }
+  }
+
+  festivalAvailable(): boolean {
+    return this.data.day === DAYS_PER_SEASON && !!this.data.festival;
+  }
+
+  festivalState() {
+    if (!this.festivalAvailable() || !this.data.festival) return null;
+    const contest = festivalContest(this.data.season);
+    const selection = festivalBestSelection(this.data);
+    return {
+      contest,
+      festival: this.data.festival,
+      selection,
+      tier: this.data.festival.tier,
+      score: this.data.festival.score
+    };
+  }
+
+  submitFestival(): ActionResult {
+    if (!this.festivalAvailable() || !this.data.festival) {
+      return { ok: false, message: 'The judging stand is only open on the last day of the season.' };
+    }
+    const festival = this.data.festival;
+    if (festival.submitted) return { ok: false, message: 'You have already submitted this year.' };
+    const selection = festivalBestSelection(this.data);
+    const contest = festivalContest(this.data.season);
+    if (selection.totalItems < contest.count) {
+      return {
+        ok: false,
+        message: `The judges need ${contest.count} eligible ${contest.itemType} items.`
+      };
+    }
+    for (const candidate of selection.candidates) {
+      const stack = this.data.inventory[candidate.index];
+      if (!stack || stack.itemId !== candidate.itemId) continue;
+      stack.qty -= candidate.take;
+      if (stack.qty <= 0) this.data.inventory[candidate.index] = null;
+    }
+    const tier = festivalTierFor(selection.score, contest);
+    festival.submitted = true;
+    festival.score = selection.score;
+    festival.tier = tier;
+    festival.claimed = false;
+    this.emitChange();
+    return {
+      ok: true,
+      message: `${contest.name}: score ${selection.score}. ${tier === 'none' ? 'No ribbon this year.' : `${tier.toUpperCase()} ribbon!`}`
+    };
+  }
+
+  claimFestivalReward(): ActionResult {
+    const festival = this.data.festival;
+    if (!festival || !festival.submitted) return { ok: false, message: 'Submit an entry first.' };
+    if (festival.claimed) return { ok: false, message: 'Festival reward already claimed.' };
+    if (festival.tier === 'none') return { ok: false, message: 'No ribbon, no prize. Try again next year.' };
+    const contest = festivalContest(festival.season);
+    festival.claimed = true;
+    this.data.coins += contest.coins;
+    this.data.stats.coinsEarned += contest.coins;
+    this.grantXp(contest.xp);
+    const ribbon = `${contest.ribbon}_${festival.tier}`;
+    if (!this.data.ribbons.includes(ribbon)) this.data.ribbons.push(ribbon);
+    this.emitChange();
+    return {
+      ok: true,
+      message: `Festival prize: +${contest.coins} coins, ${contest.xp} XP, and a ${festival.tier} ribbon.`
+    };
+  }
+
+  // ----------------------------------------------------------------- fishing
+
+  currentFishPool() {
+    return eligibleFish(this.data);
+  }
+
+  registerFishingCast(): { ok: boolean; message?: string; baitUsed: boolean } {
+    if (!this.hasItem('fishing_rod')) return { ok: false, message: 'You need a fishing rod.', baitUsed: false };
+    const baitUsed = this.hasItem('bait');
+    if (baitUsed) this.removeItem('bait', 1);
+    this.data.stats.fishingCasts += 1;
+    this.emitChange();
+    return { ok: true, baitUsed };
+  }
+
+  catchFish(): ActionResult & { fishId?: string; name?: string } {
+    if (!this.hasItem('fishing_rod')) return { ok: false, message: 'You need a fishing rod.' };
+    const fish = selectFish(this.data, this.rng);
+    const item = ITEMS[fish.itemId];
+    if (!item) return { ok: false, message: 'Unknown fish.' };
+    if (this.freeSpaceFor(fish.itemId) < 1) return { ok: false, message: 'Your inventory is full.' };
+    this.addItem(fish.itemId, 1, 'normal');
+    this.data.stats.fishCaught += 1;
+    this.addXp('fishing', 10, false);
+    this.emitChange();
+    return { ok: true, fishId: fish.id, name: fish.name, message: `You caught a ${fish.name}!` };
+  }
+
+  // ------------------------------------------------------------------ mining
+
+  mineNodeState(nodeId: string) {
+    const node = mineNodeById(nodeId);
+    if (!node) return null;
+    return {
+      node,
+      hp: nodeHp(this.data, node),
+      maxHp: MINE_NODE_MAX_HP
+    };
+  }
+
+  mineNodeAtTile(x: number, y: number) {
+    return mineNodeAt(x, y);
+  }
+
+  mineNode(nodeId: string): ActionResult & { broke?: boolean; loot?: Array<{ itemId: string; qty: number }> } {
+    const node = mineNodeById(nodeId);
+    if (!node) return { ok: false, message: 'That rock is gone.' };
+    if (!this.hasItem('pickaxe')) return { ok: false, message: 'You need a pickaxe.' };
+    if (!this.isWithinInteraction(node.x, node.y)) return { ok: false, message: 'Move closer to the rock.' };
+    const hp = nodeHp(this.data, node);
+    if (hp <= 0) return { ok: false, message: 'This rock needs time to reform.' };
+    const nextHp = hp - 1;
+    const finalHit = nextHp <= 0;
+    const loot = miningLoot(node.kind, finalHit, this.rng);
+    for (const entry of loot) {
+      const def = ITEMS[entry.itemId];
+      if (def && this.freeSpaceFor(entry.itemId) < entry.qty) {
+        return { ok: false, message: 'Your inventory is full.' };
+      }
+    }
+    for (const entry of loot) this.addItem(entry.itemId, entry.qty);
+    const state: MineNodeSave = {
+      hp: nextHp,
+      respawnDay: finalHit ? this.today + 2 : 0
+    };
+    this.data.mineNodes[node.id] = state;
+    this.data.stats.rocksMined += finalHit ? 1 : 0;
+    this.data.stats.oresMined += loot.filter((entry) => ITEMS[entry.itemId]?.type === 'ore').reduce((sum, entry) => sum + entry.qty, 0);
+    this.addXp('mining', finalHit ? 5 : 1, false);
+    this.emitChange();
+    return {
+      ok: true,
+      broke: finalHit,
+      loot,
+      message: finalHit ? `You broke the ${node.kind === 'stone' ? 'rock' : `${node.kind} vein`}!` : 'The rock cracks.'
+    };
+  }
+
+  // -------------------------------------------------------------------- npcs
+
+  npcList() {
+    return Object.values(NPCS).map((npc) => {
+      const record = this.data.npcs[npc.id] ?? ensureNpcSave(this.data, npc.id);
+      const availability = npcAvailable(npc, this.data);
+      const request = npcWeeklyRequest(npc, this.data);
+      return {
+        npc,
+        record,
+        hearts: friendshipHearts(record.friendship),
+        status: npcStatus(this.data, npc),
+        birthday: birthdayLabel(npc),
+        birthdayToday: isNpcBirthday(npc, this.data),
+        available: availability.available,
+        reason: availability.reason,
+        request,
+        requestReady: this.countItem(request.itemId) >= request.qty
+      };
+    });
+  }
+
+  npcTalk(id: string): ActionResult {
+    const npc = npcById(id);
+    if (!npc) return { ok: false, message: 'Unknown visitor.' };
+    const availability = npcAvailable(npc, this.data);
+    if (!availability.available) return { ok: false, message: `${npc.name} is not here. ${availability.reason}` };
+    const record = ensureNpcSave(this.data, id);
+    if (record.talkedDay === this.today) return { ok: false, message: `You already talked with ${npc.name} today.` };
+    const before = record.friendship;
+    record.talkedDay = this.today;
+    record.met = true;
+    record.friendship = clamp(record.friendship + (isNpcBirthday(npc, this.data) ? 16 : 8), 0, 1000);
+    const event = heartEventLine(npc, before, record.friendship);
+    this.emitChange();
+    return {
+      ok: true,
+      message: event ?? `${npc.name}: ${npcLine(npc, this.data)}`
+    };
+  }
+
+  giftNpc(id: string, itemId: string): ActionResult {
+    const npc = npcById(id);
+    if (!npc) return { ok: false, message: 'Unknown visitor.' };
+    const availability = npcAvailable(npc, this.data);
+    if (!availability.available) return { ok: false, message: `${npc.name} is not here. ${availability.reason}` };
+    const record = ensureNpcSave(this.data, id);
+    if (record.giftedDay === this.today) return { ok: false, message: `You already gave ${npc.name} a gift today.` };
+    if (!this.hasItem(itemId)) return { ok: false, message: 'You do not have that item.' };
+    const item = ITEMS[itemId];
+    if (!item || item.type === 'tool') return { ok: false, message: 'That is not a gift.' };
+    const reaction = giftReaction(npc, itemId);
+    const birthday = isNpcBirthday(npc, this.data);
+    const before = record.friendship;
+    this.removeItem(itemId, 1);
+    record.giftedDay = this.today;
+    record.met = true;
+    record.friendship = clamp(record.friendship + giftPoints(reaction, birthday), 0, 1000);
+    const event = heartEventLine(npc, before, record.friendship);
+    this.emitChange();
+    const reactionText =
+      reaction === 'love' ? 'loved it!' : reaction === 'like' ? 'liked it.' : reaction === 'hate' ? 'did not like it.' : 'accepted it politely.';
+    return {
+      ok: true,
+      message: event ?? `${npc.name} ${reactionText}${birthday ? ' A birthday gift!' : ''}`
+    };
+  }
+
+  completeNpcRequest(id: string): ActionResult {
+    const npc = npcById(id);
+    if (!npc) return { ok: false, message: 'Unknown visitor.' };
+    const availability = npcAvailable(npc, this.data);
+    if (!availability.available) return { ok: false, message: `${npc.name} is not here. ${availability.reason}` };
+    const record = ensureNpcSave(this.data, id);
+    const request = npcWeeklyRequest(npc, this.data);
+    if (request.completed) return { ok: false, message: `${npc.name}'s request is already complete this week.` };
+    if (!this.hasItem(request.itemId, request.qty)) {
+      return { ok: false, message: `Need ${request.qty} x ${request.itemName}.` };
+    }
+    this.removeItem(request.itemId, request.qty);
+    record.requestWeek = request.week;
+    record.met = true;
+    record.friendship = clamp(record.friendship + 25, 0, 1000);
+    this.data.coins += request.coins;
+    this.data.stats.coinsEarned += request.coins;
+    this.addXp('business', request.xp, false);
+    this.emitChange();
+    this.checkProgress();
+    return {
+      ok: true,
+      message: `${npc.name}'s weekly request complete: +${request.coins} coins and +${request.xp} XP.`
+    };
+  }
+
+  marryNpc(id: string): ActionResult {
+    const npc = npcById(id);
+    if (!npc) return { ok: false, message: 'Unknown visitor.' };
+    if (!npc.romanceable) return { ok: false, message: `${npc.name} is not looking for romance.` };
+    if (this.data.spouseId) return { ok: false, message: 'You are already married.' };
+    const record = ensureNpcSave(this.data, id);
+    if (record.friendship < 1000) return { ok: false, message: `${npc.name} needs 10 hearts first.` };
+    this.data.spouseId = id;
+    record.met = true;
+    this.emitChange();
+    return { ok: true, message: `You and ${npc.name} are married!` };
+  }
+
   // ------------------------------------------------------------------- time
 
   tickClock(realMs: number): boolean {
@@ -1047,6 +1563,7 @@ export class GameState {
     }
 
     // 3) Advance the calendar and roll the new day's weather.
+    const previousSeason = d.season;
     d.minute = START_MINUTE;
     d.day += 1;
     if (d.day > DAYS_PER_SEASON) {
@@ -1056,8 +1573,15 @@ export class GameState {
       if (idx === 3) d.year += 1;
       messages.push(`${SEASON_INFO[d.season].name} has arrived.`);
     }
+    const seasonChanged = d.season !== previousSeason;
     d.weather = this.weatherForSeason(d.season);
     d.stats.daysPlayed += 1;
+    this.ensureSeasonalBoard();
+    if (seasonChanged) {
+      d.festival = null;
+      messages.push(`${FESTIVALS[d.season].name} is now open on the festival board.`);
+    }
+    this.ensureFestivalDay();
 
     // 4) Rain waters everything that is tilled.
     if (d.weather === 'rain' || d.weather === 'storm') {
@@ -1094,7 +1618,22 @@ export class GameState {
       }
     }
 
-    // 7) Fresh daily quests, achievement check.
+    // 7) Helper automation runs after the morning chores are ready.
+    this.runAutomation(messages);
+
+    if (d.spouseId) {
+      const spouse = NPCS[d.spouseId];
+      if (spouse) {
+        d.coins += 30;
+        d.stats.coinsEarned += 30;
+        messages.push(`${spouse.name} left 30 coins and a warm breakfast by the door.`);
+      }
+    }
+
+    // 8) Fresh daily quests, achievement check, festival reminder.
+    if (d.day === DAYS_PER_SEASON) {
+      messages.push(`${FESTIVALS[d.season].name} judging is open today!`);
+    }
     d.daily = generateDaily(d.day, d.stats, this.rng);
     this.checkProgress();
 
@@ -1134,8 +1673,8 @@ export class GameState {
   }
 
   grantXp(total: number): void {
-    const each = Math.max(1, Math.round(total / 4));
-    (['farming', 'animal', 'crafting', 'business'] as SkillKey[]).forEach((skill) => {
+    const each = Math.max(1, Math.round(total / 6));
+    (['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as SkillKey[]).forEach((skill) => {
       this.addXp(skill, each, false);
     });
     this.checkAchievements();
@@ -1166,8 +1705,8 @@ export class GameState {
 
   private grantXpNoCheck(total: number): void {
     if (total <= 0) return;
-    const each = Math.max(1, Math.round(total / 4));
-    (['farming', 'animal', 'crafting', 'business'] as SkillKey[]).forEach((skill) => {
+    const each = Math.max(1, Math.round(total / 6));
+    (['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as SkillKey[]).forEach((skill) => {
       this.addXp(skill, each, false);
     });
   }
@@ -1223,6 +1762,92 @@ export class GameState {
     this.emitChange();
     this.emit('dailyClaimed', { id, coins: entry.coins });
     return { ok: true, message: `Daily complete! +${entry.coins} coins.` };
+  }
+
+  seasonalContractState(
+    entryId: string
+  ): { progress: number; complete: boolean; claimed: boolean; target: number } | null {
+    const board = this.data.seasonal;
+    if (!board) return null;
+    const entry = board.list.find((e) => e.id === entryId);
+    if (!entry) return null;
+    const contract = readSeasonalContract(board.season, entryId);
+    if (!contract) return null;
+    const progress = dailyProgress(this.data, contract.metric, board.startStats);
+    return {
+      progress,
+      target: entry.target,
+      claimed: entry.claimed,
+      complete: progress >= entry.target
+    };
+  }
+
+  seasonalBoardState(): {
+    season: Season;
+    year: number;
+    name: string;
+    desc: string;
+    daysLeft: number;
+    claimedCount: number;
+    total: number;
+    bonusCoins: number;
+    bonusXp: number;
+    bonusClaimed: boolean;
+    bonusReady: boolean;
+  } | null {
+    const board = this.data.seasonal;
+    if (!board) return null;
+    const festival = FESTIVALS[board.season];
+    const claimedCount = board.list.filter((entry) => entry.claimed).length;
+    return {
+      season: board.season,
+      year: board.year,
+      name: festival.name,
+      desc: festival.desc,
+      daysLeft: Math.max(0, DAYS_PER_SEASON - this.data.day + 1),
+      claimedCount,
+      total: board.list.length,
+      bonusCoins: board.bonusCoins,
+      bonusXp: board.bonusXp,
+      bonusClaimed: board.bonusClaimed,
+      bonusReady:
+        board.list.length > 0 &&
+        claimedCount === board.list.length &&
+        !board.bonusClaimed
+    };
+  }
+
+  claimSeasonalContract(id: string): ActionResult {
+    const board = this.data.seasonal;
+    if (!board) return { ok: false, message: 'No seasonal contracts available.' };
+    const entry = board.list.find((e) => e.id === id);
+    if (!entry) return { ok: false, message: 'Unknown seasonal contract.' };
+    if (entry.claimed) return { ok: false, message: 'Contract reward already claimed.' };
+    const state = this.seasonalContractState(id);
+    if (!state?.complete) return { ok: false, message: 'Contract is not complete yet.' };
+    entry.claimed = true;
+    this.data.coins += entry.coins;
+    this.data.stats.coinsEarned += entry.coins;
+    this.grantXp(entry.xp);
+    this.emitChange();
+    this.emit('seasonalClaimed', { id, coins: entry.coins });
+    return { ok: true, message: `Contract complete! +${entry.coins} coins.` };
+  }
+
+  claimSeasonalBonus(): ActionResult {
+    const board = this.data.seasonal;
+    if (!board) return { ok: false, message: 'No festival board available.' };
+    if (board.bonusClaimed) return { ok: false, message: 'Festival bonus already claimed.' };
+    if (board.list.length === 0 || !board.list.every((entry) => entry.claimed)) {
+      return { ok: false, message: 'Claim all three contracts first.' };
+    }
+    board.bonusClaimed = true;
+    this.data.coins += board.bonusCoins;
+    this.data.stats.coinsEarned += board.bonusCoins;
+    this.grantXp(board.bonusXp);
+    this.emitChange();
+    this.emit('seasonalBonusClaimed', { coins: board.bonusCoins });
+    return { ok: true, message: `Festival complete! +${board.bonusCoins} coins.` };
   }
 
   // --------------------------------------------------------------- tutorial

@@ -1,6 +1,22 @@
 import { FARMHOUSE, PLOTS, TILE, WORLD_H, WORLD_W, SEASON_INFO } from '../data/definitions';
-import type { SaveData, Season } from '../types';
+import type { MineNodeDef, SaveData, Season } from '../types';
 import { mulberry32, tileKey } from './util';
+
+export const MINE_NODES: MineNodeDef[] = [
+  { id: 'q1', x: 37, y: 27, kind: 'stone' },
+  { id: 'q2', x: 38, y: 27, kind: 'copper' },
+  { id: 'q3', x: 39, y: 27, kind: 'stone' },
+  { id: 'q4', x: 40, y: 27, kind: 'iron' },
+  { id: 'q5', x: 41, y: 27, kind: 'stone' },
+  { id: 'q6', x: 37, y: 29, kind: 'copper' },
+  { id: 'q7', x: 38, y: 29, kind: 'stone' },
+  { id: 'q8', x: 39, y: 29, kind: 'gold' },
+  { id: 'q9', x: 40, y: 29, kind: 'stone' },
+  { id: 'q10', x: 41, y: 29, kind: 'gem' },
+  { id: 'q11', x: 37, y: 31, kind: 'iron' },
+  { id: 'q12', x: 39, y: 31, kind: 'stone' },
+  { id: 'q13', x: 41, y: 31, kind: 'gold' }
+];
 
 export interface Rect {
   x: number;
@@ -89,6 +105,11 @@ const flowerSet = new Map<string, number>();
       obstacleSet.add(tileKey(x, y));
     }
   }
+
+  // Clear a small quarry clearing in the south-east corner.
+  for (let y = 26; y <= 31; y++) {
+    for (let x = 36; x <= 41; x++) obstacleSet.delete(tileKey(x, y));
+  }
 })();
 
 export const OBSTACLES = obstacleSet;
@@ -109,6 +130,14 @@ export function isWaterTile(x: number, y: number): boolean {
 
 export function isObstacleTile(x: number, y: number): boolean {
   return OBSTACLES.has(tileKey(x, y));
+}
+
+export function isMineNodeTile(x: number, y: number): boolean {
+  return MINE_NODES.some((node) => node.x === x && node.y === y);
+}
+
+export function mineNodeAt(x: number, y: number): MineNodeDef | undefined {
+  return MINE_NODES.find((node) => node.x === x && node.y === y);
 }
 
 export function isBlockedBase(x: number, y: number): boolean {

@@ -1,5 +1,6 @@
 import { ACHIEVEMENTS, DAILY_TEMPLATES, MAIN_QUESTS } from '../../data/definitions';
 import { audio } from '../../systems/audio';
+import { readSeasonalContract } from '../../systems/festivals';
 import { metricValue } from '../../systems/quests';
 import type { UIContext } from '../context';
 import {
@@ -23,13 +24,150 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
       panelHeader('Quest Journal', 'Complete objectives to earn coins and experience.')
     );
     content.appendChild(
-      tabs(['Daily', 'Main Quests', 'Achievements'], tab, (i) => {
+      tabs(['Seasonal', 'Daily', 'Main Quests', 'Achievements'], tab, (i) => {
         tab = i;
         render();
       })
     );
 
     if (tab === 0) {
+      const seasonal = state.data.seasonal;
+      const board = state.seasonalBoardState();
+      if (!seasonal || !board) {
+        content.appendChild(emptyState('No seasonal contracts available. Sleep to refresh the board.'));
+      } else {
+        const festivalHead = el('div', 'festival-head');
+        const festivalInfo = el('div', 'list-info grow');
+        festivalInfo.appendChild(el('strong', undefined, `${board.name} · Year ${board.year}`));
+        festivalInfo.appendChild(el('span', 'hint', board.desc));
+        festivalHead.appendChild(festivalInfo);
+        const countdown = el('div', 'row-actions');
+        countdown.appendChild(pill(`${board.daysLeft} days left`, 'gold'));
+        countdown.appendChild(pill(`${board.claimedCount}/${board.total} claimed`, 'good'));
+        festivalHead.appendChild(countdown);
+        content.appendChild(festivalHead);
+
+        for (const entry of seasonal.list) {
+          const contract = readSeasonalContract(seasonal.season, entry.id);
+          const info = state.seasonalContractState(entry.id);
+          if (!contract || !info) continue;
+          const row = el(
+            'div',
+            `quest-row${info.claimed ? ' claimed' : info.complete ? ' complete' : ''}`
+          );
+          const text = el('div', 'list-info grow');
+          text.appendChild(el('strong', undefined, contract.title));
+          text.appendChild(el('span', 'hint', contract.desc));
+          text.appendChild(
+            progressBar(
+              info.progress,
+              info.target,
+              `${Math.min(info.progress, info.target)}/${info.target}`
+            )
+          );
+          row.appendChild(text);
+          const actions = el('div', 'row-actions');
+          actions.appendChild(pill(`+${entry.coins}g`, 'gold'));
+          if (info.claimed) {
+            actions.appendChild(pill('Claimed', 'good'));
+          } else {
+            actions.appendChild(
+              button('Claim', {
+                small: true,
+                variant: 'primary',
+                disabled: !info.complete,
+                onClick: () => {
+                  const result = state.claimSeasonalContract(entry.id);
+                  ctx.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+                  audio.play(result.ok ? 'coin' : 'error');
+                  if (result.ok) ctx.requestSave();
+                  render();
+                }
+              })
+            );
+          }
+          row.appendChild(actions);
+          content.appendChild(row);
+        }
+
+        const bonus = el(
+          'div',
+          `quest-row festival-bonus${board.bonusClaimed ? ' claimed' : board.bonusReady ? ' complete' : ''}`
+        );
+        const bonusText = el('div', 'list-info grow');
+        bonusText.appendChild(el('strong', undefined, 'Festival Bonus'));
+        bonusText.appendChild(
+          el(
+            'span',
+            'hint',
+            `Complete all three contracts for +${board.bonusCoins}g and +${board.bonusXp} XP.`
+          )
+        );
+        bonusText.appendChild(
+          progressBar(
+            board.claimedCount,
+            board.total,
+            `${board.claimedCount}/${board.total} contracts claimed`
+          )
+        );
+        bonus.appendChild(bonusText);
+        const bonusActions = el('div', 'row-actions');
+        bonusActions.appendChild(pill(`+${board.bonusCoins}g`, 'gold'));
+        if (board.bonusClaimed) {
+          bonusActions.appendChild(pill('Festival complete', 'good'));
+        } else {
+          bonusActions.appendChild(
+            button('Claim bonus', {
+              small: true,
+              variant: 'primary',
+              disabled: !board.bonusReady,
+              onClick: () => {
+                const result = state.claimSeasonalBonus();
+                ctx.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+                audio.play(result.ok ? 'coin' : 'error');
+                if (result.ok) ctx.requestSave();
+                render();
+              }
+            })
+          );
+        }
+        bonus.appendChild(bonusActions);
+        content.appendChild(bonus);
+        if (state.festivalAvailable()) {
+          const contest = state.festivalState();
+          const festivalRow = el('div', 'quest-row festival-bonus complete');
+          const festivalText = el('div', 'list-info grow');
+          festivalText.appendChild(el('strong', undefined, contest?.contest.name ?? 'Festival Day'));
+          festivalText.appendChild(
+            el(
+              'span',
+              'hint',
+              contest?.festival.submitted
+                ? `Final score ${contest.festival.score} · ${contest.festival.tier} ribbon`
+                : 'The judging stand is open today only.'
+            )
+          );
+          festivalRow.appendChild(festivalText);
+          const festivalActions = el('div', 'row-actions');
+          festivalActions.appendChild(
+            button(contest?.festival.submitted ? 'View results' : 'Visit festival', {
+              small: true,
+              variant: 'gold',
+              onClick: () => ctx.openPanel('festival')
+            })
+          );
+          festivalRow.appendChild(festivalActions);
+          content.appendChild(festivalRow);
+        }
+        content.appendChild(
+          el(
+            'p',
+            'hint center',
+            'Seasonal contracts track progress from the start of the season and reset when the season changes.'
+          )
+        );
+      }
+    } else if (tab === 1) {
       const daily = state.data.daily;
       if (!daily) {
         content.appendChild(emptyState('No daily quests available. Sleep to start a new day.'));
@@ -71,7 +209,7 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
         }
         content.appendChild(el('p', 'hint center', `Daily quests refresh each morning (Day ${daily.day}).`));
       }
-    } else if (tab === 1) {
+    } else if (tab === 2) {
       for (const quest of MAIN_QUESTS) {
         const info = state.mainQuestState(quest);
         const row = el('div', 'quest-row');
