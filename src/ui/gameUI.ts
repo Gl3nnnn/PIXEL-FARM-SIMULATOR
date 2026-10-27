@@ -477,8 +477,6 @@ export class GameUI {
       slot.addEventListener('click', () => {
         this.state.selectItem(itemId);
         audio.play('click');
-        this.renderHotbar();
-        this.updateSelectedTool();
       });
       this.hotbar.appendChild(slot);
     });
@@ -678,6 +676,7 @@ export class GameUI {
         this.toast(`Achievement: ${p.quest.title} (+${p.quest.coins} coins)`, 'reward');
         audio.play('level');
       }),
+      this.state.emitter.on('selection', () => this.renderHotbar()),
       this.state.emitter.on('tutorial', () => this.updateTutorial()),
       this.state.emitter.on('tutorialDone', () => {
         this.tutorialCard.classList.add('hidden');
@@ -710,7 +709,6 @@ export class GameUI {
       const items = this.state.hotbarItems();
       if (items[index]) {
         this.state.selectItem(items[index]);
-        this.renderHotbar();
         audio.play('click');
       }
       return;

@@ -81,6 +81,13 @@ export function renderInventory(ctx: UIContext, root: HTMLElement): void {
       });
       slot.addEventListener('click', () => {
         selected = i;
+        if (stack) {
+          const def = ITEMS[stack.itemId];
+          if (def && ['hoe', 'watering_can', 'fertilizer', 'seed'].includes(def.type)) {
+            state.selectItem(stack.itemId);
+            ctx.toast(`${def.name} equipped.`, 'success');
+          }
+        }
         audio.play('click');
         render();
       });
@@ -110,9 +117,11 @@ export function renderInventory(ctx: UIContext, root: HTMLElement): void {
         const actions = el('div', 'panel-footer');
         const usable = ['hoe', 'watering_can', 'fertilizer', 'seed'].includes(def.type);
         if (usable) {
+          const equipped = state.selectedItem() === stack.itemId;
           actions.appendChild(
-            button('Equip in hotbar', {
-              variant: 'primary',
+            button(equipped ? 'Equipped in hotbar' : 'Equip in hotbar', {
+              variant: equipped ? 'secondary' : 'primary',
+              disabled: equipped,
               onClick: () => {
                 state.selectItem(stack.itemId);
                 ctx.toast(`${def.name} equipped.`, 'success');
