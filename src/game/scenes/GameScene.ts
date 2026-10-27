@@ -25,7 +25,7 @@ import {
   worldToTile
 } from '../../systems/world';
 import { GameUI } from '../../ui/gameUI';
-import type { DaySummary, Facing } from '../../types';
+import type { DaySummary, Facing, Season } from '../../types';
 
 interface AnimalView {
   sprite: Phaser.GameObjects.Image;
@@ -37,6 +37,7 @@ interface AnimalView {
 interface TileVisual {
   soil: Phaser.GameObjects.Image;
   crop?: Phaser.GameObjects.Image;
+  ready?: Phaser.GameObjects.Text;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -64,7 +65,9 @@ export class GameScene extends Phaser.Scene {
   private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
 
   private buildMode: string | null = null;
+  private pendingBuild: { x: number; y: number } | null = null;
   private sleeping = false;
+  private lastGroundSeason: Season | null = null;
   private lastLightUpdate = 0;
   private waterFrameTimer?: Phaser.Time.TimerEvent;
   private animalTimer?: Phaser.Time.TimerEvent;
@@ -83,6 +86,8 @@ export class GameScene extends Phaser.Scene {
     this.facing = this.state.data.player.facing ?? 'down';
     this.sleeping = false;
     this.buildMode = null;
+    this.pendingBuild = null;
+    this.lastGroundSeason = null;
   }
 
   create(): void {
@@ -95,6 +100,7 @@ export class GameScene extends Phaser.Scene {
     this.blockedBuildings.clear();
 
     this.buildGround();
+    this.lastGroundSeason = this.state.data.season;
     this.buildFarmVisuals();
     this.buildBuildings();
     this.buildLockedPlots();
@@ -113,7 +119,6 @@ export class GameScene extends Phaser.Scene {
     this.startTimers();
     this.updateLighting(0);
     this.applyWeather();
-    this.autoSleepCheck();
 
     const save = (): void => {
       void this.saveGame();
@@ -142,12 +147,13 @@ export class GameScene extends Phaser.Scene {
   private registerStateEvents(): void {
     this.unsubs.push(
       this.state.emitter.on('day', () => {
-        this.syncSeason();
+        if (this.lastGroundSeason !== this.state.data.season) {
+          this.buildGround();
+          this.lastGroundSeason = this.state.data.season;
+        }
         this.buildFarmVisuals();
-        this.buildLockedPlots();
         this.syncAnimals();
         this.applyWeather();
-        void this.saveGame();
       }),
       this.state.emitter.on('build', () => {
         this.buildBuildings();
@@ -290,14 +296,11 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private syncSeason(): void {
-    this.buildGround();
-  }
-
   private buildFarmVisuals(): void {
     this.tileVisuals.forEach((vis) => {
       vis.soil.destroy();
       vis.crop?.destroy();
+      vis.ready?.destroy();
     });
     this.tileVisuals.clear();
     for (const [key, tile] of Object.entries(this.state.data.tiles)) {
@@ -333,6 +336,7 @@ export class GameScene extends Phaser.Scene {
           .setScale(2)
           .setDepth(y * TILE + 20);
         visual.crop = crop;
+        if (growth >= def.growthDays) visual.ready = this.createReadyMarker(x, y);
       }
     }
     this.updateSoilTexture(visual, watered, fertilized);
@@ -343,6 +347,19 @@ export class GameScene extends Phaser.Scene {
     visual.soil.setTexture(fertilized ? 'soil_fert' : watered ? 'soil_wet' : 'soil');
   }
 
+  private createReadyMarker(x: number, y: number): Phaser.GameObjects.Text {
+    return this.add
+      .text(x * TILE + TILE / 2, y * TILE - 7, '!', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '15px',
+        color: '#ffe066',
+        stroke: '#2a1a0a',
+        strokeThickness: 4
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(y * TILE + 22);
+  }
+
   private refreshTile(x: number, y: number): void {
     const key = tileKey(x, y);
     const tile = this.state.tileAt(x, y);
@@ -350,6 +367,7 @@ export class GameScene extends Phaser.Scene {
     if (!tile || !tile.tilled) {
       vis?.soil.destroy();
       vis?.crop?.destroy();
+      vis?.ready?.destroy();
       this.tileVisuals.delete(key);
       return;
     }
@@ -383,6 +401,14 @@ export class GameScene extends Phaser.Scene {
     } else if (vis.crop) {
       vis.crop.destroy();
       vis.crop = undefined;
+    }
+
+    const mature = tile.crop ? this.state.cropMature(x, y) : false;
+    if (mature && !vis.ready) {
+      vis.ready = this.createReadyMarker(x, y);
+    } else if (!mature && vis.ready) {
+      vis.ready.destroy();
+      vis.ready = undefined;
     }
   }
 
@@ -483,7 +509,8 @@ export class GameScene extends Phaser.Scene {
         return;
       }
       if (this.buildMode) {
-        this.tryPlaceBuild(wp.x, wp.y);
+        if (pointer.wasTouch) this.previewTouchBuild(wp.x, wp.y);
+        else this.tryPlaceBuild(wp.x, wp.y);
         return;
       }
       this.handleWorldClick(wp.x, wp.y);
@@ -494,13 +521,6 @@ export class GameScene extends Phaser.Scene {
       const wp = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       if (this.buildMode) this.updateGhost(wp.x, wp.y);
       else this.updateHover(wp.x, wp.y);
-    });
-
-    this.input.keyboard!.on('keydown-ESC', () => {
-      if (this.buildMode) {
-        this.setBuildMode(null);
-        this.ui.buildPlaced();
-      }
     });
   }
 
@@ -681,6 +701,7 @@ export class GameScene extends Phaser.Scene {
 
   private setBuildMode(buildingId: string | null): void {
     this.buildMode = buildingId;
+    this.pendingBuild = null;
     if (!buildingId) {
       this.ghost.setVisible(false);
       this.ghostGfx.clear();
@@ -691,6 +712,25 @@ export class GameScene extends Phaser.Scene {
     this.ghost.setTexture(`b_${buildingId}`);
     this.ghost.setVisible(true);
     this.hoverGfx.clear();
+  }
+
+  private previewTouchBuild(wx: number, wy: number): void {
+    if (!this.buildMode) return;
+    const { x, y } = worldToTile(wx, wy);
+    const check = this.state.canPlaceBuilding(this.buildMode, x, y);
+    this.updateGhost(wx, wy);
+    if (!check.ok) {
+      this.pendingBuild = null;
+      this.ui.notify(check.message ?? 'Cannot place here.', 'error');
+      audio.play('error');
+      return;
+    }
+    if (this.pendingBuild?.x === x && this.pendingBuild?.y === y) {
+      this.tryPlaceBuild(wx, wy);
+      return;
+    }
+    this.pendingBuild = { x, y };
+    this.ui.notify('Tap the highlighted spot again to confirm.', 'info');
   }
 
   private updateGhost(wx: number, wy: number): void {
@@ -879,23 +919,13 @@ export class GameScene extends Phaser.Scene {
       this.state.data.minute = START_MINUTE;
       this.facing = 'down';
       this.player.setTexture('player_down_0');
-      this.buildFarmVisuals();
-      this.buildLockedPlots();
-      this.syncAnimals();
-      this.applyWeather();
       this.updateLighting(0);
       this.cameras.main.fadeIn(520, 6, 12, 24);
       this.sleeping = false;
       void this.saveGame().then(() => {
         this.ui.showDaySummary(summary);
-        this.autoSleepCheck();
       });
     });
-  }
-
-  private autoSleepCheck(): void {
-    // Reset any accumulated overshoot time after sleeping.
-    if (this.state.data.minute >= 1439) this.state.data.minute = START_MINUTE;
   }
 
   private async saveGame(quiet = false): Promise<void> {

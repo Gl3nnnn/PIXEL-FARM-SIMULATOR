@@ -13,10 +13,11 @@ describe('economy and inventory', () => {
     expect(state.countItem('wheat_seed')).toBe(10);
 
     const index = state.data.inventory.findIndex((stack) => stack?.itemId === 'wheat_seed');
+    const unit = state.sellPrice('wheat_seed');
     const sold = state.sellStack(index, 3);
     expect(sold.ok).toBe(true);
-    expect(sold.total).toBe(9);
-    expect(state.data.coins).toBe(389);
+    expect(sold.total).toBe(unit * 3);
+    expect(state.data.coins).toBe(380 + unit * 3);
     expect(state.countItem('wheat_seed')).toBe(7);
     expect(state.data.stats.cropsSold).toBe(3);
   });

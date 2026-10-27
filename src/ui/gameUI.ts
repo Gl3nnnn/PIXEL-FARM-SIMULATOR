@@ -102,11 +102,7 @@ export class GameUI {
       refresh: () => this.refresh(),
       closePanel: () => this.closePanel(),
       requestSave: () => void this.requestSave(),
-      sleep: () => {
-        this.closePanel();
-        this.closePause();
-        this.handlers.sleep();
-      },
+      sleep: () => this.requestSleep(),
       beginBuild: (id) => this.beginBuild(id),
       exitToMenu: () => this.confirmExit(),
       openPanel: (id) => this.openPanel(id),
@@ -369,6 +365,41 @@ export class GameUI {
     this.setPaused(true);
   }
 
+  private requestSleep(): void {
+    const chores = this.state.overnightChores();
+    const proceed = (): void => {
+      this.closePanel();
+      this.closePause();
+      this.handlers.sleep();
+    };
+    if (chores.unwateredCrops === 0 && chores.unfedAnimals === 0) {
+      proceed();
+      return;
+    }
+    const parts: string[] = [];
+    const effects: string[] = [];
+    if (chores.unwateredCrops > 0) {
+      parts.push(
+        `${chores.unwateredCrops} crop${chores.unwateredCrops === 1 ? ' still needs' : 's still need'} water`
+      );
+      effects.push('unwatered crops may lose growth');
+    }
+    if (chores.unfedAnimals > 0) {
+      parts.push(
+        `${chores.unfedAnimals} animal${chores.unfedAnimals === 1 ? ' is' : 's are'} unfed`
+      );
+      effects.push('unfed animals lose happiness');
+    }
+    const warning = effects.join(' and ');
+    confirmDialog(
+      this.root,
+      'End the day?',
+      `${parts.join(' and ')}. ${warning.charAt(0).toUpperCase()}${warning.slice(1)}. Sleep anyway?`,
+      'Sleep anyway',
+      proceed
+    );
+  }
+
   private summaryStat(label: string, value: string, kind = ''): HTMLElement {
     const box = el('div', `summary-stat ${kind}`.trim());
     box.appendChild(el('span', 'summary-value', value));
@@ -508,9 +539,9 @@ export class GameUI {
     if (!def) return;
     this.buildMode = true;
     this.handlers.beginBuild(buildingId);
-    this.buildName.textContent = `Placing ${def.name} (${def.cost}g) — click the ground. Right-click or Cancel to stop.`;
+    this.buildName.textContent = `Placing ${def.name} (${def.cost}g) — click or tap the ground. On touch, tap twice to confirm. Right-click or Cancel to stop.`;
     this.buildBanner.classList.remove('hidden');
-    this.toast('Placement mode: click a valid spot on the ground.', 'info');
+    this.toast('Placement mode: choose a valid spot on the ground.', 'info');
   }
 
   // ---------------------------------------------------------------- tutorial
@@ -699,6 +730,8 @@ export class GameUI {
         this.closePanel();
       } else if (this.pauseOpen) {
         this.closePause();
+      } else if (this.buildMode) {
+        this.cancelBuildMode();
       } else {
         this.openPause();
       }

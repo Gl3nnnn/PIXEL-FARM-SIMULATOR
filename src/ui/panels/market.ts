@@ -2,16 +2,19 @@ import { ITEMS, QUALITY_LABEL } from '../../data/definitions';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import { button, el, emptyState, iconImg, panelHeader, section } from '../uiKit';
+import { button, confirmDialog, el, emptyState, iconImg, panelHeader, pill, section } from '../uiKit';
 
 export function renderMarket(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    const head = panelHeader('Market', 'Sell harvested goods and crafted products.');
+    const head = panelHeader('Market', 'Prices shift each morning. Sell high and build your fortune.');
     head.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
     content.appendChild(head);
+    content.appendChild(
+      el('p', 'hint center', 'Daily price trends reset overnight. Quality still adds its usual bonus.')
+    );
 
     const sec = section('Your goods', 'Silver and gold quality items sell for more.');
     const list = el('div', 'list');
@@ -26,8 +29,16 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
       row.appendChild(iconImg(ctx.icon(stack.itemId), 36, def.name));
       const info = el('div', 'list-info');
       const name = stack.quality === 'normal' ? def.name : `${QUALITY_LABEL[stack.quality]} ${def.name}`;
+      const trend = Math.round((state.marketTrend(stack.itemId) - 1) * 100);
       info.appendChild(el('strong', undefined, name));
       info.appendChild(el('span', 'hint', `${unit}g each · ×${stack.qty}`));
+      const tags = el('div', 'tag-row');
+      if (trend !== 0) {
+        tags.appendChild(
+          pill(`${trend > 0 ? '+' : ''}${trend}% today`, trend > 0 ? 'good' : 'warn')
+        );
+      }
+      info.appendChild(tags);
       row.appendChild(info);
       const actions = el('div', 'row-actions');
       actions.appendChild(
@@ -68,11 +79,19 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
         variant: 'gold',
         disabled: !any,
         onClick: () => {
-          const result = state.sellAll();
-          ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
-          audio.play(result.ok ? 'coin' : 'error');
-          if (result.ok) ctx.requestSave();
-          render();
+          confirmDialog(
+            root,
+            'Sell everything?',
+            'This sells every non-tool item, including seeds, feed and fertilizer. This cannot be undone.',
+            'Sell all',
+            () => {
+              const result = state.sellAll();
+              ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+              audio.play(result.ok ? 'coin' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          );
         }
       })
     );

@@ -1901,7 +1901,11 @@ select {
   }
 
   .tutorial-card {
-    display: none;
+    display: block;
+    left: max(8px, env(safe-area-inset-left));
+    bottom: calc(205px + env(safe-area-inset-bottom));
+    width: min(250px, 62vw);
+    padding: 8px 9px;
   }
 
   .save-status {
@@ -1924,7 +1928,20 @@ select {
 
 @media (max-height: 560px) {
   .tutorial-card {
+    display: block;
+    bottom: calc(190px + env(safe-area-inset-bottom));
+    width: min(230px, 55vw);
+    padding: 6px 8px;
+  }
+
+  .tutorial-card .hint,
+  .tutorial-card .progress {
     display: none;
+  }
+
+  .tutorial-text {
+    font-size: 10px;
+    margin-bottom: 0;
   }
 
   .menu-badge {

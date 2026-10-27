@@ -1,4 +1,4 @@
-import { CURRENT_SAVE_VERSION, DEFAULT_SETTINGS } from '../data/definitions';
+import { CURRENT_SAVE_VERSION, DEFAULT_SETTINGS, levelFromXp } from '../data/definitions';
 import type { InventoryStack, Quality, SaveData, SaveSlotInfo, Settings } from '../types';
 
 const DB_NAME = 'pixel-farm-simulator';
@@ -267,9 +267,9 @@ export class SaveManager {
           season: data.season,
           year: data.year,
           coins: data.coins,
-          level: Math.floor(
-            (Object.values(data.xp ?? {}).reduce((a, b) => a + (b ?? 0), 0) as number) / 100
-          ) + 1
+          level: levelFromXp(
+            Object.values(data.xp ?? {}).reduce((a, b) => a + (b ?? 0), 0) as number
+          )
         });
       }
     }

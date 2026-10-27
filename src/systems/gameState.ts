@@ -43,6 +43,7 @@ import {
   dailyProgress,
   isQuestComplete
 } from './quests';
+import { marketMultiplier } from './market';
 import {
   inBounds,
   isObstacleTile,
@@ -502,7 +503,11 @@ export class GameState {
     const def = ITEMS[itemId];
     if (!def) return 0;
     const base = def.sell || def.price;
-    return Math.max(1, Math.round(base * QUALITY_MULTIPLIER[quality]));
+    return Math.max(1, Math.round(base * QUALITY_MULTIPLIER[quality] * this.marketTrend(itemId)));
+  }
+
+  marketTrend(itemId: string): number {
+    return marketMultiplier(itemId, this.data);
   }
 
   sellStack(index: number, qty: number): ActionResult & { total?: number } {
@@ -960,6 +965,19 @@ export class GameState {
     const px = this.data.player.x / TILE;
     const py = this.data.player.y / TILE;
     return Math.abs(x + 0.5 - px) <= range && Math.abs(y + 0.5 - py) <= range;
+  }
+
+  overnightChores(): { unwateredCrops: number; unfedAnimals: number } {
+    let unwateredCrops = 0;
+    for (const tile of Object.values(this.data.tiles)) {
+      if (!tile.crop || tile.watered) continue;
+      const def = CROPS[tile.crop.id];
+      if (def && tile.crop.growth < def.growthDays) unwateredCrops += 1;
+    }
+    return {
+      unwateredCrops,
+      unfedAnimals: this.data.animals.filter((animal) => !animal.fed).length
+    };
   }
 
   advanceDay(): {

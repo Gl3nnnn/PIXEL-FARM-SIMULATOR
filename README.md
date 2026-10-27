@@ -12,8 +12,8 @@ Once GitHub Pages is enabled, the game is available at:
 
 - 10 crops with season restrictions, growth stages, watering, fertilizing, and regrowth
 - 5 animals with feeding, petting, happiness, health, and daily products
-- 11 placeable buildings, farm expansions, and backpack upgrades
-- Crafting recipes, a general store, and a market with daily price changes
+- 9 placeable buildings plus the upgradable farmhouse, farm expansions, and backpack upgrades
+- Crafting recipes, a general store, and a market with deterministic daily price trends
 - 28-day seasons, weather (sun, rain, storm), day/night lighting, and lightning
 - Main quests, daily quests, achievements, farming levels, and unlock progression
 - Three local save slots backed by IndexedDB, with autosave and v1 save migration
@@ -32,7 +32,7 @@ Once GitHub Pages is enabled, the game is available at:
 | Pause | `Esc` |
 | Sleep and advance the day | Sleep button in the HUD |
 
-Select the hoe and click grass or field soil to till, pick a seed to plant, then water it before sleeping. Mature crops can be harvested by clicking them. Rain waters every tilled tile overnight.
+Select the hoe and click grass or field soil to till, pick a seed to plant, then water it before sleeping. Mature crops can be harvested by clicking them. Rain waters every tilled tile overnight. On touch screens, tap a valid build spot once to preview it and again to confirm.
 
 ## Development
 
