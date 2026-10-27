@@ -1,19 +1,13 @@
 import { audio } from '../../systems/audio';
 import { NPC_MAX_HEARTS } from '../../systems/npcs';
 import type { UIContext } from '../context';
-import { button, el, panelHeader, pill, progressBar, section } from '../uiKit';
+import { button, el, pill, progressBar, section } from '../uiKit';
 
 export function renderPeople(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    content.appendChild(
-      panelHeader(
-        'People',
-        'Talk, give gifts, and build relationships with the visitors to your farm.'
-      )
-    );
     const summary = el('div', 'level-card');
     const text = el('div');
     text.appendChild(

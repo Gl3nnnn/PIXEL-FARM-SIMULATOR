@@ -9,10 +9,8 @@ import {
   iconImg,
   itemCell,
   itemLabel,
-  panelHeader,
   pill,
-  progressBar,
-  section
+  progressBar
 } from '../uiKit';
 
 export function renderInventory(ctx: UIContext, root: HTMLElement): void {
@@ -23,11 +21,13 @@ export function renderInventory(ctx: UIContext, root: HTMLElement): void {
     content.innerHTML = '';
     const state = ctx.state;
     const used = state.data.inventory.filter(Boolean).length;
-    const head = panelHeader('Backpack', 'Drag items between slots to organise your bag.');
-    head.appendChild(el('span', 'hint', `${used} / ${state.capacity()} slots used · ${formatNumber(state.data.coins)} coins`));
-    content.appendChild(head);
+    const toolbar = el('div', 'panel-toolbar');
+    toolbar.appendChild(el('p', 'hint', `${used} / ${state.capacity()} slots used · Drag items to reorganise.`));
+    toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
+    content.appendChild(toolbar);
     content.appendChild(progressBar(used, state.capacity(), `${used}/${state.capacity()}`, 'bag'));
 
+    const layout = el('div', 'inventory-layout');
     const grid = el('div', 'inventory-grid');
     for (let i = 0; i < state.capacity(); i++) {
       const stack = state.data.inventory[i] ?? null;
@@ -93,7 +93,7 @@ export function renderInventory(ctx: UIContext, root: HTMLElement): void {
       });
       grid.appendChild(slot);
     }
-    content.appendChild(grid);
+    layout.appendChild(grid);
 
     const detail = el('div', 'inventory-detail');
     const stack = selected >= 0 ? state.data.inventory[selected] : null;
@@ -149,7 +149,8 @@ export function renderInventory(ctx: UIContext, root: HTMLElement): void {
         detail.appendChild(actions);
       }
     }
-    content.appendChild(detail);
+    layout.appendChild(detail);
+    content.appendChild(layout);
 
     const footer = el('div', 'panel-footer');
     footer.appendChild(button('Close', { onClick: () => ctx.closePanel() }));

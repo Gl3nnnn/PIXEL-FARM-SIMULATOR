@@ -15,7 +15,6 @@ import {
   button,
   el,
   iconImg,
-  panelHeader,
   pill,
   progressBar,
   tabs
@@ -53,11 +52,8 @@ export function renderAlmanac(ctx: UIContext, root: HTMLElement): void {
     content.innerHTML = '';
     const state = ctx.state;
     const d = state.data;
-    const head = panelHeader(
-      'Farm Almanac',
-      'Plan crops, livestock and fishing, then complete your collection.'
-    );
-    head.appendChild(
+    const toolbar = el('div', 'panel-toolbar');
+    toolbar.appendChild(
       el(
         'p',
         'hint',
@@ -66,7 +62,7 @@ export function renderAlmanac(ctx: UIContext, root: HTMLElement): void {
         }`
       )
     );
-    content.appendChild(head);
+    content.appendChild(toolbar);
     content.appendChild(
       tabs(['Crops', 'Livestock', 'Fish', 'Collection'], tab, (i) => {
         tab = i;

@@ -2,14 +2,12 @@ import { SEASON_INFO, xpProgress } from '../../data/definitions';
 import { functionalBuildingCount } from '../../systems/quests';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import { el, panelHeader, progressBar, section, statRow } from '../uiKit';
+import { el, progressBar, section, statRow } from '../uiKit';
 
 export function renderStats(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
   const state = ctx.state;
   const d = state.data;
-  content.appendChild(panelHeader('Farm Statistics', 'A snapshot of your farming journey.'));
-
   const xp = xpProgress(state.totalXp());
   const levelCard = el('div', 'level-card');
   const left = el('div');

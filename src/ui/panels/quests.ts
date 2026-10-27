@@ -7,7 +7,6 @@ import {
   button,
   el,
   emptyState,
-  panelHeader,
   pill,
   progressBar,
   tabs
@@ -20,9 +19,6 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    content.appendChild(
-      panelHeader('Quest Journal', 'Complete objectives to earn coins and experience.')
-    );
     content.appendChild(
       tabs(['Seasonal', 'Daily', 'Main Quests', 'Achievements'], tab, (i) => {
         tab = i;

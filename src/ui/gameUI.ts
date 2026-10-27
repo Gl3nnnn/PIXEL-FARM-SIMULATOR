@@ -36,6 +36,21 @@ interface TutorialStep {
   check: (ui: GameUI) => boolean;
 }
 
+const PANEL_META: Record<string, { title: string; subtitle: string }> = {
+  shop: { title: 'Store', subtitle: 'Seeds, supplies, tools, and permanent upgrades.' },
+  market: { title: 'Market', subtitle: 'Watch the daily trends and sell your goods at the best price.' },
+  inventory: { title: 'Backpack', subtitle: 'Organise your tools, seeds, produce, and treasures.' },
+  build: { title: 'Build & Expand', subtitle: 'Place buildings, unlock fields, and hire farm helpers.' },
+  animals: { title: 'Animals', subtitle: 'Feed, pet, breed, and collect from your livestock.' },
+  craft: { title: 'Workshop', subtitle: 'Turn raw goods into valuable products.' },
+  quests: { title: 'Quest Journal', subtitle: 'Complete objectives and seasonal contracts for rewards.' },
+  almanac: { title: 'Farm Almanac', subtitle: 'Plan crops, livestock, fishing, and your collection.' },
+  stats: { title: 'Statistics', subtitle: 'A snapshot of your farming journey and lifetime totals.' },
+  festival: { title: 'Festival Day', subtitle: 'Show the judges your finest goods. One entry per year.' },
+  people: { title: 'People', subtitle: 'Talk, give gifts, and build friendships with farm visitors.' },
+  settings: { title: 'Settings', subtitle: 'Adjust sound and manage your local save.' }
+};
+
 export class GameUI {
   private scene: Phaser.Scene;
   readonly state: GameState;
@@ -55,6 +70,10 @@ export class GameUI {
   private panelLayer!: HTMLElement;
   private panelContent!: HTMLElement;
   private panelTitle!: HTMLElement;
+  private panelSubtitle!: HTMLElement;
+  private navMore!: HTMLElement;
+  private navMoreButton!: HTMLButtonElement;
+  private navMoreMenu!: HTMLElement;
   private pauseLayer!: HTMLElement;
   private buildBanner!: HTMLElement;
   private buildName!: HTMLElement;
@@ -148,7 +167,7 @@ export class GameUI {
 
     const right = el('div', 'hud-cluster hud-buttons');
     const mk = (label: string, panel: string, key?: string) => {
-      const b = button(label, {
+      const b = button('', {
         small: true,
         variant: 'ghost',
         title: key ? `${label} (${key})` : label,
@@ -158,20 +177,67 @@ export class GameUI {
         }
       });
       b.classList.add('hud-btn');
+      b.setAttribute('aria-label', label);
+      b.append(el('span', 'hud-btn-label', label));
+      if (key) b.appendChild(el('span', 'keycap', key));
       return b;
     };
     right.append(
-      mk('Shop', 'shop', 'H'),
+      mk('Store', 'shop', 'H'),
       mk('Market', 'market', 'M'),
       mk('Bag', 'inventory', 'I'),
       mk('Build', 'build', 'B'),
-      mk('Animals', 'animals'),
-      mk('Craft', 'craft'),
-      mk('Quests', 'quests', 'Q'),
-      mk('Almanac', 'almanac', 'L'),
-      mk('People', 'people', 'T'),
-      mk('Stats', 'stats')
+      mk('Quests', 'quests', 'Q')
     );
+
+    this.navMore = el('div', 'nav-more');
+    this.navMoreButton = button('', {
+      small: true,
+      variant: 'ghost',
+      title: 'More panels',
+      onClick: () => {
+        audio.play('click');
+        this.toggleMoreMenu();
+      }
+    });
+    this.navMoreButton.classList.add('hud-btn', 'nav-more-button');
+    this.navMoreButton.setAttribute('aria-label', 'More panels');
+    this.navMoreButton.setAttribute('aria-expanded', 'false');
+    this.navMoreButton.setAttribute('aria-haspopup', 'menu');
+    this.navMoreButton.append(el('span', 'hud-btn-label', 'More'));
+    this.navMoreMenu = el('div', 'nav-more-menu hidden');
+    this.navMoreMenu.setAttribute('role', 'menu');
+    const moreItem = (label: string, panel: string, key?: string) => {
+      const item = el('button', 'nav-more-item');
+      item.type = 'button';
+      item.setAttribute('role', 'menuitem');
+      item.append(el('span', undefined, label));
+      if (key) item.appendChild(el('span', 'keycap', key));
+      item.addEventListener('click', () => {
+        audio.play('click');
+        this.closeMoreMenu();
+        this.openPanel(panel);
+      });
+      this.navMoreMenu.appendChild(item);
+    };
+    moreItem('Animals', 'animals');
+    moreItem('Workshop', 'craft', 'C');
+    moreItem('Almanac', 'almanac', 'L');
+    moreItem('People', 'people', 'T');
+    moreItem('Statistics', 'stats');
+    this.navMoreMenu.appendChild(el('div', 'nav-more-sep'));
+    const pauseItem = el('button', 'nav-more-item');
+    pauseItem.type = 'button';
+    pauseItem.setAttribute('role', 'menuitem');
+    pauseItem.append(el('span', undefined, 'Pause menu'), el('span', 'keycap', 'Esc'));
+    pauseItem.addEventListener('click', () => {
+      audio.play('click');
+      this.closeMoreMenu();
+      this.openPause();
+    });
+    this.navMoreMenu.appendChild(pauseItem);
+    this.navMore.append(this.navMoreButton, this.navMoreMenu);
+    right.appendChild(this.navMore);
     right.appendChild(
       button('Sleep', {
         small: true,
@@ -182,13 +248,6 @@ export class GameUI {
         }
       })
     );
-    const pauseBtn = button('Pause', {
-      small: true,
-      variant: 'secondary',
-      title: 'Pause menu (Esc)',
-      onClick: () => this.openPause()
-    });
-    right.appendChild(pauseBtn);
     top.append(left, middle, right);
     this.hud.appendChild(top);
 
@@ -237,15 +296,19 @@ export class GameUI {
     this.panelLayer = el('div', 'panel-layer hidden');
     const panel = el('div', 'panel');
     const panelTop = el('div', 'panel-topbar');
+    const heading = el('div', 'panel-topbar-text');
     this.panelTitle = el('h2', 'panel-tab-title');
+    this.panelSubtitle = el('p', 'panel-subtitle');
+    heading.append(this.panelTitle, this.panelSubtitle);
     const closeBtn = button('✕', {
       small: true,
       variant: 'ghost',
       title: 'Close (Esc)',
       onClick: () => this.closePanel()
     });
+    closeBtn.classList.add('panel-close');
     closeBtn.setAttribute('aria-label', 'Close panel');
-    panelTop.append(this.panelTitle, closeBtn);
+    panelTop.append(heading, closeBtn);
     this.panelContent = el('div', 'panel-body');
     panel.append(panelTop, this.panelContent);
     this.panelLayer.appendChild(panel);
@@ -345,8 +408,10 @@ export class GameUI {
   showDaySummary(summary: DaySummary): void {
     this.closePanel();
     this.closePause();
+    this.closeMoreMenu();
     this.panelLayer.classList.remove('hidden');
     this.panelTitle.textContent = `${SEASON_INFO[summary.season].name} · Day ${summary.day}`;
+    this.panelSubtitle.textContent = 'How the night changed your farm.';
     this.panelContent.innerHTML = '';
     const hero = el('div', 'day-summary');
     hero.appendChild(el('h3', undefined, `Year ${summary.year} · ${WEATHER_INFO[summary.weather].name}`));
@@ -438,10 +503,12 @@ export class GameUI {
   openNpcDialogue(id: string): void {
     const entry = this.state.npcList().find((item) => item.npc.id === id);
     if (!entry) return;
+    this.panelSubtitle.textContent = 'Talk, give gifts, and build a friendship.';
     if (this.buildMode) this.cancelBuildMode();
     if (this.pauseOpen) this.closePause();
     this.currentPanel = 'npc';
     this.panelRefresh = null;
+    this.closeMoreMenu();
     this.panelContent.innerHTML = '';
     this.panelTitle.textContent = `${entry.npc.name} · ${entry.npc.role}`;
     const render = (): void => {
@@ -709,27 +776,11 @@ export class GameUI {
     if (this.pauseOpen) this.closePause();
     this.currentPanel = id;
     this.panelRefresh = null;
+    this.closeMoreMenu();
+    const meta = PANEL_META[id];
+    this.panelTitle.textContent = meta?.title ?? id;
+    this.panelSubtitle.textContent = meta?.subtitle ?? '';
     this.panelContent.innerHTML = '';
-    this.panelTitle.textContent =
-      id === 'shop'
-        ? 'Store'
-        : id === 'market'
-          ? 'Market'
-          : id === 'inventory'
-            ? 'Backpack'
-            : id === 'build'
-              ? 'Build'
-              : id === 'animals'
-                ? 'Animals'
-                : id === 'craft'
-                  ? 'Workshop'
-                   : id === 'quests'
-                     ? 'Quests'
-                     : id === 'almanac'
-                       ? 'Farm Almanac'
-                       : id === 'stats'
-                         ? 'Statistics'
-                         : 'Settings';
     builder(this.ctx, this.panelContent);
     this.panelLayer.classList.remove('hidden');
     this.setPaused(true);
@@ -737,11 +788,24 @@ export class GameUI {
   }
 
   closePanel(): void {
+    this.closeMoreMenu();
     this.panelLayer.classList.add('hidden');
     this.panelContent.innerHTML = '';
     this.panelRefresh = null;
     this.currentPanel = null;
     if (!this.pauseOpen) this.setPaused(false);
+  }
+
+  private toggleMoreMenu(): void {
+    const open = this.navMoreMenu.classList.contains('hidden');
+    this.navMoreMenu.classList.toggle('hidden', !open);
+    this.navMoreButton.setAttribute('aria-expanded', String(open));
+  }
+
+  private closeMoreMenu(): void {
+    if (!this.navMoreMenu) return;
+    this.navMoreMenu.classList.add('hidden');
+    this.navMoreButton.setAttribute('aria-expanded', 'false');
   }
 
   private setPaused(paused: boolean): void {
@@ -888,6 +952,7 @@ export class GameUI {
   openPause(): void {
     if (this.pauseOpen) return;
     if (this.currentPanel) this.closePanel();
+    this.closeMoreMenu();
     this.pauseOpen = true;
     this.panelLayer.classList.add('hidden');
     this.pauseLayer.classList.remove('hidden');
@@ -1013,6 +1078,14 @@ export class GameUI {
 
     window.addEventListener('keydown', this.onKeyDown);
     this.unsubs.push(() => window.removeEventListener('keydown', this.onKeyDown));
+
+    const closeMoreOnOutside = (event: PointerEvent): void => {
+      if (!this.navMoreMenu.classList.contains('hidden') && !this.navMore.contains(event.target as Node)) {
+        this.closeMoreMenu();
+      }
+    };
+    document.addEventListener('pointerdown', closeMoreOnOutside);
+    this.unsubs.push(() => document.removeEventListener('pointerdown', closeMoreOnOutside));
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -1022,7 +1095,9 @@ export class GameUI {
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (!this.panelLayer.classList.contains('hidden')) {
+      if (!this.navMoreMenu.classList.contains('hidden')) {
+        this.closeMoreMenu();
+      } else if (!this.panelLayer.classList.contains('hidden')) {
         this.closePanel();
       } else if (this.pauseOpen) {
         this.closePause();

@@ -2,19 +2,17 @@ import { ITEMS, QUALITY_LABEL } from '../../data/definitions';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import { button, confirmDialog, el, emptyState, iconImg, panelHeader, pill, section } from '../uiKit';
+import { button, confirmDialog, el, emptyState, iconImg, pill, section } from '../uiKit';
 
 export function renderMarket(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    const head = panelHeader('Market', 'Prices shift each morning. Sell high and build your fortune.');
-    head.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
-    content.appendChild(head);
-    content.appendChild(
-      el('p', 'hint center', 'Daily price trends reset overnight. Quality still adds its usual bonus.')
-    );
+    const toolbar = el('div', 'panel-toolbar');
+    toolbar.appendChild(el('p', 'hint', 'Prices shift each morning and reset overnight. Quality adds a bonus.'));
+    toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
+    content.appendChild(toolbar);
 
     const sec = section('Your goods', 'Silver and gold quality items sell for more.');
     const list = el('div', 'list');

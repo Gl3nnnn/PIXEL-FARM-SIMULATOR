@@ -7,7 +7,6 @@ import {
   el,
   emptyState,
   iconImg,
-  panelHeader,
   pill,
   section
 } from '../uiKit';
@@ -17,9 +16,10 @@ export function renderCraft(ctx: UIContext, root: HTMLElement): void {
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    const head = panelHeader('Workshop', 'Turn raw goods into valuable products.');
-    head.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
-    content.appendChild(head);
+    const toolbar = el('div', 'panel-toolbar');
+    toolbar.appendChild(el('p', 'hint', 'Each recipe grants crafting XP and raises the value of your goods.'));
+    toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
+    content.appendChild(toolbar);
 
     if (!state.hasWorkshop()) {
       const warn = el('div', 'notice warn');

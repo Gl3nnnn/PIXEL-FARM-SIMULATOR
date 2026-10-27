@@ -2,16 +2,17 @@ import { AUTOMATION, BUILDINGS, PLOTS } from '../../data/definitions';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import { button, el, panelHeader, pill, section } from '../uiKit';
+import { button, el, pill, section } from '../uiKit';
 
 export function renderBuild(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    const head = panelHeader('Build & Expand', 'Place buildings with a live grid preview.');
-    head.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
-    content.appendChild(head);
+    const toolbar = el('div', 'panel-toolbar');
+    toolbar.appendChild(el('p', 'hint', 'Choose a building, then place it directly on the farm.'));
+    toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
+    content.appendChild(toolbar);
 
     const owned = (id: string) => state.data.buildings.filter((b) => b.id === id).length;
 

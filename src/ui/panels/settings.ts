@@ -1,13 +1,10 @@
 import { audio } from '../../systems/audio';
 import { saveSettings } from '../../systems/save';
 import type { UIContext } from '../context';
-import { button, el, panelHeader, section } from '../uiKit';
+import { button, el, section } from '../uiKit';
 
 export function renderSettings(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
-  content.appendChild(panelHeader('Settings', 'Adjust sound and manage your save.'));
-
-  const audioSec = section('Audio');
   const makeToggle = (
     label: string,
     value: boolean,
@@ -30,7 +27,6 @@ export function renderSettings(ctx: UIContext, root: HTMLElement): void {
 
   const renderAll = () => {
     content.innerHTML = '';
-    content.appendChild(panelHeader('Settings', 'Adjust sound and manage your save.'));
     const audioBox = section('Audio');
     audioBox.appendChild(
       makeToggle('Sound effects', audio.settings.sfx, (next) => {

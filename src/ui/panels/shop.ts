@@ -5,10 +5,7 @@ import type { UIContext } from '../context';
 import {
   button,
   el,
-  emptyState,
   iconImg,
-  itemLabel,
-  panelHeader,
   pill,
   section,
   tabs
@@ -21,10 +18,12 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    const head = panelHeader('General Store', 'Seeds, supplies and farm upgrades.');
-    const coins = el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`);
-    head.appendChild(coins);
-    content.appendChild(head);
+    const toolbar = el('div', 'panel-toolbar');
+    toolbar.appendChild(
+      el('p', 'hint', `Farming level ${levelFromXp(state.data.xp.farming)} · Farmer level ${state.level}`)
+    );
+    toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
+    content.appendChild(toolbar);
     content.appendChild(tabs(['Seeds', 'Supplies', 'Upgrades'], tab, (i) => {
       tab = i;
       render();
@@ -146,9 +145,6 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
       content.appendChild(sec);
     }
 
-    const hp = el('p', 'hint center');
-    hp.textContent = `Farming level ${levelFromXp(state.data.xp.farming)} · Farmer level ${state.level}`;
-    content.appendChild(hp);
   };
 
   root.appendChild(content);

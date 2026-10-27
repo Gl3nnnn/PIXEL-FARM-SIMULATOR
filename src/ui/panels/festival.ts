@@ -2,7 +2,7 @@ import { ITEMS, QUALITY_LABEL, SEASON_INFO } from '../../data/definitions';
 import { audio } from '../../systems/audio';
 import { festivalTierLabel } from '../../systems/festivals';
 import type { UIContext } from '../context';
-import { button, el, emptyState, iconImg, panelHeader, pill, progressBar, section } from '../uiKit';
+import { button, el, emptyState, iconImg, pill, progressBar, section } from '../uiKit';
 
 export function renderFestival(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
@@ -10,9 +10,6 @@ export function renderFestival(ctx: UIContext, root: HTMLElement): void {
     content.innerHTML = '';
     const state = ctx.state;
     const info = state.festivalState();
-    content.appendChild(
-      panelHeader('Festival Day', 'Show the judges your finest goods. One entry per year.')
-    );
     if (!info) {
       content.appendChild(
         emptyState('The judging stand is only open on Day 28 of each season.')

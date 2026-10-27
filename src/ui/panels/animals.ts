@@ -7,7 +7,6 @@ import {
   el,
   emptyState,
   iconImg,
-  panelHeader,
   pill,
   progressBar,
   section
@@ -22,14 +21,11 @@ export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
     const barnCap = state.housingCapacity('barn');
     const coopUsed = state.animalsInHousing('coop');
     const barnUsed = state.animalsInHousing('barn');
-    const head = panelHeader('Animals', 'Feed, pet and collect from your livestock.');
-    head.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
-    content.appendChild(head);
-
-    const status = el('div', 'housing-status');
+    const status = el('div', 'housing-status panel-toolbar');
     status.appendChild(el('span', 'pill', `Coop ${coopUsed}/${coopCap}`));
     status.appendChild(el('span', 'pill', `Barn ${barnUsed}/${barnCap}`));
     status.appendChild(el('span', 'pill', `Feed ×${state.countItem('feed')}`));
+    status.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
     status.appendChild(
       button('Feed all', {
         small: true,
