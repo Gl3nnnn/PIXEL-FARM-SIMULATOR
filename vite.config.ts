@@ -1,21 +1,27 @@
-import { defineConfig } from 'vite';
+/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config';
 
-export default defineConfig(({ command }) => {
-  const base = command === 'build' ? '/PIXEL-FARM-SIMULATOR/' : '/';
-  
+const repoBase = '/PIXEL-FARM-SIMULATOR/';
+
+export default defineConfig(({ command, isPreview }) => {
+  const isBuilt = command === 'build' || isPreview;
+  const base = process.env.BASE_PATH || (isBuilt ? repoBase : '/');
+
   return {
     base,
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      sourcemap: false
+      sourcemap: false,
+      chunkSizeWarningLimit: 2000
     },
     server: {
-      port: 3000
+      port: 3000,
+      host: true
     },
     test: {
-      globals: true,
-      environment: 'jsdom'
+      environment: 'jsdom',
+      include: ['tests/**/*.test.ts']
     }
   };
 });

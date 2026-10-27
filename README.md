@@ -1,83 +1,88 @@
-﻿# Pixel Farm Simulator - From Small Farm to Farming Empire
+﻿# Pixel Farm Simulator
 
-A complete, playable 2D pixel-art farming simulation game built with TypeScript, Phaser 3, and Vite.
+A complete 2D pixel-art farming game built with TypeScript, Phaser 3, and Vite. Grow crops, raise animals, place buildings, craft goods, complete quests, and build a farming empire across the seasons.
+
+## Play
+
+Once GitHub Pages is enabled, the game is available at:
+
+`https://gl3nnnn.github.io/PIXEL-FARM-SIMULATOR/`
 
 ## Features
 
-- **Farming**: Plant, water, and harvest crops across different seasons
-- **Crops**: 10 different crop types with unique growth cycles
-- **Economy**: Buy seeds, sell crops, manage coins
-- **Tools**: Hoe, watering can for farm management
-- **Time System**: Day/night cycle with seasonal progression
-- **Inventory**: Hotbar system for quick access to items
-- **Save System**: Local progress saving (in development)
-- **Mobile Support**: Responsive design for desktop and mobile
+- 10 crops with season restrictions, growth stages, watering, fertilizing, and regrowth
+- 5 animals with feeding, petting, happiness, health, and daily products
+- 11 placeable buildings, farm expansions, and backpack upgrades
+- Crafting recipes, a general store, and a market with daily price changes
+- 28-day seasons, weather (sun, rain, storm), day/night lighting, and lightning
+- Main quests, daily quests, achievements, farming levels, and unlock progression
+- Three local save slots backed by IndexedDB, with autosave and v1 save migration
+- Desktop keyboard/mouse controls plus touch joystick and USE button
+- Procedural pixel art and synthesized audio with zero external asset downloads
 
-## Getting Started
+## Controls
 
-### Prerequisites
-- Node.js 16+ 
-- npm or yarn
+| Action | Input |
+| --- | --- |
+| Move | WASD / arrow keys / touch joystick |
+| Use selected tool or seed | Click a tile / USE button |
+| Select hotbar slot | Number keys `1`-`0` or click a slot |
+| Shop / Market / Bag | `H` / `M` / `I` |
+| Build / Quests | `B` / `Q` |
+| Pause | `Esc` |
+| Sleep and advance the day | Sleep button in the HUD |
 
-### Installation
+Select the hoe and click grass or field soil to till, pick a seed to plant, then water it before sleeping. Mature crops can be harvested by clicking them. Rain waters every tilled tile overnight.
 
-1. Clone the repository:
-`ash
-git clone https://github.com/YOUR_USERNAME/pixel-farm-simulator.git
-cd pixel-farm-simulator
-`
+## Development
 
-2. Install dependencies:
-`ash
-npm install
-`
+Requires Node.js 20 or newer.
 
-3. Start development server:
-`ash
+```bash
+npm ci
 npm run dev
-`
+```
 
-4. Open your browser to http://localhost:3000
+The dev server runs at `http://localhost:3000`.
 
-### Building for Production
-
-`ash
+```bash
+npm run typecheck
+npm run test:run
 npm run build
-`
+npm run preview
+```
 
-The built files will be in the dist directory.
+The production build is written to `dist/`.
 
-### Testing
+## Deployment
 
-`ash
-npm run test
-`
+The workflow in `.github/workflows/deploy.yml` runs type checking, tests, and the production build on every push to `main`, then deploys `dist/` to GitHub Pages.
 
-## How to Play
+If the workflow fails at the **Setup Pages** step with `Get Pages site failed`, open the repository's **Settings > Pages** and set **Source** to **GitHub Actions** once. The workflow includes `enablement: true`, but the default `GITHUB_TOKEN` may not have permission to create the Pages site for the first time.
 
-- **Movement**: Use WASD or Arrow Keys
-- **Interact**: Click on tiles to use selected tool
-- **Tools**: Use number keys or click hotbar slots to switch tools
-- **Advance Day**: Press SPACE to advance to next day
-- **Planting**: Select seeds from hotbar, click on tilled soil
-- **Watering**: Use watering can on crops/tilled soil
-- **Tilling**: Use hoe on grass to till soil
-- **Harvesting**: Click on mature crops (fully grown) to harvest
+The Vite base path is `/PIXEL-FARM-SIMULATOR/`. Set the `BASE_PATH` environment variable if you deploy under a different path.
 
-## Deployment to GitHub Pages
+## Project Structure
 
-1. Update the ase path in ite.config.ts if your repo name is different
-2. Push to GitHub
-3. Enable GitHub Pages in repository settings (Source: GitHub Actions)
-4. The workflow will automatically build and deploy
+```text
+src/
+  data/definitions.ts   Items, crops, animals, buildings, recipes, quests
+  game/scenes/          Boot, menu, and gameplay scenes
+  game/textures.ts      Procedural pixel-art texture generation
+  systems/              Game rules, world generation, saves, quests, audio
+  ui/                   HUD, panels, menu, and shared UI helpers
+  styles/main.css       Responsive game and menu styling
+tests/                  Vitest unit tests for the simulation systems
+```
 
 ## Tech Stack
 
-- [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
-- [Phaser 3](https://phaser.io/) - HTML5 game framework
-- [Vite](https://vitejs.dev/) - Build tool and dev server
-- [Vitest](https://vitest.dev/) - Unit testing
+- TypeScript
+- Phaser 3
+- Vite
+- Vitest
+- IndexedDB
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT
