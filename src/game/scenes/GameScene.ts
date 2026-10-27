@@ -661,7 +661,23 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
     this.cameras.main.setRoundPixels(true);
     this.cameras.main.setBackgroundColor('#4f8c3a');
+    this.handleScaleResize();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleResize);
   }
+
+  private handleScaleResize = (): void => {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const worldWidth = WORLD_W * TILE;
+    const worldHeight = WORLD_H * TILE;
+    const zoom = Math.max(1, width / worldWidth, height / worldHeight);
+    this.cameras.main.setSize(width, height);
+    this.cameras.main.setZoom(zoom);
+    this.lightOverlay?.setSize(width, height);
+    if (this.rainEmitter) {
+      this.rainEmitter.setConfig({ x: { min: 0, max: width } });
+    }
+  };
 
   private setupInput(): void {
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -1194,6 +1210,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cleanup(): void {
+    this.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleResize);
     if (this.autosaveTimer !== null) window.clearInterval(this.autosaveTimer);
     this.unsubs.forEach((fn) => fn());
     this.unsubs = [];
@@ -1212,14 +1229,6 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0)
       .setScrollFactor(0)
       .setDepth(940);
-    this.scale.on(Phaser.Scale.Events.RESIZE, () => {
-      this.lightOverlay?.setSize(this.scale.width, this.scale.height);
-      if (this.rainEmitter) {
-        this.rainEmitter.setConfig({
-          x: { min: 0, max: this.scale.width }
-        });
-      }
-    });
   }
 
   private updateLighting(delta: number): void {

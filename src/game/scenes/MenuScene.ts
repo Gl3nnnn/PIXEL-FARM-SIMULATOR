@@ -6,7 +6,7 @@ import { SEASON_INFO } from '../../data/definitions';
 
 export class MenuScene extends Phaser.Scene {
   private menu: MainMenu | null = null;
-  private tweensList: Phaser.GameObjects.GameObject[] = [];
+  private backdropObjects: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -15,6 +15,7 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor('#8fd0e8');
     this.buildBackdrop();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize);
     this.menu = new MainMenu({
       onStart: (slot, mode) => this.handleStart(slot, mode)
     });
@@ -22,12 +23,19 @@ export class MenuScene extends Phaser.Scene {
       document.getElementById('loading-screen')?.remove();
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize);
       this.menu?.destroy();
       this.menu = null;
-      this.tweensList.forEach((obj) => obj.destroy());
-      this.tweensList = [];
+      this.backdropObjects = [];
     });
   }
+
+  private handleResize = (): void => {
+    this.tweens.killAll();
+    for (const obj of this.backdropObjects) obj.destroy();
+    this.backdropObjects = [];
+    this.buildBackdrop();
+  };
 
   private async handleStart(slot: number, mode: 'new' | 'continue'): Promise<void> {
     if (mode === 'new') {
@@ -54,6 +62,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private buildBackdrop(): void {
+    const existing = new Set(this.children.list);
     const W = this.scale.width;
     const H = this.scale.height;
     // Sky and distant hills
@@ -204,5 +213,6 @@ export class MenuScene extends Phaser.Scene {
     this.add.rectangle(0, H * 0.52, W, H * 0.48, 0x183a20, 0.12).setOrigin(0).setDepth(400);
     void SEASON_INFO;
     this.add.rectangle(0, 0, W, H, 0x0b2112, 0.22).setOrigin(0).setDepth(401);
+    this.backdropObjects = this.children.list.filter((obj) => !existing.has(obj));
   }
 }
