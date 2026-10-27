@@ -1,16 +1,10 @@
 ﻿import { defineConfig } from 'vite';
-import legacy from '@vitejs/plugin-legacy';
 
 export default defineConfig(({ command }) => {
-  const base = command === 'build' ? '/pixel-farm-simulator/' : '/';
+  const base = command === 'build' ? '/PIXEL-FARM-SIMULATOR/' : '/';
   
   return {
     base,
-    plugins: [
-      legacy({
-        targets: ['defaults', 'not IE 11']
-      })
-    ],
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
