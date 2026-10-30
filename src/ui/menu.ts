@@ -1,3 +1,4 @@
+import { CHANGELOG, GAME_VERSION } from '../data/changelog';
 import { SEASON_INFO, levelFromXp } from '../data/definitions';
 import { audio } from '../systems/audio';
 import {
@@ -140,6 +141,7 @@ export class MainMenu {
       })
     );
     panel.appendChild(buttons);
+    panel.appendChild(this.buildUpdateBoard());
 
     if (lastInfo) {
       const save = el('div', 'menu-save-preview');
@@ -157,10 +159,47 @@ export class MainMenu {
     const status = el('p', 'menu-status');
     status.textContent = 'Local saves are stored on this device. Back up or restore them from Load Game.';
     panel.appendChild(status);
-    panel.appendChild(el('p', 'menu-footer', 'Original pixel art · Phaser + TypeScript · v2.0'));
+    panel.appendChild(
+      el('p', 'menu-footer', `Original pixel art · Phaser + TypeScript · v${GAME_VERSION}`)
+    );
 
     this.root.appendChild(panel);
     this.bindBackground();
+  }
+
+  private buildUpdateBoard(): HTMLElement {
+    const board = el('div', 'menu-updates');
+    const head = el('div', 'menu-updates-head');
+    head.appendChild(el('span', 'menu-updates-label', 'Updated to'));
+    head.appendChild(el('span', 'menu-version-badge', `v${GAME_VERSION}`));
+    board.appendChild(head);
+
+    const list = el('div', 'menu-update-list');
+    for (const entry of CHANGELOG) {
+      const item = el('article', 'update-entry');
+      const title = el('div', 'update-entry-head');
+      title.appendChild(el('span', 'update-version', `v${entry.version}`));
+      title.appendChild(el('span', 'update-title', entry.title));
+      if (entry.version === GAME_VERSION) title.appendChild(el('span', 'pill good', 'Latest'));
+      item.appendChild(title);
+      item.appendChild(
+        el(
+          'span',
+          'update-date',
+          new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })
+        )
+      );
+      const changes = el('ul', 'update-changes');
+      for (const change of entry.changes) changes.appendChild(el('li', undefined, change));
+      item.appendChild(changes);
+      list.appendChild(item);
+    }
+    board.appendChild(list);
+    return board;
   }
 
   private bindBackground(): void {
