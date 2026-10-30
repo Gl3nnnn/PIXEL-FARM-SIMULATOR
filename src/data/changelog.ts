@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.1.0';
+export const GAME_VERSION = '2.2.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.2.0',
+    date: '2026-10-30',
+    title: 'Main menu makeover',
+    changes: [
+      'Rebuilt the menu backdrop with layered hills, winding paths, a pond, crop fields, and a fuller farmstead.',
+      'Added swaying trees and flowers, wandering animals, butterflies, birds, drifting clouds, and chimney smoke.',
+      'Added time-of-day lighting with sunrise, daylight, dusk, moonlight, stars, and fireflies.',
+      'Refined the parchment menu, buttons, hover feedback, and update notes scrolling.'
+    ]
+  },
   {
     version: '2.1.0',
     date: '2026-10-30',

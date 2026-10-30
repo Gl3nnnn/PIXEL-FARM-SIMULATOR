@@ -199,6 +199,9 @@ export class MainMenu {
       list.appendChild(item);
     }
     board.appendChild(list);
+    if (CHANGELOG.length > 1) {
+      board.appendChild(el('p', 'menu-updates-hint', 'Scroll for older updates'));
+    }
     return board;
   }
 

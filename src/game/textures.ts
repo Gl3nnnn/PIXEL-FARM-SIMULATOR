@@ -956,6 +956,86 @@ function drawFestivalBanner(ctx: Ctx): void {
   px(ctx, 1, 22, 14, 2, '#8a6a44');
 }
 
+function drawBush(ctx: Ctx): void {
+  px(ctx, 0, 0, 20, 14, 'rgba(0,0,0,0)');
+  disc(ctx, 6, 9, 4, '#3f7d3a');
+  disc(ctx, 12, 8, 5, '#4f8c38');
+  disc(ctx, 16, 10, 3, '#5b9b3a');
+  disc(ctx, 9, 6, 3, '#5b9b3a');
+  px(ctx, 4, 12, 13, 2, '#2f5f2c');
+  px(ctx, 7, 5, 2, 1, '#7ab95a');
+  px(ctx, 13, 7, 2, 1, '#7ab95a');
+}
+
+function drawBird(ctx: Ctx, frame: number): void {
+  px(ctx, 0, 0, 10, 6, 'rgba(0,0,0,0)');
+  px(ctx, 4, 2, 3, 2, '#3a3340');
+  px(ctx, 6, 1, 2, 2, '#3a3340');
+  px(ctx, 8, 2, 1, 1, '#5a5262');
+  if (frame === 0) {
+    px(ctx, 1, 0, 4, 1, '#4a4250');
+    px(ctx, 2, 1, 3, 1, '#4a4250');
+    px(ctx, 7, 0, 2, 1, '#4a4250');
+  } else {
+    px(ctx, 1, 4, 4, 1, '#4a4250');
+    px(ctx, 2, 3, 3, 1, '#4a4250');
+    px(ctx, 7, 4, 2, 1, '#4a4250');
+  }
+}
+
+function drawButterfly(ctx: Ctx, frame: number, variant: number): void {
+  px(ctx, 0, 0, 8, 6, 'rgba(0,0,0,0)');
+  const wing = variant === 0 ? '#f0a24a' : '#8ac8e8';
+  const wingLight = variant === 0 ? '#f8d878' : '#d8f0ff';
+  const spread = frame === 0 ? 1 : 0;
+  px(ctx, 2 - spread, 1, 2, 2, wingLight);
+  px(ctx, 4, 1, 2, 2, wing);
+  px(ctx, 2 - spread, 3, 2, 2, wing);
+  px(ctx, 4, 3, 2, 2, wingLight);
+  px(ctx, 3, 2, 1, 3, '#3a2a1a');
+  px(ctx, 2, 0, 1, 1, '#3a2a1a');
+  px(ctx, 4, 0, 1, 1, '#3a2a1a');
+}
+
+function drawFence(ctx: Ctx): void {
+  px(ctx, 0, 0, 16, 14, 'rgba(0,0,0,0)');
+  px(ctx, 0, 3, 16, 2, '#c8a06a');
+  px(ctx, 0, 8, 16, 2, '#b08854');
+  px(ctx, 2, 1, 2, 12, '#8a5a34');
+  px(ctx, 2, 1, 1, 12, '#a87446');
+  px(ctx, 11, 1, 2, 12, '#8a5a34');
+  px(ctx, 11, 1, 1, 12, '#a87446');
+  px(ctx, 2, 12, 11, 1, 'rgba(0,0,0,0.16)');
+}
+
+function drawLilypad(ctx: Ctx): void {
+  px(ctx, 0, 0, 12, 8, 'rgba(0,0,0,0)');
+  px(ctx, 1, 3, 9, 3, '#5b9b3a');
+  px(ctx, 0, 4, 11, 2, '#4f8c38');
+  px(ctx, 3, 2, 6, 1, '#6fae4f');
+  px(ctx, 4, 6, 3, 1, '#3f7d3a');
+  px(ctx, 7, 4, 2, 1, '#6fae4f');
+}
+
+function drawReed(ctx: Ctx): void {
+  px(ctx, 0, 0, 8, 16, 'rgba(0,0,0,0)');
+  px(ctx, 3, 6, 2, 9, '#5b7a3a');
+  px(ctx, 2, 9, 1, 6, '#4f6a32');
+  px(ctx, 5, 10, 1, 5, '#6f8a3a');
+  px(ctx, 3, 2, 2, 4, '#8a6a3a');
+  px(ctx, 3, 2, 1, 4, '#a8844a');
+}
+
+function drawMoon(ctx: Ctx): void {
+  px(ctx, 0, 0, 40, 40, 'rgba(0,0,0,0)');
+  disc(ctx, 20, 20, 13, '#e8e8d8');
+  disc(ctx, 18, 18, 11, '#f4f4e8');
+  disc(ctx, 15, 16, 3, '#d8d8c8');
+  disc(ctx, 24, 22, 4, '#d8d8c8');
+  disc(ctx, 20, 26, 2, '#d8d8c8');
+  px(ctx, 12, 13, 2, 1, '#ffffff');
+}
+
 export function generateTextures(scene: Phaser.Scene): void {
   // ---- terrain per season
   for (const season of SEASONS) {
@@ -1067,6 +1147,7 @@ export function generateTextures(scene: Phaser.Scene): void {
       px(ctx, x - 2, y - 2, 4, 4, '#ffe08a');
     }
   });
+  makeTexture(scene, 'moon', 40, 40, drawMoon);
 
   // grass tufts for decoration
   makeTexture(scene, 'tuft', 8, 8, (ctx) => {
@@ -1075,6 +1156,18 @@ export function generateTextures(scene: Phaser.Scene): void {
     px(ctx, 3, 2, 1, 6, '#6fae4f');
     px(ctx, 5, 3, 1, 5, '#5b9b3a');
   });
+  makeTexture(scene, 'bush', 20, 14, drawBush);
+  makeTexture(scene, 'fence', 16, 14, drawFence);
+  makeTexture(scene, 'lilypad', 12, 8, drawLilypad);
+  makeTexture(scene, 'reed', 8, 16, drawReed);
+  for (let f = 0; f < 2; f++) {
+    makeTexture(scene, `bird_${f}`, 10, 6, (ctx) => drawBird(ctx, f));
+  }
+  for (let v = 0; v < 2; v++) {
+    for (let f = 0; f < 2; f++) {
+      makeTexture(scene, `butterfly_${v}_${f}`, 8, 6, (ctx) => drawButterfly(ctx, f, v));
+    }
+  }
 }
 
 export function createPlayerAnimations(scene: Phaser.Scene): void {
