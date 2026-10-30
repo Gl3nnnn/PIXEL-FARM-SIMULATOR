@@ -62,6 +62,8 @@ export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
   private facing: Facing = 'down';
+  private zoomLevel = 1;
+  private baseZoom = 1;
 
   private groundImages: Phaser.GameObjects.Image[] = [];
   private waterImages: Array<{ image: Phaser.GameObjects.Image; frame: number }> = [];
@@ -81,6 +83,9 @@ export class GameScene extends Phaser.Scene {
   private lightOverlay!: Phaser.GameObjects.Rectangle;
   private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
 
+  private dragLastTile: string | null = null;
+  private nightWarnedDay = -1;
+  private cropLabel?: Phaser.GameObjects.Text;
   private buildMode: string | null = null;
   private pendingBuild: { x: number; y: number } | null = null;
   private sleeping = false;
@@ -101,6 +106,7 @@ export class GameScene extends Phaser.Scene {
     this.state = data.state;
     this.slot = data.slot ?? 1;
     this.facing = this.state.data.player.facing ?? 'down';
+    this.zoomLevel = 1;
     this.sleeping = false;
     this.buildMode = null;
     this.pendingBuild = null;
@@ -253,7 +259,7 @@ export class GameScene extends Phaser.Scene {
       callback: () => {
         if (this.state.paused) return;
         if (this.state.data.weather === 'storm') {
-          this.cameras.main.flash(140, 190, 210, 255);
+          if (!audio.settings.reduceFlashing) this.cameras.main.flash(140, 190, 210, 255);
         }
       }
     });
@@ -670,19 +676,33 @@ export class GameScene extends Phaser.Scene {
     const height = this.scale.height;
     const worldWidth = WORLD_W * TILE;
     const worldHeight = WORLD_H * TILE;
-    const zoom = Math.max(1, width / worldWidth, height / worldHeight);
+    this.baseZoom = Math.max(1, width / worldWidth, height / worldHeight);
     this.cameras.main.setSize(width, height);
-    this.cameras.main.setZoom(zoom);
+    this.applyZoom();
     this.lightOverlay?.setSize(width, height);
     if (this.rainEmitter) {
       this.rainEmitter.setConfig({ x: { min: 0, max: width } });
     }
   };
 
+  private applyZoom(): void {
+    this.cameras.main.setZoom(this.baseZoom * this.zoomLevel);
+  }
+
   private setupInput(): void {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys('W,A,S,D') as typeof this.wasd;
     this.input.mouse?.disableContextMenu();
+    this.input.keyboard!.on('keydown-G', () => this.harvestNearby());
+    this.input.keyboard!.on('keydown-F', () => this.feedAllAnimals());
+    this.input.keyboard!.on('keydown-E', () => this.collectNearbyProducts());
+
+    // Mouse wheel zooms the camera: from the normal view up to 2.5x closer.
+    this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _over: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+      if (this.state.paused) return;
+      this.zoomLevel = clamp(this.zoomLevel * (dy > 0 ? 0.9 : 1 / 0.9), 1, 2.5);
+      this.applyZoom();
+    });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.state.paused || this.sleeping) return;
@@ -700,6 +720,7 @@ export class GameScene extends Phaser.Scene {
         else this.tryPlaceBuild(wp.x, wp.y);
         return;
       }
+      this.dragLastTile = tileKey(worldToTile(wp.x, wp.y).x, worldToTile(wp.x, wp.y).y);
       this.handleWorldClick(wp.x, wp.y);
     });
 
@@ -707,7 +728,10 @@ export class GameScene extends Phaser.Scene {
       if (this.state.paused) return;
       const wp = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       if (this.buildMode) this.updateGhost(wp.x, wp.y);
-      else this.updateHover(wp.x, wp.y);
+      else {
+        this.updateHover(wp.x, wp.y);
+        this.dragAcross(pointer, wp.x, wp.y);
+      }
     });
   }
 
@@ -1002,6 +1026,7 @@ export class GameScene extends Phaser.Scene {
     this.ghost.setTint(check.ok ? 0x9dffb0 : 0xff9a9a);
     this.ghost.setAlpha(0.7);
     this.ghostGfx.clear();
+    this.drawWatchRing(x, y, def.w, def.h, def.radius ?? 0);
     for (let ty = y; ty < y + def.h; ty++) {
       for (let tx = x; tx < x + def.w; tx++) {
         this.ghostGfx.fillStyle(check.ok ? 0x4fbe6a : 0xd44a4a, 0.28);
@@ -1041,7 +1066,136 @@ export class GameScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- visuals
 
+  // Hold the mouse button and drag: hoe, watering can and seeds work on each new tile.
+  private dragAcross(pointer: Phaser.Input.Pointer, wx: number, wy: number): void {
+    if (!pointer.isDown || this.sleeping || pointer.rightButtonDown()) {
+      this.dragLastTile = null;
+      return;
+    }
+    const item = this.state.selectedItem();
+    if (!(item === 'hoe' || item === 'watering_can' || item.endsWith('_seed'))) return;
+    const { x, y } = worldToTile(wx, wy);
+    const key = tileKey(x, y);
+    if (key === this.dragLastTile) return;
+    this.dragLastTile = key;
+    if (this.state.mineNodeAtTile(x, y) || isWaterTile(x, y) || this.state.cropMature(x, y)) return;
+    this.performTileAction(x, y);
+  }
+
+  private keyboardTyping(): boolean {
+    const tag = document.activeElement?.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  }
+
+  // Press G: harvest every ripe crop within 3 tiles of the player.
+  private harvestNearby(): void {
+    if (this.state.paused || this.sleeping || this.keyboardTyping()) return;
+    const px = Math.floor(this.player.x / TILE);
+    const py = Math.floor(this.player.y / TILE);
+    let harvested = 0;
+    let lastError = '';
+    for (let y = py - 3; y <= py + 3; y++) {
+      for (let x = px - 3; x <= px + 3; x++) {
+        if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) continue;
+        if (!this.state.cropMature(x, y)) continue;
+        const res = this.state.harvestAt(x, y);
+        if (!res.ok) {
+          lastError = res.message ?? '';
+          continue;
+        }
+        harvested += 1;
+        this.spawnActionParticles(x, y, 'sparkle');
+        this.refreshTileAndNeighbours(x, y);
+      }
+    }
+    if (harvested > 0) {
+      audio.play('harvest');
+      this.ui.notify(`Harvested ${harvested} crop${harvested === 1 ? '' : 's'} nearby.`, 'success');
+      void this.saveGame();
+    } else {
+      this.ui.notify(lastError || 'No ripe crops within reach.', lastError ? 'error' : 'info');
+    }
+  }
+
+  // Press E: collect every ready animal product within 3 tiles of the player.
+  private collectNearbyProducts(): void {
+    if (this.state.paused || this.sleeping || this.keyboardTyping()) return;
+    let collected = 0;
+    let lastError = '';
+    for (const animal of [...this.state.data.animals]) {
+      if (!animal.productReady) continue;
+      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, animal.x, animal.y) > TILE * 3) continue;
+      const res = this.state.collectAnimal(animal.uid);
+      if (!res.ok) {
+        lastError = res.message ?? '';
+        continue;
+      }
+      collected += 1;
+      this.floatText('+1', 0xffe080, animal.x, animal.y - 30);
+    }
+    if (collected > 0) {
+      audio.play('harvest');
+      this.ui.notify(`Collected ${collected} product${collected === 1 ? '' : 's'} nearby.`, 'success');
+      this.syncAnimalBubbles();
+      void this.saveGame();
+    } else {
+      this.ui.notify(lastError || 'No products ready near you.', lastError ? 'error' : 'info');
+    }
+  }
+
+  // Press F: feed all your animals in one go.
+  private feedAllAnimals(): void {
+    if (this.state.paused || this.sleeping || this.keyboardTyping()) return;
+    const res = this.state.feedAll();
+    this.ui.notify(res.message ?? '', res.ok ? 'success' : 'error');
+    if (res.ok) {
+      audio.play('click');
+      this.syncAnimalBubbles();
+      void this.saveGame();
+    }
+  }
+
+  // Blue ring around a well or sprinkler: the tiles it will water.
+  private drawWatchRing(x: number, y: number, w: number, h: number, radius: number): void {
+    if (radius <= 0) return;
+    this.ghostGfx.fillStyle(0x6ab8ff, 0.22);
+    for (let ty = y - radius; ty < y + h + radius; ty++) {
+      for (let tx = x - radius; tx < x + w + radius; tx++) {
+        if (tx >= x && tx < x + w && ty >= y && ty < y + h) continue;
+        this.ghostGfx.fillRect(tx * TILE, ty * TILE, TILE, TILE);
+      }
+    }
+  }
+
+  // Small label over a planted tile: crop name and days left.
+  private updateCropLabel(x: number, y: number): void {
+    const inside = x >= 0 && y >= 0 && x < WORLD_W && y < WORLD_H;
+    const tile = inside ? this.state.tileAt(x, y) : undefined;
+    const def = tile?.crop ? CROPS[tile.crop.id] : undefined;
+    if (!tile?.crop || !def) {
+      this.cropLabel?.setVisible(false);
+      return;
+    }
+    const left = Math.max(0, def.growthDays - tile.crop.growth);
+    const text = left === 0 ? `${def.name} \u00b7 ready` : `${def.name} \u00b7 ${left} day${left === 1 ? '' : 's'} left`;
+    if (!this.cropLabel) {
+      this.cropLabel = this.add
+        .text(0, 0, '', {
+          fontFamily: 'Courier New, monospace',
+          fontSize: '11px',
+          color: '#fff5d0',
+          backgroundColor: '#1a2a1ae0',
+          padding: { x: 4, y: 2 }
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(860);
+    }
+    this.cropLabel.setText(text).setPosition(x * TILE + TILE / 2, y * TILE - 4).setVisible(true);
+  }
+
   private updateHover(wx: number, wy: number): void {
+    const hoverTile = worldToTile(wx, wy);
+    this.updateCropLabel(hoverTile.x, hoverTile.y);
     const { x, y } = worldToTile(wx, wy);
     this.hoverGfx.clear();
     if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return;
@@ -1347,6 +1501,10 @@ export class GameScene extends Phaser.Scene {
     if (_time - this.lastNpcCheck > 1000) {
       this.lastNpcCheck = _time;
       this.updateNpcVisibility();
+    }
+    if (!this.state.paused && !this.sleeping && this.state.data.minute >= 22 * 60 && this.nightWarnedDay !== this.state.data.day) {
+      this.nightWarnedDay = this.state.data.day;
+      this.ui.notify('It is getting late. Remember to sleep soon.', 'info');
     }
     this.updateLighting(delta);
     this.updateAnimalBubbles();

@@ -55,6 +55,15 @@ export function renderSettings(ctx: UIContext, root: HTMLElement): void {
     audioBox.appendChild(volRow);
     content.appendChild(audioBox);
 
+    const displayBox = section('Display');
+    displayBox.appendChild(
+      makeToggle('Reduce flashing', !!audio.settings.reduceFlashing, (next) => {
+        audio.settings.reduceFlashing = next;
+        saveSettings(audio.settings);
+      })
+    );
+    content.appendChild(displayBox);
+
     const saveSec = section('Save', 'This game saves locally in this browser.');
     const saveRow = el('div', 'setting-row');
     saveRow.appendChild(el('span', undefined, 'Save your progress now'));

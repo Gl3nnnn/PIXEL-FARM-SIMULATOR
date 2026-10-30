@@ -518,7 +518,8 @@ export function loadSettings(): Settings {
       volume:
         typeof parsed.volume === 'number' && parsed.volume >= 0 && parsed.volume <= 1
           ? parsed.volume
-          : DEFAULT_SETTINGS.volume
+          : DEFAULT_SETTINGS.volume,
+      reduceFlashing: parsed.reduceFlashing === true
     };
   } catch {
     return { ...DEFAULT_SETTINGS };

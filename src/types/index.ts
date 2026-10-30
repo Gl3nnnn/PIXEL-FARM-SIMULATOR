@@ -418,6 +418,7 @@ export interface SaveData {
 export interface Settings {
   music: boolean;
   sfx: boolean;
+  reduceFlashing?: boolean;
   volume: number;
 }
 

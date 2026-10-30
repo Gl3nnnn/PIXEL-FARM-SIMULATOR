@@ -226,6 +226,16 @@ export class GameUI {
     moreItem('People', 'people', 'T');
     moreItem('Statistics', 'stats');
     this.navMoreMenu.appendChild(el('div', 'nav-more-sep'));
+    const bedItem = el('button', 'nav-more-item');
+    bedItem.type = 'button';
+    bedItem.setAttribute('role', 'menuitem');
+    bedItem.append(el('span', undefined, 'Go to bed'));
+    bedItem.addEventListener('click', () => {
+      audio.play('click');
+      this.closeMoreMenu();
+      this.requestSleep();
+    });
+    this.navMoreMenu.appendChild(bedItem);
     const pauseItem = el('button', 'nav-more-item');
     pauseItem.type = 'button';
     pauseItem.setAttribute('role', 'menuitem');
@@ -978,6 +988,11 @@ export class GameUI {
       })
     );
     actions.appendChild(
+      button('Go to bed', {
+        onClick: () => this.requestSleep()
+      })
+    );
+    actions.appendChild(
       button('Settings', {
         onClick: () => {
           this.closePause();
@@ -1008,7 +1023,7 @@ export class GameUI {
       <p><b>Move</b> WASD / arrow keys · <b>Use</b> click the world</p>
       <p><b>Hotbar</b> 1–0 · <b>Shop</b> H · <b>Market</b> M · <b>Bag</b> I · <b>Build</b> B · <b>Craft</b> C</p>
       <p><b>Quests</b> Q · <b>Almanac</b> L</p>
-      <p><b>Pause</b> Esc · <b>Sleep</b> button in the HUD</p>
+      <p><b>Pause</b> Esc · <b>Sleep</b> button in the HUD, or Go to bed in the menus</p>
       <p class="hint">Mobile: joystick and USE button appear on touch screens.</p>
     `;
     body.appendChild(controls);
@@ -1106,6 +1121,10 @@ export class GameUI {
       } else {
         this.openPause();
       }
+      return;
+    }
+    if (e.key === '?') {
+      this.notify('Controls: WASD or arrows move. Click or drag with a tool. G harvest, F feed, E collect. Mouse wheel zooms. 1-0 pick items. H shop, M market, I inventory, B build, Q quests, L almanac, T people, C craft. Esc menu.', 'info');
       return;
     }
     if (e.key >= '0' && e.key <= '9') {
