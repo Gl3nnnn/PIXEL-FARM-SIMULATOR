@@ -191,7 +191,7 @@ describe('saves', () => {
     localStorage.clear();
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
     saveSettings({ music: true, sfx: false, volume: 0.85 });
-    expect(loadSettings()).toEqual({ music: true, sfx: false, volume: 0.85 });
+    expect(loadSettings()).toEqual({ music: true, sfx: false, volume: 0.85, reduceFlashing: false });
 
     localStorage.setItem('pfs:settings', '{not valid json');
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
