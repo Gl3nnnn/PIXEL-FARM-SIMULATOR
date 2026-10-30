@@ -298,6 +298,7 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
         return {
           itemId,
           qty: Math.max(0, Math.floor(toFinite(entry.qty, 0))),
+          locked: entry.locked === true ? true : undefined,
           quality
         };
       })

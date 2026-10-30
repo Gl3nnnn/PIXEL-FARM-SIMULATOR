@@ -19,12 +19,64 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
+    const dailyReady: string[] = [];
+    for (const entry of state.data.daily?.list ?? []) {
+      const info = state.dailyState(entry.id);
+      if (info?.complete && !info.claimed) dailyReady.push(entry.id);
+    }
+    const mainReady: string[] = [];
+    for (const quest of MAIN_QUESTS) {
+      const info = state.mainQuestState(quest);
+      if (info.complete && !info.claimed) mainReady.push(quest.id);
+    }
     content.appendChild(
-      tabs(['Seasonal', 'Daily', 'Main Quests', 'Achievements'], tab, (i) => {
+      tabs(
+        [
+          'Seasonal',
+          dailyReady.length > 0 ? `Daily (${dailyReady.length})` : 'Daily',
+          mainReady.length > 0 ? `Main Quests (${mainReady.length})` : 'Main Quests',
+          'Achievements'
+        ],
+        tab,
+        (i) => {
         tab = i;
         render();
       })
     );
+
+    if (tab === 1 || tab === 2) {
+      const daily = tab === 1;
+      const readyIds = daily ? dailyReady : mainReady;
+      const bar = el('div', 'panel-toolbar');
+      bar.appendChild(
+        el(
+          'p',
+          'hint',
+          readyIds.length > 0
+            ? `${readyIds.length} reward${readyIds.length === 1 ? '' : 's'} ready to claim.`
+            : 'No rewards ready yet.'
+        )
+      );
+      bar.appendChild(
+        button('Claim all ready', {
+          small: true,
+          variant: 'primary',
+          disabled: readyIds.length === 0,
+          onClick: () => {
+            let count = 0;
+            for (const id of readyIds) {
+              const result = daily ? state.claimDailyQuest(id) : state.claimMainQuest(id);
+              if (result.ok) count += 1;
+            }
+            ctx.toast(`Claimed ${count} reward${count === 1 ? '' : 's'}.`, count > 0 ? 'reward' : 'error');
+            audio.play(count > 0 ? 'coin' : 'error');
+            if (count > 0) ctx.requestSave();
+            render();
+          }
+        })
+      );
+      content.appendChild(bar);
+    }
 
     if (tab === 0) {
       const seasonal = state.data.seasonal;

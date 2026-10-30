@@ -36,11 +36,13 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
           pill(`${trend > 0 ? '+' : ''}${trend}% today`, trend > 0 ? 'good' : 'warn')
         );
       }
+      if (stack.locked) tags.appendChild(pill('Locked', 'warn'));
       info.appendChild(tags);
       row.appendChild(info);
       const actions = el('div', 'row-actions');
       actions.appendChild(
         button('Sell 1', {
+          disabled: stack.locked === true,
           small: true,
           onClick: () => {
             const result = state.sellStack(index, 1);
@@ -53,6 +55,7 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
       );
       actions.appendChild(
         button(`Sell all (${formatNumber(unit * stack.qty)}g)`, {
+          disabled: stack.locked === true,
           small: true,
           variant: 'gold',
           onClick: () => {
@@ -71,6 +74,11 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
     sec.appendChild(list);
     content.appendChild(sec);
 
+    const sellable = state.data.inventory.reduce((sum, stack) => {
+      const def = stack ? ITEMS[stack.itemId] : undefined;
+      if (!stack || !def || def.type === 'tool' || stack.locked) return sum;
+      return sum + state.sellPrice(stack.itemId, stack.quality) * stack.qty;
+    }, 0);
     const footer = el('div', 'panel-footer');
     footer.appendChild(
       button('Sell everything', {
@@ -80,7 +88,7 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
           confirmDialog(
             root,
             'Sell everything?',
-            'This sells every non-tool item, including seeds, feed and fertilizer. This cannot be undone.',
+            `Sell every unlocked item except tools for ${formatNumber(sellable)} coins? Seeds, feed and fertilizer are included. Locked items are kept. This cannot be undone.`,
             'Sell all',
             () => {
               const result = state.sellAll();

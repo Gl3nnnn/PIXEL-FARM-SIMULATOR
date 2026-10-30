@@ -41,6 +41,20 @@ export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
       })
     );
     content.appendChild(status);
+    status.appendChild(
+      button('Pet all', {
+        small: true,
+        variant: 'secondary',
+        disabled: state.data.animals.filter((a) => !a.petted).length === 0,
+        onClick: () => {
+          const result = state.petAll();
+          ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+          audio.play(result.ok ? 'animal' : 'error');
+          if (result.ok) ctx.requestSave();
+          render();
+        }
+      })
+    );
 
     const buySec = section('Buy animals', 'Animals need the matching building with free space.');
     const buyGrid = el('div', 'card-grid wide');

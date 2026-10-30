@@ -19,7 +19,7 @@ import { renderSettings } from './panels/settings';
 import { renderFestival } from './panels/festival';
 import { renderPeople } from './panels/people';
 import { ITEMS, QUALITY_LABEL } from '../data/definitions';
-import { npcLine } from '../systems/npcs';
+import { giftPoints, giftReaction, isNpcBirthday, npcLine } from '../systems/npcs';
 import type Phaser from 'phaser';
 
 export interface GameUIHandlers {
@@ -582,6 +582,19 @@ export class GameUI {
         giftSection.appendChild(el('p', 'hint', 'Nothing suitable to give in your backpack.'));
       } else {
         giftSection.appendChild(select);
+        const preview = el('p', 'hint');
+        const showPreview = () => {
+          if (!select.value) return;
+          const reaction = giftReaction(current.npc, select.value);
+          const birthday = isNpcBirthday(current.npc, this.state.data);
+          const points = giftPoints(reaction, birthday);
+          const words =
+            reaction === 'love' ? 'Loves it' : reaction === 'like' ? 'Likes it' : reaction === 'hate' ? 'Dislikes it' : 'Neutral';
+          preview.textContent = `${words}: ${points > 0 ? '+' : ''}${points} friendship${birthday ? ' (birthday bonus)' : ''}`;
+        };
+        select.addEventListener('change', showPreview);
+        showPreview();
+        giftSection.appendChild(preview);
         giftSection.appendChild(
           button('Give gift', {
             small: true,

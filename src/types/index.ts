@@ -289,6 +289,8 @@ export interface UpgradeDef {
 }
 
 export interface InventoryStack {
+  /** True when the player keeps this stack out of sales. */
+  locked?: boolean;
   itemId: string;
   qty: number;
   quality: Quality;

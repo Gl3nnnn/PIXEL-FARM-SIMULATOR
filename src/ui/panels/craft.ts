@@ -69,6 +69,33 @@ export function renderCraft(ctx: UIContext, root: HTMLElement): void {
           }
         })
       );
+      actions.appendChild(
+        button('Craft all', {
+          small: true,
+          variant: 'secondary',
+          disabled: locked || !state.hasWorkshop() || missing || state.data.coins < recipe.coins,
+          onClick: () => {
+            // Keeps crafting until ingredients, coins or space run out. Capped at 99 so it can never loop forever.
+            let made = 0;
+            let failure = '';
+            while (made < 99) {
+              const result = state.craft(recipe.id);
+              if (!result.ok) {
+                failure = result.message ?? '';
+                break;
+              }
+              made += 1;
+            }
+            if (made > 0) ctx.requestSave();
+            ctx.toast(
+              made > 0 ? `Crafted ${made} × ${out?.name ?? recipe.name}.` : failure,
+              made > 0 ? 'success' : 'error'
+            );
+            audio.play(made > 0 ? 'craft' : 'error');
+            render();
+          }
+        })
+      );
       card.appendChild(actions);
       grid.appendChild(card);
     }

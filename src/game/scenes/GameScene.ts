@@ -1177,7 +1177,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const left = Math.max(0, def.growthDays - tile.crop.growth);
-    const text = left === 0 ? `${def.name} \u00b7 ready` : `${def.name} \u00b7 ${left} day${left === 1 ? '' : 's'} left`;
+    const timing = left === 0 ? 'ready' : `${left} day${left === 1 ? '' : 's'} left`;
+    const harvest = def.yieldMin === def.yieldMax ? `${def.yieldMin}` : `${def.yieldMin}-${def.yieldMax}`;
+    const fertilized = tile.fertilized ? ' \u00b7 fertilized' : '';
+    const text = `${def.name} \u00b7 ${timing} \u00b7 harvest ${harvest}${fertilized}`;
     if (!this.cropLabel) {
       this.cropLabel = this.add
         .text(0, 0, '', {

@@ -307,7 +307,7 @@ export class GameState {
     let space = 0;
     for (const stack of this.data.inventory) {
       if (!stack) space += def.stack;
-      else if (stack.itemId === itemId && stack.quality === quality && stack.qty < def.stack) {
+      else if (!stack.locked && stack.itemId === itemId && stack.quality === quality && stack.qty < def.stack) {
         space += def.stack - stack.qty;
       }
     }
@@ -325,7 +325,7 @@ export class GameState {
     let left = amount;
     for (const stack of this.data.inventory) {
       if (left <= 0) break;
-      if (stack && stack.itemId === itemId && stack.quality === quality && stack.qty < def.stack) {
+      if (stack && !stack.locked && stack.itemId === itemId && stack.quality === quality && stack.qty < def.stack) {
         const add = Math.min(def.stack - stack.qty, left);
         stack.qty += add;
         left -= add;
@@ -614,6 +614,7 @@ export class GameState {
     const def = ITEMS[stack.itemId];
     if (!def) return { ok: false, message: 'Unknown item.' };
     if (def.type === 'tool') return { ok: false, message: 'You cannot sell your tools.' };
+    if (stack.locked) return { ok: false, message: 'This item is locked. Unlock it to sell.' };
     const amount = Math.floor(qty);
     if (amount <= 0 || amount > stack.qty) return { ok: false, message: 'Invalid quantity.' };
     const unit = this.sellPrice(stack.itemId, stack.quality);
@@ -638,6 +639,7 @@ export class GameState {
       if (!stack) continue;
       const def = ITEMS[stack.itemId];
       if (!def || def.type === 'tool') continue;
+      if (stack.locked) continue;
       total += this.sellPrice(stack.itemId, stack.quality) * stack.qty;
       count += stack.qty;
       this.data.inventory[i] = null;
@@ -930,6 +932,18 @@ export class GameState {
     this.addXp('animal', 2, false);
     this.emitChange();
     return { ok: true, message: 'The animal looks happier.' };
+  }
+
+  petAll(): ActionResult {
+    const lonely = this.data.animals.filter((a) => !a.petted);
+    if (lonely.length === 0) return { ok: false, message: 'All animals have been petted today.' };
+    for (const animal of lonely) {
+      animal.petted = true;
+      animal.happiness = clamp(animal.happiness + 8, 0, 100);
+    }
+    this.addXp('animal', 2 * lonely.length, false);
+    this.emitChange();
+    return { ok: true, message: `Petted ${lonely.length} animal${lonely.length === 1 ? '' : 's'}.` };
   }
 
   collectAnimal(animalUid: string): ActionResult {
