@@ -303,7 +303,13 @@ select {
       rgba(8, 15, 7, 0) 82%
     );
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   pointer-events: auto;
+}
+
+.menu-screen::-webkit-scrollbar {
+  display: none;
 }
 
 .menu-scrim {
@@ -319,6 +325,8 @@ select {
   margin-left: clamp(0px, 5vw, 72px);
   max-height: calc(100vh - 32px);
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: clamp(18px, 3vw, 30px);
   color: var(--ink);
   background:
@@ -340,6 +348,10 @@ select {
 .main-menu-panel {
   border-width: 5px;
   border-radius: 5px;
+}
+
+.menu-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .menu-hero {
@@ -538,25 +550,14 @@ select {
   gap: 9px;
   max-height: clamp(150px, 26vh, 238px);
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 2px;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #a78d5f rgba(255, 248, 226, 0.34);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .menu-update-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.menu-update-list::-webkit-scrollbar-track {
-  background: rgba(255, 248, 226, 0.34);
-  border-radius: 999px;
-}
-
-.menu-update-list::-webkit-scrollbar-thumb {
-  background: #a78d5f;
-  border: 2px solid rgba(255, 248, 226, 0.7);
-  border-radius: 999px;
+  display: none;
 }
 
 .update-entry {
@@ -3432,6 +3433,78 @@ select {
 
   .menu-update-list {
     max-height: 170px;
+  }
+}
+
+@media (max-height: 820px) {
+  .menu-screen {
+    padding: 8px clamp(16px, 4vw, 48px);
+  }
+
+  .menu-panel {
+    max-height: calc(100vh - 16px);
+    padding: 20px;
+  }
+
+  .game-logo {
+    margin-bottom: 8px;
+  }
+
+  .logo-line1 {
+    font-size: clamp(24px, 4vw, 34px);
+  }
+
+  .logo-line2 {
+    font-size: clamp(13px, 2vw, 18px);
+  }
+
+  .menu-tagline {
+    margin-bottom: 6px;
+  }
+
+  .menu-badge {
+    padding: 4px 8px;
+  }
+
+  .menu-buttons {
+    gap: 7px;
+    margin-top: 12px;
+  }
+
+  .menu-buttons .btn {
+    padding: 9px 14px;
+  }
+
+  .menu-buttons .menu-btn-main {
+    padding: 13px 14px;
+  }
+
+  .menu-updates {
+    margin-top: 8px;
+    padding: 8px 10px;
+  }
+
+  .menu-updates-head {
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+  }
+
+  .menu-update-list {
+    max-height: 150px;
+    gap: 6px;
+  }
+
+  .update-entry {
+    padding: 6px 8px;
+  }
+
+  .update-changes {
+    margin-top: 4px;
+    line-height: 1.45;
+  }
+
+  .menu-status {
+    margin-top: 7px;
   }
 }
 

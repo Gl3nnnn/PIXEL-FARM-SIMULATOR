@@ -80,7 +80,7 @@ export class GameScene extends Phaser.Scene {
   private hoverGfx!: Phaser.GameObjects.Graphics;
   private ghost!: Phaser.GameObjects.Image;
   private ghostGfx!: Phaser.GameObjects.Graphics;
-  private lightOverlay!: Phaser.GameObjects.Rectangle;
+  private lightOverlay?: Phaser.GameObjects.Rectangle;
   private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
 
   private dragLastTile: string | null = null;
@@ -114,6 +114,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.lightOverlay = undefined;
+    this.rainEmitter = undefined;
     this.groundImages = [];
     this.waterImages = [];
     this.plotDecor = [];
