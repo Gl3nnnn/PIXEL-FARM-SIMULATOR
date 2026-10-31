@@ -302,7 +302,8 @@ select {
       rgba(8, 15, 7, 0.28) 62%,
       rgba(8, 15, 7, 0) 82%
     );
-  overflow: auto;
+  overflow: hidden;
+  overscroll-behavior: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
   pointer-events: auto;
@@ -325,6 +326,7 @@ select {
   margin-left: clamp(0px, 5vw, 72px);
   max-height: calc(100vh - 32px);
   overflow: auto;
+  overscroll-behavior: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding: clamp(18px, 3vw, 30px);
