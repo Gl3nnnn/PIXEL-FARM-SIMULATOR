@@ -80,8 +80,6 @@ import {
   birthdayLabel,
   ensureNpcSave,
   friendshipHearts,
-  giftPoints,
-  giftReaction,
   heartEventLine,
   isNpcBirthday,
   npcAvailable,
@@ -1359,33 +1357,6 @@ export class GameState {
     };
   }
 
-  giftNpc(id: string, itemId: string): ActionResult {
-    const npc = npcById(id);
-    if (!npc) return { ok: false, message: 'Unknown visitor.' };
-    const availability = npcAvailable(npc, this.data);
-    if (!availability.available) return { ok: false, message: `${npc.name} is not here. ${availability.reason}` };
-    const record = ensureNpcSave(this.data, id);
-    if (record.giftedDay === this.today) return { ok: false, message: `You already gave ${npc.name} a gift today.` };
-    if (!this.hasItem(itemId)) return { ok: false, message: 'You do not have that item.' };
-    const item = ITEMS[itemId];
-    if (!item || item.type === 'tool') return { ok: false, message: 'That is not a gift.' };
-    const reaction = giftReaction(npc, itemId);
-    const birthday = isNpcBirthday(npc, this.data);
-    const before = record.friendship;
-    this.removeItem(itemId, 1);
-    record.giftedDay = this.today;
-    record.met = true;
-    record.friendship = clamp(record.friendship + giftPoints(reaction, birthday), 0, 1000);
-    const event = heartEventLine(npc, before, record.friendship);
-    this.emitChange();
-    const reactionText =
-      reaction === 'love' ? 'loved it!' : reaction === 'like' ? 'liked it.' : reaction === 'hate' ? 'did not like it.' : 'accepted it politely.';
-    return {
-      ok: true,
-      message: event ?? `${npc.name} ${reactionText}${birthday ? ' A birthday gift!' : ''}`
-    };
-  }
-
   completeNpcRequest(id: string): ActionResult {
     const npc = npcById(id);
     if (!npc) return { ok: false, message: 'Unknown visitor.' };
@@ -1408,7 +1379,7 @@ export class GameState {
     this.checkProgress();
     return {
       ok: true,
-      message: `${npc.name}'s weekly request complete: +${request.coins} coins and +${request.xp} XP.`
+      message: `${npc.name}'s requested donation complete: +${request.coins} coins and +${request.xp} XP.`
     };
   }
 

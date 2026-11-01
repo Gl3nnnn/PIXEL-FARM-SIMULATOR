@@ -112,20 +112,6 @@ export function birthdayLabel(npc: NpcDef): string {
   return `${SEASON_INFO[npc.birthdaySeason].name} ${npc.birthdayDay}`;
 }
 
-export type GiftReaction = 'love' | 'like' | 'neutral' | 'hate';
-
-export function giftReaction(npc: NpcDef, itemId: string): GiftReaction {
-  if (npc.loves.includes(itemId)) return 'love';
-  if (npc.likes.includes(itemId)) return 'like';
-  if (npc.hates.includes(itemId)) return 'hate';
-  return 'neutral';
-}
-
-export function giftPoints(reaction: GiftReaction, birthday: boolean): number {
-  const base = reaction === 'love' ? 80 : reaction === 'like' ? 40 : reaction === 'hate' ? -30 : 15;
-  return birthday ? base * 2 : base;
-}
-
 export function heartEventLine(npc: NpcDef, before: number, after: number): string | null {
   const thresholds = [200, 400, 600, 800, 1000];
   for (let i = 0; i < thresholds.length; i++) {

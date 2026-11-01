@@ -18,8 +18,7 @@ import { renderStats } from './panels/stats';
 import { renderSettings } from './panels/settings';
 import { renderFestival } from './panels/festival';
 import { renderPeople } from './panels/people';
-import { ITEMS, QUALITY_LABEL } from '../data/definitions';
-import { giftPoints, giftReaction, isNpcBirthday, npcLine } from '../systems/npcs';
+import { npcLine } from '../systems/npcs';
 import type Phaser from 'phaser';
 
 export interface GameUIHandlers {
@@ -513,7 +512,7 @@ export class GameUI {
   openNpcDialogue(id: string): void {
     const entry = this.state.npcList().find((item) => item.npc.id === id);
     if (!entry) return;
-    this.panelSubtitle.textContent = 'Talk, give gifts, and build a friendship.';
+    this.panelSubtitle.textContent = 'Talk, fulfill requests, and build a friendship.';
     if (this.buildMode) this.cancelBuildMode();
     if (this.pauseOpen) this.closePause();
     this.currentPanel = 'npc';
@@ -564,81 +563,54 @@ export class GameUI {
       );
       this.panelContent.appendChild(actions);
 
-      const giftSection = el('div', 'gift-section');
-      giftSection.appendChild(el('h4', undefined, 'Give a gift'));
-      const select = el('select', 'gift-select');
-      const seen = new Set<string>();
-      for (const stack of this.state.data.inventory) {
-        if (!stack) continue;
-        const def = ITEMS[stack.itemId];
-        if (!def || def.type === 'tool' || seen.has(`${stack.itemId}:${stack.quality}`)) continue;
-        seen.add(`${stack.itemId}:${stack.quality}`);
-        const option = document.createElement('option');
-        option.value = stack.itemId;
-        option.textContent = `${QUALITY_LABEL[stack.quality]} ${def.name} ×${stack.qty}`.trim();
-        select.appendChild(option);
-      }
-      if (select.options.length === 0) {
-        giftSection.appendChild(el('p', 'hint', 'Nothing suitable to give in your backpack.'));
-      } else {
-        giftSection.appendChild(select);
-        const preview = el('p', 'hint');
-        const showPreview = () => {
-          if (!select.value) return;
-          const reaction = giftReaction(current.npc, select.value);
-          const birthday = isNpcBirthday(current.npc, this.state.data);
-          const points = giftPoints(reaction, birthday);
-          const words =
-            reaction === 'love' ? 'Loves it' : reaction === 'like' ? 'Likes it' : reaction === 'hate' ? 'Dislikes it' : 'Neutral';
-          preview.textContent = `${words}: ${points > 0 ? '+' : ''}${points} friendship${birthday ? ' (birthday bonus)' : ''}`;
-        };
-        select.addEventListener('change', showPreview);
-        showPreview();
-        giftSection.appendChild(preview);
-        giftSection.appendChild(
-          button('Give gift', {
-            small: true,
-            variant: 'gold',
-            disabled: !current.available,
-            onClick: () => {
-              if (!select.value) return;
-              const result = this.state.giftNpc(id, select.value);
-              this.toast(result.message ?? '', result.ok ? 'success' : 'error');
-              audio.play(result.ok ? 'coin' : 'error');
-              if (result.ok) void this.requestSave();
-              render();
-            }
-          })
-        );
-      }
-      this.panelContent.appendChild(giftSection);
-
       const requestSection = el('div', 'gift-section');
-      requestSection.appendChild(el('h4', undefined, 'Weekly request'));
+      requestSection.appendChild(el('h4', undefined, 'Requested donation'));
       if (current.request.completed) {
         requestSection.appendChild(el('p', 'hint', 'Request fulfilled. A new request arrives next week.'));
       } else {
+        const have = this.state.countItem(current.request.itemId);
+        const missing = Math.max(0, current.request.qty - have);
+        const canDonate = current.available && current.requestReady;
         requestSection.appendChild(
           el(
             'p',
             'hint',
-            `${current.npc.name} wants ${current.request.qty} x ${current.request.itemName} for ${current.request.coins} coins and ${current.request.xp} XP.`
+            `${current.npc.name} is asking for ${current.request.qty} x ${current.request.itemName} for ${current.request.coins} coins and ${current.request.xp} XP.`
+          )
+        );
+        requestSection.appendChild(
+          el(
+            'p',
+            `hint ${canDonate ? 'good' : 'warn'}`,
+            !current.available
+              ? 'Not available right now.'
+              : current.requestReady
+                ? `Ready to donate. You have ${have} x ${current.request.itemName}.`
+                : `Not available. You have ${have} of ${current.request.qty} — need ${missing} more.`
           )
         );
         const requestActions = el('div', 'row-actions');
         requestActions.appendChild(
-          button(current.requestReady ? 'Fulfill request' : `Need ${current.request.qty} x ${current.request.itemName}`, {
-            small: true,
-            variant: 'gold',
-            disabled: !current.available || !current.requestReady,
-            onClick: () => {
-              const result = this.state.completeNpcRequest(id);
-              this.toast(result.message ?? '', result.ok ? 'reward' : 'error');
-              audio.play(result.ok ? 'coin' : 'error');
-              if (result.ok) void this.requestSave();
-              render();
+          button(
+            canDonate
+              ? `Donate ${current.request.qty} x ${current.request.itemName}`
+              : 'Not available',
+            {
+              small: true,
+              variant: 'gold',
+              disabled: !canDonate,
+              title: canDonate
+                ? 'Donate the requested items.'
+                : `Requires ${current.request.qty} x ${current.request.itemName}.`,
+              onClick: () => {
+                const result = this.state.completeNpcRequest(id);
+                this.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+                audio.play(result.ok ? 'coin' : 'error');
+                if (result.ok) void this.requestSave();
+                render();
+              }
             }
-          })
+          )
         );
         requestSection.appendChild(requestActions);
       }

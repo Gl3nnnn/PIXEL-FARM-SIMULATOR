@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.3.0';
+export const GAME_VERSION = '2.3.1';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.1',
+    date: '2026-11-01',
+    title: 'Request-only NPC donations',
+    changes: [
+      'NPCs now only accept the item requested for their weekly donation instead of any backpack item.',
+      'The donation button shows Not available with a missing-item count until you have enough of the requested item.'
+    ]
+  },
   {
     version: '2.3.0',
     date: '2026-11-01',

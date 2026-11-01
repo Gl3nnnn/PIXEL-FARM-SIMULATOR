@@ -56,7 +56,7 @@ export function renderPeople(ctx: UIContext, root: HTMLElement): void {
       tags.appendChild(
         pill(
           entry.request.completed
-            ? 'Weekly request done'
+            ? 'Request fulfilled'
             : `Wants ${entry.request.qty} ${entry.request.itemName}`,
           entry.request.completed ? 'good' : entry.requestReady ? 'gold' : 'warn'
         )

@@ -122,20 +122,14 @@ describe('mining', () => {
 });
 
 describe('npc relationships', () => {
-  it('talks, gives gifts, tracks hearts and allows marriage', () => {
+  it('talks, tracks hearts and allows marriage', () => {
     const state = makeState(() => 0.5);
     state.data.minute = 10 * 60;
-    state.addItem('sunflowers', 1);
 
     const talk = state.npcTalk('mira');
     expect(talk.ok).toBe(true);
     expect(state.data.npcs.mira?.met).toBe(true);
     expect(state.data.npcs.mira?.friendship).toBe(8);
-
-    const gift = state.giftNpc('mira', 'sunflowers');
-    expect(gift.ok).toBe(true);
-    expect(state.data.npcs.mira?.friendship).toBe(88);
-    expect(state.data.npcs.mira?.giftedDay).toBe(state.today);
 
     expect(state.marryNpc('mira').ok).toBe(false);
     state.data.npcs.mira!.friendship = 1000;
@@ -144,11 +138,15 @@ describe('npc relationships', () => {
     expect(state.spouseName).toBe('Mira');
   });
 
-  it('generates and completes a weekly request once per week', () => {
+  it('only accepts the requested donation once per week', () => {
     const state = makeState(() => 0.5);
     state.data.minute = 10 * 60;
     const entry = state.npcList().find((item) => item.npc.id === 'mira')!;
     expect(entry.request.completed).toBe(false);
+
+    const missing = state.completeNpcRequest('mira');
+    expect(missing.ok).toBe(false);
+    expect(missing.message).toContain('Need');
 
     state.addItem(entry.request.itemId, entry.request.qty);
     const before = state.data.coins;
