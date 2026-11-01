@@ -46,7 +46,7 @@ const PANEL_META: Record<string, { title: string; subtitle: string }> = {
   almanac: { title: 'Farm Almanac', subtitle: 'Plan crops, livestock, fishing, and your collection.' },
   stats: { title: 'Statistics', subtitle: 'A snapshot of your farming journey and lifetime totals.' },
   festival: { title: 'Festival Day', subtitle: 'Show the judges your finest goods. One entry per year.' },
-  people: { title: 'People', subtitle: 'Talk, give gifts, and build friendships with farm visitors.' },
+  people: { title: 'People', subtitle: 'Talk, fulfill requests, and build friendships with farm visitors.' },
   settings: { title: 'Settings', subtitle: 'Adjust sound and manage your local save.' }
 };
 
@@ -83,6 +83,7 @@ export class GameUI {
   private currentPanel: string | null = null;
   private pauseOpen = false;
   private iconCache = new Map<string, string>();
+  private avatarCache = new Map<string, string>();
   private joystick = { x: 0, y: 0 };
   private moveAccum = 0;
   private clockTimer: number | null = null;
@@ -364,6 +365,25 @@ export class GameUI {
     return url;
   }
 
+  private avatar(key: string, label: string): HTMLImageElement {
+    if (!this.avatarCache.has(key)) {
+      let url = '';
+      try {
+        url = this.scene.textures.exists(key) ? this.scene.textures.getBase64(key) : '';
+      } catch {
+        url = '';
+      }
+      this.avatarCache.set(key, url);
+    }
+    const img = el('img', 'npc-avatar');
+    img.src = this.avatarCache.get(key) ?? '';
+    img.alt = label;
+    img.width = 64;
+    img.height = 96;
+    img.draggable = false;
+    return img;
+  }
+
   toast(message: string, kind: 'info' | 'success' | 'error' | 'reward' = 'info'): void {
     if (!message) return;
     const node = el('div', `toast ${kind}`);
@@ -520,6 +540,7 @@ export class GameUI {
     this.closeMoreMenu();
     this.panelContent.innerHTML = '';
     this.panelTitle.textContent = `${entry.npc.name} · ${entry.npc.role}`;
+    let npcSpeech: string | null = null;
     const render = (): void => {
       const current = this.state.npcList().find((item) => item.npc.id === id);
       if (!current) return;
@@ -540,23 +561,47 @@ export class GameUI {
       this.panelContent.appendChild(
         progressBar(current.hearts, 10, `${current.hearts} / 10 hearts`, 'xp')
       );
-      const line = el('p', 'npc-line');
-      line.textContent = current.record.met
-        ? npcLine(current.npc, this.state.data)
-        : `You have not met ${current.npc.name} yet. Say hello when they visit the farm.`;
-      this.panelContent.appendChild(line);
 
+      const greeting = current.record.met
+        ? npcLine(current.npc, this.state.data)
+        : 'A new face at the farm.';
+      const conversation = el('div', 'npc-conversation');
+
+      const playerSide = el('div', 'npc-chat player');
+      const playerFrame = el('div', 'npc-avatar-frame');
+      playerFrame.appendChild(this.avatar('player_down_0', 'You'));
+      playerSide.append(playerFrame, el('span', 'npc-chat-name', 'You'));
+      playerSide.appendChild(
+        el('p', 'npc-chat-bubble from-player', current.available ? `Hi, ${current.npc.name}!` : '...')
+      );
+      conversation.appendChild(playerSide);
+
+      const npcSide = el('div', 'npc-chat npc');
+      const npcFrame = el('div', 'npc-avatar-frame');
+      npcFrame.appendChild(this.avatar(`npc_${current.npc.id}`, current.npc.name));
+      npcSide.append(npcFrame, el('span', 'npc-chat-name', current.npc.name));
+      const npcBubble = el('p', 'npc-chat-bubble from-npc', npcSpeech ?? greeting);
+      npcBubble.setAttribute('aria-live', 'polite');
+      npcSide.appendChild(npcBubble);
+      conversation.appendChild(npcSide);
+      this.panelContent.appendChild(conversation);
+
+      const talkedToday = current.record.talkedDay === this.state.today;
       const actions = el('div', 'row-actions');
       actions.appendChild(
-        button('Talk', {
+        button(talkedToday ? 'Talked today' : 'Talk', {
           small: true,
           variant: 'primary',
-          disabled: !current.available,
+          disabled: !current.available || talkedToday,
           onClick: () => {
             const result = this.state.npcTalk(id);
-            this.toast(result.message ?? '', result.ok ? 'success' : 'error');
             audio.play(result.ok ? 'click' : 'error');
-            if (result.ok) void this.requestSave();
+            if (result.ok) {
+              npcSpeech = (result.message ?? greeting).replace(`${current.npc.name}: `, '');
+              void this.requestSave();
+            } else {
+              this.toast(result.message ?? '', 'error');
+            }
             render();
           }
         })

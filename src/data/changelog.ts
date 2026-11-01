@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.3.1';
+export const GAME_VERSION = '2.3.2';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.2',
+    date: '2026-11-01',
+    title: 'Face-to-face NPC chats',
+    changes: [
+      'Talking to a visitor now opens a side-by-side conversation with player and visitor avatars.',
+      'Chat responses stay in the NPC speech bubble instead of disappearing as a toast, and the Talk button shows Talked today after your daily chat.'
+    ]
+  },
   {
     version: '2.3.1',
     date: '2026-11-01',
