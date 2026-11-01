@@ -32,6 +32,7 @@ import type { DaySummary, Facing, Season } from '../../types';
 
 interface AnimalView {
   sprite: Phaser.GameObjects.Image;
+  shadow: Phaser.GameObjects.Image;
   bubble: Phaser.GameObjects.Text;
   species: string;
   toggle: number;
@@ -39,18 +40,36 @@ interface AnimalView {
 
 interface TileVisual {
   soil: Phaser.GameObjects.Image;
+  shadow?: Phaser.GameObjects.Image;
   crop?: Phaser.GameObjects.Image;
   ready?: Phaser.GameObjects.Text;
 }
 
 interface NpcView {
   sprite: Phaser.GameObjects.Image;
+  shadow: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
+}
+
+interface LightSource {
+  image: Phaser.GameObjects.Image;
+  strength: number;
+  phase: number;
 }
 
 interface MineView {
   sprite: Phaser.GameObjects.Image;
+  shadow: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
+}
+
+function randomRectSource(rect: Phaser.Geom.Rectangle): Phaser.Types.GameObjects.Particles.RandomZoneSource {
+  return {
+    getRandomPoint: (point: Phaser.Types.Math.Vector2Like): void => {
+      point.x = rect.x + Math.random() * rect.width;
+      point.y = rect.y + Math.random() * rect.height;
+    }
+  };
 }
 
 export class GameScene extends Phaser.Scene {
@@ -65,23 +84,40 @@ export class GameScene extends Phaser.Scene {
   private zoomLevel = 1;
   private baseZoom = 1;
 
-  private groundImages: Phaser.GameObjects.Image[] = [];
+  private groundBase?: Phaser.GameObjects.TileSprite;
+  private groundImages: Phaser.GameObjects.GameObject[] = [];
   private waterImages: Array<{ image: Phaser.GameObjects.Image; frame: number }> = [];
+  private weatherPuddles: Phaser.GameObjects.Image[] = [];
   private plotDecor: Array<Phaser.GameObjects.GameObject> = [];
   private festivalDecor: Phaser.GameObjects.GameObject[] = [];
   private tileVisuals = new Map<string, TileVisual>();
   private buildingSprites = new Map<string, Phaser.GameObjects.Image>();
+  private buildingShadows: Phaser.GameObjects.Image[] = [];
+  private lightSources: LightSource[] = [];
   private animalViews = new Map<string, AnimalView>();
   private npcViews = new Map<string, NpcView>();
   private mineViews = new Map<string, MineView>();
   private blockedBuildings = new Set<string>();
   private lastNpcCheck = 0;
+  private fireflies: Phaser.GameObjects.Image[] = [];
+  private butterflies: Array<{ image: Phaser.GameObjects.Image; variant: number }> = [];
+  private birds: Phaser.GameObjects.Image[] = [];
+  private ambientFrame = 0;
 
   private hoverGfx!: Phaser.GameObjects.Graphics;
   private ghost!: Phaser.GameObjects.Image;
   private ghostGfx!: Phaser.GameObjects.Graphics;
   private lightOverlay?: Phaser.GameObjects.Rectangle;
+  private ambientOverlay?: Phaser.GameObjects.Graphics;
+  private vignetteOverlay?: Phaser.GameObjects.Image;
   private rainEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private splashEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private snowEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private leafEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private rainZone?: Phaser.Geom.Rectangle;
+  private splashZone?: Phaser.Geom.Rectangle;
+  private snowZone?: Phaser.Geom.Rectangle;
+  private leafZone?: Phaser.Geom.Rectangle;
 
   private dragLastTile: string | null = null;
   private nightWarnedDay = -1;
@@ -92,6 +128,8 @@ export class GameScene extends Phaser.Scene {
   private lastGroundSeason: Season | null = null;
   private lastLightUpdate = 0;
   private waterFrameTimer?: Phaser.Time.TimerEvent;
+  private waterRippleTimer?: Phaser.Time.TimerEvent;
+  private ambientFrameTimer?: Phaser.Time.TimerEvent;
   private animalTimer?: Phaser.Time.TimerEvent;
   private wanderTimer?: Phaser.Time.TimerEvent;
   private stormTimer?: Phaser.Time.TimerEvent;
@@ -115,11 +153,27 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.lightOverlay = undefined;
+    this.ambientOverlay = undefined;
+    this.vignetteOverlay = undefined;
     this.rainEmitter = undefined;
+    this.splashEmitter = undefined;
+    this.snowEmitter = undefined;
+    this.leafEmitter = undefined;
+    this.rainZone = undefined;
+    this.splashZone = undefined;
+    this.snowZone = undefined;
+    this.leafZone = undefined;
+    this.groundBase = undefined;
     this.groundImages = [];
     this.waterImages = [];
+    this.weatherPuddles = [];
     this.plotDecor = [];
     this.festivalDecor = [];
+    this.buildingShadows = [];
+    this.lightSources = [];
+    this.fireflies = [];
+    this.butterflies = [];
+    this.birds = [];
     this.tileVisuals.clear();
     this.buildingSprites.clear();
     this.animalViews.clear();
@@ -142,6 +196,7 @@ export class GameScene extends Phaser.Scene {
     this.setupInput();
     this.createLighting();
     this.createWeather();
+    this.createAmbientWildlife();
     this.hoverGfx = this.add.graphics().setDepth(850);
     this.ghostGfx = this.add.graphics().setDepth(851);
     this.ghost = this.add.image(0, 0, 'b_coop').setVisible(false).setAlpha(0.7).setDepth(852);
@@ -149,6 +204,7 @@ export class GameScene extends Phaser.Scene {
     this.setupUI();
     this.registerStateEvents();
     this.startTimers();
+    this.lastLightUpdate = 400;
     this.updateLighting(0);
     this.applyWeather();
 
@@ -181,6 +237,7 @@ export class GameScene extends Phaser.Scene {
       this.state.emitter.on('day', () => {
         if (this.lastGroundSeason !== this.state.data.season) {
           this.buildGround();
+          this.createAmbientWildlife();
           this.lastGroundSeason = this.state.data.season;
         }
         this.buildFarmVisuals();
@@ -216,6 +273,27 @@ export class GameScene extends Phaser.Scene {
           w.frame = (w.frame + 1) % 3;
           w.image.setTexture(`water${w.frame}`);
         }
+      }
+    });
+    this.waterRippleTimer = this.time.addEvent({
+      delay: 1200,
+      loop: true,
+      callback: () => {
+        if (this.state.paused || this.waterImages.length === 0) return;
+        const spot = this.waterImages[Phaser.Math.Between(0, this.waterImages.length - 1)].image;
+        this.spawnWaterRipple(spot.x + Phaser.Math.Between(8, TILE * 2 - 8), spot.y + Phaser.Math.Between(8, TILE * 2 - 8));
+      }
+    });
+    this.ambientFrameTimer = this.time.addEvent({
+      delay: 180,
+      loop: true,
+      callback: () => {
+        if (this.state.paused) return;
+        this.ambientFrame ^= 1;
+        for (const butterfly of this.butterflies) {
+          butterfly.image.setTexture(`butterfly_${butterfly.variant}_${this.ambientFrame}`);
+        }
+        for (const bird of this.birds) bird.setTexture(`bird_${this.ambientFrame}`);
       }
     });
     this.animalTimer = this.time.addEvent({
@@ -273,67 +351,237 @@ export class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ world
 
   private buildGround(): void {
+    this.groundBase?.destroy();
+    this.tweens.killTweensOf(this.groundImages);
     this.groundImages.forEach((img) => img.destroy());
     this.groundImages = [];
     this.waterImages = [];
     const season = this.state.data.season;
+    const seasonIndex = ['spring', 'summer', 'fall', 'winter'].indexOf(season);
+    const edgeColor = SEASON_INFO[season].grass2;
+    const edges = this.add.graphics().setDepth(2);
+    this.groundImages.push(edges);
+
+    this.groundBase = this.add
+      .tileSprite(0, 0, WORLD_W * TILE, WORLD_H * TILE, `field_${season}`)
+      .setOrigin(0)
+      .setTileScale(2)
+      .setDepth(-1);
 
     for (let y = 0; y < WORLD_H; y++) {
       for (let x = 0; x < WORLD_W; x++) {
         const key = tileKey(x, y);
         const px = x * TILE;
         const py = y * TILE;
+        const roll = (x * 37 + y * 61 + seasonIndex * 53) % 41;
         if (isWaterTile(x, y)) {
-          const img = this.add.image(px, py, 'water0').setOrigin(0).setScale(2).setDepth(1);
+          const img = this.add.image(px, py, 'water0').setOrigin(0).setScale(2).setDepth(2);
           this.waterImages.push({ image: img, frame: 0 });
           this.groundImages.push(img);
+          this.drawShore(edges, x, y, px, py, roll);
+          if (roll % 17 === 0) {
+            const reed = this.add
+              .image(px + 6 + (roll % 3) * 9, py + TILE - 2, 'reed')
+              .setOrigin(0.5, 1)
+              .setScale(1.7)
+              .setDepth(py + TILE + 1);
+            this.groundImages.push(reed);
+          }
+          if (roll % 23 === 0) {
+            const pad = this.add
+              .image(px + TILE / 2, py + TILE / 2, 'lilypad')
+              .setScale(1.8)
+              .setAlpha(0.92)
+              .setDepth(4);
+            this.groundImages.push(pad);
+          }
+          if (roll === 7) {
+            const glint = this.add
+              .image(px + TILE / 2, py + TILE / 2, 'sparkle')
+              .setTint(0xe8fbff)
+              .setScale(1.2)
+              .setAlpha(0.35)
+              .setDepth(4);
+            this.tweens.add({
+              targets: glint,
+              alpha: { from: 0.12, to: 0.72 },
+              scale: { from: 0.8, to: 1.35 },
+              duration: 1200 + (roll % 5) * 220,
+              yoyo: true,
+              repeat: -1,
+              delay: roll * 20,
+              ease: 'Sine.inOut'
+            });
+            this.groundImages.push(glint);
+          }
           continue;
         }
         if (isPathTile(x, y)) {
           const img = this.add.image(px, py, 'path').setOrigin(0).setScale(2).setDepth(1);
           this.groundImages.push(img);
-        } else {
-          const variant = (x * 13 + y * 7) % 3;
-          const img = this.add
-            .image(px, py, `grass_${season}_${variant}`)
-            .setOrigin(0)
-            .setScale(2)
-            .setDepth(0);
-          this.groundImages.push(img);
+          this.drawPathFringe(edges, x, y, px, py, edgeColor);
+          continue;
         }
 
         const obstacle = isObstacleTile(x, y);
         if (obstacle) {
+          const shadow = this.add
+            .image(px + TILE / 2, py + TILE - 2, 'shadow_soft')
+            .setScale(0.72)
+            .setAlpha(0.7)
+            .setDepth(py + TILE - 2);
+          this.groundImages.push(shadow);
           const tree = this.add
             .image(px + TILE / 2, py + TILE, `tree_${season}`)
             .setOrigin(0.5, 1)
             .setScale(2)
             .setDepth(py + TILE);
+          this.tweens.add({
+            targets: tree,
+            angle: { from: -0.7, to: 0.7 },
+            duration: 2300 + (roll % 9) * 210,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.inOut',
+            delay: roll * 28
+          });
           this.groundImages.push(tree);
-        } else {
-          const flower = FLOWERS.get(key);
-          if (flower !== undefined) {
-            const img = this.add
-              .image(px + TILE / 2, py + TILE / 2, `flower_${flower}`)
-              .setScale(2)
-              .setDepth(3);
-            this.groundImages.push(img);
-          } else if (!isPathTile(x, y) && (x * 31 + y * 17) % 23 === 0) {
-            const tuft = this.add
-              .image(px + TILE / 2, py + TILE / 2, 'tuft')
-              .setScale(2)
-              .setAlpha(0.9)
-              .setDepth(3);
-            this.groundImages.push(tuft);
-          }
+          continue;
+        }
+
+        const flower = FLOWERS.get(key);
+        if (flower !== undefined) {
+          const img = this.add
+            .image(px + TILE / 2, py + TILE / 2, `flower_${flower}`)
+            .setScale(2)
+            .setDepth(3);
+          this.tweens.add({
+            targets: img,
+            angle: { from: -2, to: 2 },
+            duration: 1800 + (roll % 7) * 240,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.inOut',
+            delay: roll * 33
+          });
+          this.groundImages.push(img);
+          continue;
+        }
+
+        const offsetX = 6 + ((roll * 7) % 20);
+        const offsetY = 6 + ((roll * 11) % 20);
+        if (roll === 0 || roll === 19) {
+          const pebble = this.add
+            .image(px + offsetX, py + offsetY, roll === 0 ? 'pebble_0' : 'pebble_1')
+            .setScale(1.6)
+            .setDepth(2);
+          this.groundImages.push(pebble);
+        } else if (roll === 2 || roll === 27) {
+          const patch = this.add
+            .image(px + offsetX, py + offsetY, 'dirt_patch')
+            .setScale(1.7)
+            .setAlpha(0.8)
+            .setDepth(2);
+          this.groundImages.push(patch);
+        } else if (roll === 4 || roll === 31) {
+          const tuft = this.add
+            .image(px + offsetX, py + offsetY, 'tuft')
+            .setScale(1.7)
+            .setAlpha(0.88)
+            .setDepth(3);
+          this.tweens.add({
+            targets: tuft,
+            angle: { from: -2.5, to: 2.5 },
+            duration: 1900 + (roll % 8) * 200,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.inOut',
+            delay: roll * 25
+          });
+          this.groundImages.push(tuft);
+        } else if (season === 'winter' && (roll === 6 || roll === 33)) {
+          const snow = this.add
+            .image(px + offsetX, py + offsetY, 'snow_patch')
+            .setScale(1.5)
+            .setAlpha(0.75)
+            .setDepth(2);
+          this.groundImages.push(snow);
+        } else if (season === 'fall' && roll === 8) {
+          const leaf = this.add
+            .image(px + offsetX, py + offsetY, 'leaf')
+            .setScale(1.5)
+            .setAlpha(0.85)
+            .setDepth(3);
+          this.groundImages.push(leaf);
         }
       }
     }
   }
 
+  private drawPathFringe(
+    gfx: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    px: number,
+    py: number,
+    color: number
+  ): void {
+    gfx.fillStyle(color, 0.72);
+    if (!isPathTile(x, y - 1) && !isWaterTile(x, y - 1)) {
+      for (const ox of [4, 12, 23]) gfx.fillRect(px + ox, py - 2, 2, 4);
+    }
+    if (!isPathTile(x, y + 1) && !isWaterTile(x, y + 1)) {
+      for (const ox of [7, 17, 27]) gfx.fillRect(px + ox, py + TILE - 1, 2, 4);
+    }
+    if (!isPathTile(x - 1, y) && !isWaterTile(x - 1, y)) {
+      for (const oy of [5, 15, 24]) gfx.fillRect(px - 2, py + oy, 4, 2);
+    }
+    if (!isPathTile(x + 1, y) && !isWaterTile(x + 1, y)) {
+      for (const oy of [8, 18]) gfx.fillRect(px + TILE - 1, py + oy, 4, 2);
+    }
+  }
+
+  private drawShore(
+    gfx: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    px: number,
+    py: number,
+    roll: number
+  ): void {
+    const foam = 0xdaf6ff;
+    const water = 0x4d8fae;
+    if (!isWaterTile(x, y - 1)) {
+      gfx.fillStyle(water, 0.8);
+      gfx.fillRect(px, py, TILE, 2);
+      gfx.fillStyle(foam, 0.55);
+      gfx.fillRect(px + (roll % 5), py + 1, TILE - 6, 2);
+    }
+    if (!isWaterTile(x, y + 1)) {
+      gfx.fillStyle(water, 0.8);
+      gfx.fillRect(px, py + TILE - 2, TILE, 2);
+      gfx.fillStyle(foam, 0.45);
+      gfx.fillRect(px + 4, py + TILE - 3, TILE - 8, 2);
+    }
+    if (!isWaterTile(x - 1, y)) {
+      gfx.fillStyle(water, 0.8);
+      gfx.fillRect(px, py, 2, TILE);
+      gfx.fillStyle(foam, 0.45);
+      gfx.fillRect(px + 1, py + (roll % 6), 2, TILE - 8);
+    }
+    if (!isWaterTile(x + 1, y)) {
+      gfx.fillStyle(water, 0.8);
+      gfx.fillRect(px + TILE - 2, py, 2, TILE);
+      gfx.fillStyle(foam, 0.45);
+      gfx.fillRect(px + TILE - 3, py + 5, 2, TILE - 10);
+    }
+  }
+
   private buildFarmVisuals(): void {
     this.tileVisuals.forEach((vis) => {
+      this.tweens.killTweensOf([vis.crop, vis.ready]);
       vis.soil.destroy();
+      vis.shadow?.destroy();
       vis.crop?.destroy();
       vis.ready?.destroy();
     });
@@ -365,11 +613,26 @@ export class GameScene extends Phaser.Scene {
       const def = CROPS[cropId];
       if (def) {
         const stage = Math.min(3, Math.floor((growth / Math.max(1, def.growthDays)) * 3));
+        const shadow = this.add
+          .image(x * TILE + TILE / 2, y * TILE + TILE - 3, 'shadow')
+          .setScale(1.35, 0.9)
+          .setAlpha(0.28)
+          .setDepth(y * TILE + 14);
         const crop = this.add
           .image(x * TILE + TILE / 2, y * TILE + TILE - 2, `crop_${cropId}_${stage}`)
           .setOrigin(0.5, 1)
           .setScale(2)
           .setDepth(y * TILE + 20);
+        this.tweens.add({
+          targets: crop,
+          angle: { from: -1.4, to: 1.4 },
+          duration: 1700 + ((x * 13 + y * 7) % 8) * 180,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.inOut',
+          delay: (x * 37 + y * 19) % 1200
+        });
+        visual.shadow = shadow;
         visual.crop = crop;
         if (growth >= def.growthDays) visual.ready = this.createReadyMarker(x, y);
       }
@@ -383,7 +646,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createReadyMarker(x: number, y: number): Phaser.GameObjects.Text {
-    return this.add
+    const marker = this.add
       .text(x * TILE + TILE / 2, y * TILE - 7, '!', {
         fontFamily: '"Courier New", monospace',
         fontSize: '15px',
@@ -393,6 +656,16 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 1)
       .setDepth(y * TILE + 22);
+    this.tweens.add({
+      targets: marker,
+      y: marker.y - 4,
+      scale: { from: 0.94, to: 1.08 },
+      duration: 720,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.inOut'
+    });
+    return marker;
   }
 
   private refreshTile(x: number, y: number): void {
@@ -401,6 +674,7 @@ export class GameScene extends Phaser.Scene {
     const vis = this.tileVisuals.get(key);
     if (!tile || !tile.tilled) {
       vis?.soil.destroy();
+      vis?.shadow?.destroy();
       vis?.crop?.destroy();
       vis?.ready?.destroy();
       this.tileVisuals.delete(key);
@@ -424,11 +698,25 @@ export class GameScene extends Phaser.Scene {
       if (def) {
         const stage = Math.min(3, Math.floor((tile.crop.growth / Math.max(1, def.growthDays)) * 3));
         if (!vis.crop) {
+          vis.shadow = this.add
+            .image(x * TILE + TILE / 2, y * TILE + TILE - 3, 'shadow')
+            .setScale(1.35, 0.9)
+            .setAlpha(0.28)
+            .setDepth(y * TILE + 14);
           vis.crop = this.add
             .image(x * TILE + TILE / 2, y * TILE + TILE - 2, `crop_${tile.crop.id}_${stage}`)
             .setOrigin(0.5, 1)
             .setScale(2)
             .setDepth(y * TILE + 20);
+          this.tweens.add({
+            targets: vis.crop,
+            angle: { from: -1.4, to: 1.4 },
+            duration: 1700 + ((x * 13 + y * 7) % 8) * 180,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.inOut',
+            delay: (x * 37 + y * 19) % 1200
+          });
         } else {
           vis.crop.setTexture(`crop_${tile.crop.id}_${stage}`);
         }
@@ -436,6 +724,8 @@ export class GameScene extends Phaser.Scene {
     } else if (vis.crop) {
       vis.crop.destroy();
       vis.crop = undefined;
+      vis.shadow?.destroy();
+      vis.shadow = undefined;
     }
 
     const mature = tile.crop ? this.state.cropMature(x, y) : false;
@@ -450,17 +740,31 @@ export class GameScene extends Phaser.Scene {
   private buildBuildings(): void {
     this.buildingSprites.forEach((sprite) => sprite.destroy());
     this.buildingSprites.clear();
+    this.buildingShadows.forEach((shadow) => shadow.destroy());
+    this.buildingShadows = [];
+    this.lightSources.forEach((source) => source.image.destroy());
+    this.lightSources = [];
     this.blockedBuildings.clear();
 
     for (const building of this.state.data.buildings) {
       const def = BUILDINGS[building.id];
       if (!def) continue;
+      const depth = (building.y + def.h) * TILE;
+      const bx = building.x * TILE;
+      const by = building.y * TILE;
+      const shadow = this.add
+        .image(bx + (def.w * TILE) / 2, by + def.h * TILE - 4, 'shadow_soft')
+        .setScale((def.w * TILE) / 64, 0.7)
+        .setAlpha(0.7)
+        .setDepth(depth - 2);
+      this.buildingShadows.push(shadow);
       const sprite = this.add
-        .image(building.x * TILE, building.y * TILE, `b_${building.id}`)
+        .image(bx, by, `b_${building.id}`)
         .setOrigin(0)
         .setScale(2)
-        .setDepth((building.y + def.h) * TILE);
+        .setDepth(depth);
       this.buildingSprites.set(building.uid, sprite);
+      this.addBuildingGlow(bx, by, def.id, def.w, def.h, depth, building.x * 3 + building.y * 5);
       if (def.kind !== 'decor') {
         for (let y = building.y; y < building.y + def.h; y++) {
           for (let x = building.x; x < building.x + def.w; x++) {
@@ -468,6 +772,47 @@ export class GameScene extends Phaser.Scene {
           }
         }
       }
+    }
+  }
+
+  private addBuildingGlow(
+    bx: number,
+    by: number,
+    id: string,
+    w: number,
+    h: number,
+    depth: number,
+    seed: number
+  ): void {
+    const windows: Array<[number, number, number]> = [];
+    if (id === 'farmhouse') {
+      windows.push([10 + 4.5, 26 + 4, 0.62], [w - 20 + 4.5, 26 + 4, 0.62]);
+    } else if (id === 'barn') {
+      windows.push([8 + 3.5, 24 + 2.5, 0.4], [w - 15 + 3.5, 24 + 2.5, 0.4]);
+    } else if (id === 'coop') {
+      windows.push([18 + 3, 10 + 2.5, 0.38]);
+    } else if (id === 'workshop') {
+      windows.push([16 + 3, 16 + 2.5, 0.46]);
+    } else if (id === 'helper_hut') {
+      windows.push([8 + 3.5, 20 + 3, 0.48], [w - 15 + 3.5, 20 + 3, 0.48]);
+    } else if (id === 'greenhouse') {
+      windows.push([w / 2, h - 4, 0.3]);
+    } else if (id === 'well') {
+      windows.push([w / 2, 18, 0.24]);
+    }
+    for (const [tx, ty, scale] of windows) {
+      const glow = this.add
+        .image(bx + tx * 2, by + ty * 2, 'glow')
+        .setTint(id === 'greenhouse' ? 0xc8ffd8 : 0xffc46a)
+        .setScale(scale)
+        .setAlpha(0)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(946);
+      this.lightSources.push({
+        image: glow,
+        strength: scale > 0.5 ? 0.78 : 0.52,
+        phase: (seed + tx * 3 + ty * 7) % 100
+      });
     }
   }
 
@@ -514,6 +859,7 @@ export class GameScene extends Phaser.Scene {
   private buildMineNodes(): void {
     this.mineViews.forEach((view) => {
       view.sprite.destroy();
+      view.shadow.destroy();
       view.label.destroy();
     });
     this.mineViews.clear();
@@ -521,6 +867,11 @@ export class GameScene extends Phaser.Scene {
       const info = this.state.mineNodeState(node.id);
       if (!info) continue;
       const broken = info.hp <= 0;
+      const shadow = this.add
+        .image(node.x * TILE + TILE / 2, node.y * TILE + TILE - 2, 'shadow')
+        .setScale(1.4, 0.9)
+        .setAlpha(0.32)
+        .setDepth(node.y * TILE + TILE - 1);
       const sprite = this.add
         .image(node.x * TILE + TILE / 2, node.y * TILE + TILE, broken ? 'rock_broken' : `rock_${node.kind}`)
         .setOrigin(0.5, 1)
@@ -542,7 +893,7 @@ export class GameScene extends Phaser.Scene {
         )
         .setOrigin(0.5, 1)
         .setDepth(node.y * TILE + TILE + 2);
-      this.mineViews.set(node.id, { sprite, label });
+      this.mineViews.set(node.id, { sprite, shadow, label });
     }
   }
 
@@ -558,7 +909,9 @@ export class GameScene extends Phaser.Scene {
 
   private buildNpcs(): void {
     this.npcViews.forEach((view) => {
+      this.tweens.killTweensOf(view.sprite);
       view.sprite.destroy();
+      view.shadow.destroy();
       view.label.destroy();
     });
     this.npcViews.clear();
@@ -567,11 +920,25 @@ export class GameScene extends Phaser.Scene {
       if (!spot) continue;
       const px = spot.x * TILE + TILE / 2;
       const py = spot.y * TILE + TILE;
+      const shadow = this.add
+        .image(px, py - 2, 'shadow')
+        .setScale(1.15, 0.8)
+        .setAlpha(0.36)
+        .setDepth(py - 1);
       const sprite = this.add
         .image(px, py, `npc_${entry.npc.id}`)
         .setOrigin(0.5, 1)
         .setScale(2)
         .setDepth(py + 2);
+      this.tweens.add({
+        targets: sprite,
+        scaleY: 2.05,
+        duration: 1300 + (entry.npc.id.length * 97) % 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut',
+        delay: (entry.npc.id.length * 173) % 1100
+      });
       const label = this.add
         .text(px, py - 34, entry.npc.name, {
           fontFamily: '"Courier New", monospace',
@@ -582,7 +949,7 @@ export class GameScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 1)
         .setDepth(py + 3);
-      this.npcViews.set(entry.npc.id, { sprite, label });
+      this.npcViews.set(entry.npc.id, { sprite, shadow, label });
     }
     this.updateNpcVisibility();
   }
@@ -597,6 +964,7 @@ export class GameScene extends Phaser.Scene {
     this.npcViews.forEach((view, id) => {
       const show = available.has(id);
       view.sprite.setVisible(show);
+      view.shadow.setVisible(show);
       view.label.setVisible(show);
     });
   }
@@ -682,10 +1050,25 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setSize(width, height);
     this.applyZoom();
     this.lightOverlay?.setSize(width, height);
-    if (this.rainEmitter) {
-      this.rainEmitter.setConfig({ x: { min: 0, max: width } });
-    }
+    this.vignetteOverlay?.setDisplaySize(width, height);
+    this.lastLightUpdate = 400;
+    this.resizeWeatherZones(width, height);
   };
+
+  private resizeWeatherZones(width: number, height: number): void {
+    if (this.rainZone) {
+      this.rainZone.setTo(0, -12, width, 4);
+    }
+    if (this.splashZone) {
+      this.splashZone.setTo(0, height * 0.35, width, Math.max(20, height * 0.65 - 20));
+    }
+    if (this.snowZone) {
+      this.snowZone.setTo(0, -10, width, height * 0.55);
+    }
+    if (this.leafZone) {
+      this.leafZone.setTo(0, -12, width, height * 0.55);
+    }
+  }
 
   private applyZoom(): void {
     this.cameras.main.setZoom(this.baseZoom * this.zoomLevel);
@@ -845,6 +1228,7 @@ export class GameScene extends Phaser.Scene {
         this.ui.notify(res.message ?? 'The rock cracks.', 'success');
         this.playSwing();
         this.spawnActionParticles(x, y, 'soil');
+        if (!audio.settings.reduceFlashing) this.cameras.main.shake(70, 0.0014);
         this.refreshMineNode(node.id);
         for (const loot of res.loot ?? []) {
           this.floatText(
@@ -871,11 +1255,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    let result: { ok: boolean; message?: string } = { ok: false };
+    const wasMature = this.state.cropMature(x, y);
+    let result: { ok: boolean; message?: string; items?: number; tiles?: number } = { ok: false };
     let sfx: 'till' | 'water' | 'plant' | 'harvest' | 'error' = 'error';
     let particle: 'soil' | 'water' | 'sparkle' | null = null;
 
-    if (this.state.cropMature(x, y)) {
+    if (wasMature) {
       result = this.state.harvestAt(x, y);
       sfx = 'harvest';
       particle = 'sparkle';
@@ -907,8 +1292,13 @@ export class GameScene extends Phaser.Scene {
       if (particle) this.spawnActionParticles(x, y, particle);
       const wx = x * TILE + TILE / 2;
       const wy = y * TILE + TILE / 2;
-      if (this.state.cropMature(x, y)) {
-        this.floatText('Ready to harvest', 0xffe080, wx, wy - 20);
+      if (wasMature) {
+        this.floatText(`+${result.items ?? 1}`, 0xffe080, wx, wy - 22);
+        this.spawnImpactRing(wx, wy, 0xffedaa);
+      } else if (item === 'hoe' && (result.tiles ?? 0) > 1) {
+        this.floatText(`${result.tiles} tilled`, 0xd8c08a, wx, wy - 20);
+      } else if (item === 'watering_can' && (result.tiles ?? 0) > 1) {
+        this.floatText(`${result.tiles} watered`, 0x9ad8f8, wx, wy - 20);
       }
       this.refreshTileAndNeighbours(x, y);
       this.syncAnimalBubbles();
@@ -1230,22 +1620,46 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnActionParticles(x: number, y: number, kind: 'soil' | 'water' | 'sparkle'): void {
-    const texture = kind === 'water' ? 'water_drop' : kind === 'soil' ? 'sparkle' : 'sparkle';
+    const texture = kind === 'water' ? 'water_drop' : kind === 'soil' ? 'pebble_0' : 'sparkle';
     const baseX = x * TILE + TILE / 2;
     const baseY = y * TILE + TILE / 2;
     const color = kind === 'water' ? 0x9ad8f8 : kind === 'soil' ? 0xc9a06a : 0xffe9a0;
-    for (let i = 0; i < 5; i++) {
-      const img = this.add.image(baseX, baseY, texture).setDepth(820).setScale(1.6).setTint(color);
+    for (let i = 0; i < 7; i++) {
+      const img = this.add
+        .image(baseX + Phaser.Math.Between(-8, 8), baseY + Phaser.Math.Between(-4, 8), texture)
+        .setDepth(820)
+        .setScale(kind === 'soil' ? 1.2 : 1.6)
+        .setTint(color);
       this.tweens.add({
         targets: img,
-        x: baseX + Phaser.Math.Between(-22, 22),
-        y: baseY + Phaser.Math.Between(-26, -6),
+        x: baseX + Phaser.Math.Between(-26, 26),
+        y: baseY + Phaser.Math.Between(-30, -6),
+        angle: kind === 'soil' ? Phaser.Math.Between(-80, 80) : 0,
         alpha: 0,
-        scale: 0.5,
-        duration: 500 + i * 30,
+        scale: 0.45,
+        duration: 460 + i * 34,
+        ease: 'Quad.out',
         onComplete: () => img.destroy()
       });
     }
+    if (kind !== 'soil') this.spawnImpactRing(baseX, baseY, kind === 'water' ? 0x9ad8f8 : 0xffedaa);
+  }
+
+  private spawnImpactRing(x: number, y: number, color: number): void {
+    const ring = this.add
+      .image(x, y, 'ripple')
+      .setDepth(819)
+      .setScale(0.8)
+      .setAlpha(0.75)
+      .setTint(color);
+    this.tweens.add({
+      targets: ring,
+      scale: 2.2,
+      alpha: 0,
+      duration: 420,
+      ease: 'Sine.out',
+      onComplete: () => ring.destroy()
+    });
   }
 
   private floatText(text: string, color: number, x: number, y: number): void {
@@ -1271,19 +1685,36 @@ export class GameScene extends Phaser.Scene {
 
   private createAnimals(): void {
     this.animalViews.forEach((v) => {
+      this.tweens.killTweensOf([v.sprite, v.bubble]);
       v.sprite.destroy();
+      v.shadow.destroy();
       v.bubble.destroy();
     });
     this.animalViews.clear();
     for (const animal of this.state.data.animals) {
       const def = ANIMALS[animal.species];
       if (!def) continue;
+      const mature = this.state.animalMature(animal);
+      const shadow = this.add
+        .image(animal.x, animal.y - 1, 'shadow')
+        .setScale(mature ? 1.25 : 0.9, mature ? 0.9 : 0.65)
+        .setAlpha(0.34)
+        .setDepth(animal.y - 1);
       const sprite = this.add
         .image(animal.x, animal.y, `animal_${animal.species}_0`)
         .setOrigin(0.5, 1)
-        .setScale(this.state.animalMature(animal) ? 2 : 1.4)
+        .setScale(mature ? 2 : 1.4)
         .setDepth(animal.y);
       sprite.setData('uid', animal.uid);
+      this.tweens.add({
+        targets: sprite,
+        angle: { from: -1.2, to: 1.2 },
+        duration: 900 + ((animal.uid.length * 131) % 700),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut',
+        delay: (animal.uid.length * 211) % 900
+      });
       const bubble = this.add
         .text(animal.x, animal.y - 44, '!', {
           fontFamily: '"Courier New", monospace',
@@ -1295,7 +1726,15 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(animal.y + 1)
         .setVisible(animal.productReady);
-      this.animalViews.set(animal.uid, { sprite, bubble, species: animal.species, toggle: 0 });
+      this.tweens.add({
+        targets: bubble,
+        scale: { from: 0.95, to: 1.12 },
+        duration: 760,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut'
+      });
+      this.animalViews.set(animal.uid, { sprite, shadow, bubble, species: animal.species, toggle: 0 });
     }
     this.syncAnimalBubbles();
   }
@@ -1336,6 +1775,7 @@ export class GameScene extends Phaser.Scene {
       this.state.data.minute = START_MINUTE;
       this.facing = 'down';
       this.player.setTexture('player_down_0');
+      this.lastLightUpdate = 400;
       this.updateLighting(0);
       this.cameras.main.fadeIn(520, 6, 12, 24);
       this.sleeping = false;
@@ -1374,6 +1814,8 @@ export class GameScene extends Phaser.Scene {
     this.unsubs.forEach((fn) => fn());
     this.unsubs = [];
     this.waterFrameTimer?.remove();
+    this.waterRippleTimer?.remove();
+    this.ambientFrameTimer?.remove();
     this.animalTimer?.remove();
     this.wanderTimer?.remove();
     this.stormTimer?.remove();
@@ -1383,11 +1825,19 @@ export class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------------ main
 
   private createLighting(): void {
+    this.ambientOverlay = this.add.graphics().setScrollFactor(0).setDepth(938);
     this.lightOverlay = this.add
       .rectangle(0, 0, this.scale.width, this.scale.height, 0x0a1630, 0)
       .setOrigin(0)
       .setScrollFactor(0)
       .setDepth(940);
+    this.vignetteOverlay = this.add
+      .image(0, 0, 'vignette')
+      .setOrigin(0)
+      .setScrollFactor(0)
+      .setDepth(960)
+      .setDisplaySize(this.scale.width, this.scale.height)
+      .setAlpha(0.9);
   }
 
   private updateLighting(delta: number): void {
@@ -1395,54 +1845,280 @@ export class GameScene extends Phaser.Scene {
     if (this.lastLightUpdate < 400) return;
     this.lastLightUpdate = 0;
     const minute = this.state.data.minute;
-    let color = 0x0a1630;
-    let alpha = 0;
-    if (minute < 390) {
-      alpha = 0.34 * (1 - Math.max(0, (minute - 300) / 90));
-      color = 0x2a3a60;
-    } else if (minute < 480) {
-      alpha = 0.18 * (1 - (minute - 390) / 90);
-      color = 0xffb070;
-    } else if (minute < 1020) {
-      alpha = 0;
-      color = 0xffffff;
-    } else if (minute < 1140) {
-      alpha = 0.24 * ((minute - 1020) / 120);
-      color = 0xff9a60;
-    } else {
-      alpha = 0.24 + 0.24 * Math.min(1, (minute - 1140) / 120);
-      color = 0x16244a;
+    let night = 0;
+    if (minute < 330) night = 1;
+    else if (minute < 450) night = 1 - (minute - 330) / 120;
+    else if (minute < 1020) night = 0;
+    else if (minute < 1140) night = ((minute - 1020) / 120) * 0.75;
+    else night = Math.min(1, 0.75 + (minute - 1140) / 120);
+
+    const weather = this.state.data.weather;
+    const weatherDark = weather === 'storm' ? 0.2 : weather === 'rain' ? 0.13 : weather === 'cloudy' ? 0.07 : 0;
+    let overlayColor = 0x08142e;
+    let overlayAlpha = Math.max(night * 0.48, weatherDark);
+    if (minute >= 990 && minute < 1150) {
+      overlayColor = 0xff9258;
+      overlayAlpha = Math.max(overlayAlpha, (1 - Math.abs(minute - 1070) / 80) * 0.18);
     }
-    if (this.state.data.weather === 'cloudy') alpha = Math.max(alpha, 0.1);
-    if (this.state.data.weather === 'rain') alpha = Math.max(alpha, 0.16);
-    if (this.state.data.weather === 'storm') alpha = Math.max(alpha, 0.26);
-    if (this.lightOverlay) this.lightOverlay.setFillStyle(color, alpha);
+    if (this.lightOverlay) this.lightOverlay.setFillStyle(overlayColor, overlayAlpha);
+
+    if (this.ambientOverlay) {
+      const top = minute < 450 ? 0x274b76 : minute < 1020 ? 0x88c4e8 : minute < 1150 ? 0x4b527e : 0x07142e;
+      const bottom = minute < 450 ? 0xffb57a : minute < 1020 ? 0xd8ecdc : minute < 1150 ? 0xff9a62 : 0x122846;
+      const topAlpha = minute < 450 ? 0.16 : minute < 1020 ? 0.02 : minute < 1150 ? 0.15 : 0.34;
+      const bottomAlpha = minute < 450 ? 0.13 : minute < 1020 ? 0.03 : minute < 1150 ? 0.16 : 0.2;
+      this.ambientOverlay.clear();
+      this.ambientOverlay.fillGradientStyle(
+        top,
+        top,
+        bottom,
+        bottom,
+        topAlpha + weatherDark * 0.55,
+        topAlpha + weatherDark * 0.55,
+        bottomAlpha + weatherDark * 0.55,
+        bottomAlpha + weatherDark * 0.55
+      );
+      this.ambientOverlay.fillRect(0, 0, this.scale.width, this.scale.height);
+    }
+
+    const glowAlpha = Math.min(1, Math.max(0, night * 1.15 + weatherDark * 0.25));
+    const time = this.time.now;
+    for (const source of this.lightSources) {
+      const flicker = 0.88 + Math.sin(time * 0.0017 + source.phase) * 0.08 + Math.sin(time * 0.0041 + source.phase * 2) * 0.04;
+      source.image.setAlpha(glowAlpha * source.strength * flicker);
+    }
+    for (const firefly of this.fireflies) firefly.setVisible(night > 0.32 && weather !== 'storm');
   }
 
   private createWeather(): void {
+    this.rainZone = new Phaser.Geom.Rectangle(0, -12, this.scale.width, 4);
     this.rainEmitter = this.add
       .particles(0, 0, 'rain', {
-        x: { min: 0, max: this.scale.width },
-        y: -12,
-        lifespan: 1300,
-        speedY: { min: 420, max: 620 },
-        speedX: { min: -70, max: -20 },
-        quantity: 2,
-        frequency: 28,
-        scale: { min: 0.7, max: 1.25 },
-        alpha: { start: 0.9, end: 0.25 },
+        emitZone: { type: 'random', source: randomRectSource(this.rainZone!) },
+        lifespan: 1400,
+        speedY: { min: 520, max: 720 },
+        speedX: { min: -95, max: -45 },
+        quantity: 3,
+        frequency: 18,
+        scale: { min: 0.8, max: 1.5 },
+        alpha: { start: 0.85, end: 0.35 },
         blendMode: Phaser.BlendModes.NORMAL
       })
       .setScrollFactor(0)
       .setDepth(900);
     this.rainEmitter.stop();
+
+    this.splashZone = new Phaser.Geom.Rectangle(
+      0,
+      this.scale.height * 0.35,
+      this.scale.width,
+      Math.max(20, this.scale.height * 0.65 - 20)
+    );
+    this.splashEmitter = this.add
+      .particles(0, 0, 'rain_splash', {
+        emitZone: { type: 'random', source: randomRectSource(this.splashZone!) },
+        lifespan: 460,
+        speedX: { min: -8, max: 8 },
+        speedY: { min: -14, max: -2 },
+        quantity: 1,
+        frequency: 95,
+        scale: { min: 0.8, max: 1.7 },
+        alpha: { start: 0.8, end: 0 },
+        blendMode: Phaser.BlendModes.ADD
+      })
+      .setScrollFactor(0)
+      .setDepth(899);
+    this.splashEmitter.stop();
+
+    this.snowZone = new Phaser.Geom.Rectangle(0, -10, this.scale.width, this.scale.height * 0.55);
+    this.snowEmitter = this.add
+      .particles(0, 0, 'snowflake', {
+        emitZone: { type: 'random', source: randomRectSource(this.snowZone!) },
+        lifespan: 6200,
+        speedY: { min: 26, max: 54 },
+        speedX: { min: -18, max: 18 },
+        quantity: 2,
+        frequency: 70,
+        scale: { min: 0.9, max: 2 },
+        alpha: { start: 0.9, end: 0.25 },
+        rotate: { min: 0, max: 360 },
+        blendMode: Phaser.BlendModes.NORMAL
+      })
+      .setScrollFactor(0)
+      .setDepth(898);
+    this.snowEmitter.stop();
+
+    this.leafZone = new Phaser.Geom.Rectangle(0, -12, this.scale.width, this.scale.height * 0.55);
+    this.leafEmitter = this.add
+      .particles(0, 0, 'leaf', {
+        emitZone: { type: 'random', source: randomRectSource(this.leafZone!) },
+        lifespan: 7400,
+        speedY: { min: 24, max: 54 },
+        speedX: { min: -42, max: -8 },
+        quantity: 1,
+        frequency: 220,
+        scale: { min: 0.9, max: 1.6 },
+        alpha: { start: 0.9, end: 0.1 },
+        rotate: { start: 0, end: 360 },
+        blendMode: Phaser.BlendModes.NORMAL
+      })
+      .setScrollFactor(0)
+      .setDepth(897);
+    this.leafEmitter.stop();
+
+    this.createWeatherPuddles();
+  }
+
+  private createWeatherPuddles(): void {
+    this.tweens.killTweensOf(this.weatherPuddles);
+    this.weatherPuddles.forEach((puddle) => puddle.destroy());
+    this.weatherPuddles = [];
+    for (let i = 0; i < 12; i++) {
+      const x = TILE * 3 + ((i * 7919) % (WORLD_W * TILE - TILE * 6));
+      const y = TILE * 3 + ((i * 6151 + 311) % (WORLD_H * TILE - TILE * 6));
+      if (isWaterTile(Math.floor(x / TILE), Math.floor(y / TILE))) continue;
+      const puddle = this.add
+        .image(x, y, 'puddle')
+        .setScale(1.4 + (i % 3) * 0.4)
+        .setAlpha(0)
+        .setDepth(5);
+      this.weatherPuddles.push(puddle);
+      this.tweens.add({
+        targets: puddle,
+        scaleX: puddle.scaleX * 1.08,
+        duration: 1800 + (i % 4) * 300,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut'
+      });
+    }
   }
 
   private applyWeather(): void {
-    if (!this.rainEmitter) return;
+    if (!this.rainEmitter || !this.splashEmitter || !this.snowEmitter || !this.leafEmitter) return;
     const w = this.state.data.weather;
-    if (w === 'rain' || w === 'storm') this.rainEmitter.start();
-    else this.rainEmitter.stop();
+    const rainy = w === 'rain' || w === 'storm';
+    if (rainy) {
+      this.rainEmitter.start();
+      this.splashEmitter.start();
+    } else {
+      this.rainEmitter.stop();
+      this.splashEmitter.stop();
+    }
+    const season = this.state.data.season;
+    if (season === 'winter' && !rainy) this.snowEmitter.start();
+    else this.snowEmitter.stop();
+    if (season === 'fall' && !rainy) this.leafEmitter.start();
+    else this.leafEmitter.stop();
+    for (const puddle of this.weatherPuddles) {
+      puddle.setAlpha(rainy ? 0.82 : 0);
+    }
+  }
+
+  private spawnWaterRipple(x: number, y: number): void {
+    const ripple = this.add
+      .image(x, y, 'ripple')
+      .setScale(1.2)
+      .setAlpha(0.72)
+      .setDepth(6);
+    this.tweens.add({
+      targets: ripple,
+      scale: 2.4,
+      alpha: 0,
+      duration: 1500,
+      ease: 'Sine.out',
+      onComplete: () => ripple.destroy()
+    });
+  }
+
+  private createAmbientWildlife(): void {
+    this.tweens.killTweensOf(this.fireflies);
+    this.tweens.killTweensOf(this.butterflies.map((butterfly) => butterfly.image));
+    this.tweens.killTweensOf(this.birds);
+    this.fireflies.forEach((firefly) => firefly.destroy());
+    this.butterflies.forEach((butterfly) => butterfly.image.destroy());
+    this.birds.forEach((bird) => bird.destroy());
+    this.fireflies = [];
+    this.butterflies = [];
+    this.birds = [];
+    const season = this.state.data.season;
+
+    for (let i = 0; i < 16; i++) {
+      const x = TILE * 2 + ((i * 4051 + 97) % (WORLD_W * TILE - TILE * 4));
+      const y = TILE * 3 + ((i * 2711 + 173) % (WORLD_H * TILE - TILE * 6));
+      if (isWaterTile(Math.floor(x / TILE), Math.floor(y / TILE))) continue;
+      const firefly = this.add
+        .image(x, y, 'firefly')
+        .setScale(1.3 + (i % 3) * 0.35)
+        .setAlpha(0)
+        .setDepth(944)
+        .setVisible(false);
+      this.tweens.add({
+        targets: firefly,
+        alpha: { from: 0, to: 0.52 + (i % 5) * 0.08 },
+        x: x + (i % 2 === 0 ? 14 : -14),
+        y: y - 9 - (i % 4) * 3,
+        duration: 1700 + (i % 6) * 270,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut',
+        delay: (i * 173) % 2200
+      });
+      this.fireflies.push(firefly);
+    }
+
+    if (season === 'spring' || season === 'summer') {
+      for (let i = 0; i < 6; i++) {
+        const x = TILE * 3 + ((i * 3301 + 211) % (WORLD_W * TILE - TILE * 6));
+        const y = TILE * 4 + ((i * 4127 + 89) % (WORLD_H * TILE - TILE * 8));
+        if (isWaterTile(Math.floor(x / TILE), Math.floor(y / TILE))) continue;
+        const variant = i % 2;
+        const image = this.add.image(x, y, `butterfly_${variant}_0`).setScale(1.4).setDepth(y + 3);
+        this.tweens.add({
+          targets: image,
+          x: x + (i % 2 === 0 ? 42 : -38),
+          y: y + (i % 3 === 0 ? -26 : 20),
+          duration: 2600 + i * 410,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.inOut'
+        });
+        this.butterflies.push({ image, variant });
+      }
+    }
+
+    if (season !== 'winter') {
+      const width = this.scale.width;
+      for (let i = 0; i < 3; i++) {
+        const direction = i % 2 === 0 ? 1 : -1;
+        const startX = direction > 0 ? -40 : width + 40;
+        const endX = direction > 0 ? width + 40 : -40;
+        const bird = this.add
+          .image(startX, 64 + i * 44, 'bird_0')
+          .setScrollFactor(0)
+          .setScale(1.5)
+          .setAlpha(0.68)
+          .setFlipX(direction < 0)
+          .setDepth(930);
+        this.tweens.add({
+          targets: bird,
+          x: endX,
+          duration: 16000 + i * 3500,
+          repeat: -1,
+          ease: 'Linear',
+          delay: i * 3100
+        });
+        this.tweens.add({
+          targets: bird,
+          angle: { from: -5, to: 5 },
+          duration: 1100 + i * 160,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.inOut'
+        });
+        this.birds.push(bird);
+      }
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -1521,6 +2197,8 @@ export class GameScene extends Phaser.Scene {
       const animal = this.state.getAnimal(uid);
       if (!animal) return;
       view.bubble.setPosition(animal.x, animal.y - 44);
+      view.shadow.setPosition(animal.x, animal.y - 1);
+      view.shadow.setDepth(animal.y - 1);
     });
   }
 

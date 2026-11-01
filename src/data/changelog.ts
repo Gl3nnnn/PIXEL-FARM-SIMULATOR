@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.2.0';
+export const GAME_VERSION = '2.3.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.0',
+    date: '2026-11-01',
+    title: 'Living farm graphics pass',
+    changes: [
+      'Rebuilt the farm ground with seasonal grass fields, path fringes, pond shores, reeds, lily pads, and scattered natural details.',
+      'Added layered time-of-day lighting, warm window glows, fireflies, vignette, and stronger rain and storm moods.',
+      'Added soft shadows and ambient motion for buildings, trees, crops, animals, villagers, birds, and butterflies.',
+      'Added rain splashes, puddles, snowfall, falling leaves, water ripples, harvest sparkles, floating rewards, and tool feedback.',
+      'Polished the HUD, hotbar, toasts, and panels with pixel-style typography and richer framing.',
+      'Batched the static grass layer so the larger, more detailed farm stays smooth.'
+    ]
+  },
   {
     version: '2.2.0',
     date: '2026-10-30',

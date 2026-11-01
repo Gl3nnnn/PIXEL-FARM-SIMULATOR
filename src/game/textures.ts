@@ -1036,6 +1036,137 @@ function drawMoon(ctx: Ctx): void {
   px(ctx, 12, 13, 2, 1, '#ffffff');
 }
 
+function drawGrassField(ctx: Ctx, w: number, h: number, base: number, seed: number): void {
+  const rng = mulberry32(seed);
+  px(ctx, 0, 0, w, h, base);
+  const blades = Math.round(420 * (w * h) / (96 * 96));
+  for (let i = 0; i < blades; i++) {
+    const x = Math.floor(rng() * w);
+    const y = Math.floor(rng() * h);
+    const tall = rng() > 0.7 ? 3 : 2;
+    px(ctx, x, y, 1, tall, shade(base, rng() > 0.45 ? 20 : -18));
+  }
+  for (let i = 0; i < 30; i++) {
+    const x = Math.floor(rng() * (w - 4));
+    const y = Math.floor(rng() * (h - 4));
+    px(ctx, x, y, 3, 1, shade(base, 28));
+    px(ctx, x + 1, y + 1, 1, 2, shade(base, -10));
+  }
+  for (let i = 0; i < 9; i++) {
+    const x = Math.floor(rng() * (w - 3));
+    const y = Math.floor(rng() * (h - 3));
+    px(ctx, x, y, 1, 2, shade(base, 38));
+    px(ctx, x + 2, y + 1, 1, 1, '#e8dfa0');
+  }
+  for (let i = 0; i < 5; i++) {
+    const x = Math.floor(rng() * (w - 5));
+    const y = Math.floor(rng() * (h - 4));
+    px(ctx, x, y, 4, 2, shade(base, -30));
+    px(ctx, x + 1, y, 2, 1, '#9a9580');
+  }
+}
+
+function drawShadowSoft(ctx: Ctx, w: number, h: number): void {
+  const cx = w / 2;
+  const cy = h / 2;
+  for (let i = 12; i > 0; i--) {
+    ctx.fillStyle = `rgba(20, 16, 8, ${0.055 + (12 - i) * 0.004})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, (w * 0.46 * i) / 12, (h * 0.42 * i) / 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawGlow(ctx: Ctx, w: number, h: number): void {
+  const gradient = ctx.createRadialGradient(w / 2, h / 2, 1, w / 2, h / 2, w / 2);
+  gradient.addColorStop(0, 'rgba(255, 250, 220, 0.95)');
+  gradient.addColorStop(0.22, 'rgba(255, 236, 170, 0.55)');
+  gradient.addColorStop(0.58, 'rgba(255, 196, 100, 0.16)');
+  gradient.addColorStop(1, 'rgba(255, 180, 80, 0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function drawVignette(ctx: Ctx, w: number, h: number): void {
+  const gradient = ctx.createRadialGradient(w / 2, h / 2, w * 0.28, w / 2, h / 2, w * 0.62);
+  gradient.addColorStop(0, 'rgba(6, 14, 18, 0)');
+  gradient.addColorStop(0.66, 'rgba(6, 14, 18, 0.1)');
+  gradient.addColorStop(1, 'rgba(4, 9, 14, 0.48)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function drawPuddle(ctx: Ctx): void {
+  px(ctx, 0, 0, 24, 10, 'rgba(0,0,0,0)');
+  px(ctx, 4, 3, 16, 4, 'rgba(95, 150, 195, 0.42)');
+  px(ctx, 2, 5, 20, 3, 'rgba(78, 130, 180, 0.38)');
+  px(ctx, 7, 2, 9, 6, 'rgba(110, 170, 215, 0.3)');
+  px(ctx, 8, 3, 3, 1, 'rgba(220, 245, 255, 0.55)');
+  px(ctx, 6, 7, 12, 1, 'rgba(45, 95, 135, 0.32)');
+}
+
+function drawSnowPatch(ctx: Ctx): void {
+  px(ctx, 0, 0, 22, 9, 'rgba(0,0,0,0)');
+  px(ctx, 3, 2, 16, 5, 'rgba(238, 247, 250, 0.72)');
+  px(ctx, 5, 1, 10, 2, 'rgba(250, 253, 255, 0.8)');
+  px(ctx, 1, 4, 20, 3, 'rgba(216, 235, 242, 0.5)');
+  px(ctx, 6, 3, 5, 1, '#ffffff');
+}
+
+function drawRipple(ctx: Ctx): void {
+  px(ctx, 0, 0, 16, 6, 'rgba(0,0,0,0)');
+  px(ctx, 4, 1, 8, 1, 'rgba(220, 246, 255, 0.82)');
+  px(ctx, 2, 2, 2, 1, 'rgba(180, 224, 245, 0.65)');
+  px(ctx, 12, 2, 2, 1, 'rgba(180, 224, 245, 0.65)');
+  px(ctx, 1, 3, 2, 1, 'rgba(160, 210, 235, 0.42)');
+  px(ctx, 13, 3, 2, 1, 'rgba(160, 210, 235, 0.42)');
+}
+
+function drawRainSplash(ctx: Ctx): void {
+  px(ctx, 0, 0, 12, 5, 'rgba(0,0,0,0)');
+  px(ctx, 1, 1, 2, 1, 'rgba(190, 234, 255, 0.8)');
+  px(ctx, 9, 1, 2, 1, 'rgba(190, 234, 255, 0.8)');
+  px(ctx, 4, 2, 4, 1, 'rgba(220, 248, 255, 0.9)');
+  px(ctx, 3, 3, 6, 1, 'rgba(135, 198, 230, 0.6)');
+}
+
+function drawPebble(ctx: Ctx, variant: number): void {
+  px(ctx, 0, 0, 8, 6, 'rgba(0,0,0,0)');
+  if (variant === 0) {
+    px(ctx, 1, 2, 5, 3, '#8f8b78');
+    px(ctx, 2, 1, 3, 1, '#b3ae98');
+    px(ctx, 2, 4, 3, 1, '#706d5f');
+  } else {
+    px(ctx, 2, 1, 4, 4, '#9a907c');
+    px(ctx, 3, 1, 2, 1, '#c0b59c');
+    px(ctx, 2, 3, 2, 2, '#77705e');
+  }
+}
+
+function drawDirtPatch(ctx: Ctx): void {
+  px(ctx, 0, 0, 14, 8, 'rgba(0,0,0,0)');
+  px(ctx, 2, 2, 10, 5, 'rgba(120, 94, 58, 0.32)');
+  px(ctx, 4, 1, 6, 1, 'rgba(140, 110, 68, 0.26)');
+  px(ctx, 5, 3, 2, 1, 'rgba(92, 70, 44, 0.34)');
+  px(ctx, 9, 5, 1, 1, 'rgba(92, 70, 44, 0.3)');
+}
+
+function drawLeaf(ctx: Ctx): void {
+  px(ctx, 0, 0, 6, 6, 'rgba(0,0,0,0)');
+  px(ctx, 1, 2, 3, 2, '#c9823e');
+  px(ctx, 2, 1, 2, 1, '#e0a04e');
+  px(ctx, 3, 3, 2, 2, '#a8642e');
+  px(ctx, 2, 4, 1, 1, '#8a4e24');
+}
+
+function drawSnowflake(ctx: Ctx): void {
+  px(ctx, 0, 0, 5, 5, 'rgba(0,0,0,0)');
+  px(ctx, 2, 0, 1, 5, '#eef8ff');
+  px(ctx, 0, 2, 5, 1, '#eef8ff');
+  px(ctx, 1, 1, 1, 1, '#c8e8f8');
+  px(ctx, 3, 3, 1, 1, '#c8e8f8');
+}
+
 export function generateTextures(scene: Phaser.Scene): void {
   // ---- terrain per season
   for (const season of SEASONS) {
@@ -1046,6 +1177,9 @@ export function generateTextures(scene: Phaser.Scene): void {
       );
     }
     makeTexture(scene, `tree_${season}`, 24, 32, (ctx) => drawTree(ctx, season));
+    makeTexture(scene, `field_${season}`, 128, 128, (ctx, w, h) =>
+      drawGrassField(ctx, w, h, SEASON_INFO[season].grass, 500 + SEASONS.indexOf(season) * 31)
+    );
   }
 
   makeTexture(scene, 'path', 16, 16, drawPath);
@@ -1108,9 +1242,11 @@ export function generateTextures(scene: Phaser.Scene): void {
   }
 
   // ---- misc
-  makeTexture(scene, 'rain', 2, 8, (ctx) => {
-    px(ctx, 0, 0, 1, 6, '#a8d8f0');
-    px(ctx, 1, 3, 1, 3, '#7ab8e0');
+  makeTexture(scene, 'rain', 4, 12, (ctx) => {
+    px(ctx, 1, 0, 1, 9, '#d8f4ff');
+    px(ctx, 0, 2, 1, 7, '#a8d8f0');
+    px(ctx, 2, 4, 1, 6, '#8cc8e8');
+    px(ctx, 3, 7, 1, 4, '#6aaed8');
   });
   makeTexture(scene, 'sparkle', 5, 5, (ctx) => {
     px(ctx, 2, 0, 1, 5, '#fff8d8');
@@ -1127,6 +1263,24 @@ export function generateTextures(scene: Phaser.Scene): void {
     ctx.beginPath();
     ctx.ellipse(12, 4, 11, 3, 0, 0, Math.PI * 2);
     ctx.fill();
+  });
+  makeTexture(scene, 'shadow_soft', 64, 24, drawShadowSoft);
+  makeTexture(scene, 'glow', 96, 96, drawGlow);
+  makeTexture(scene, 'vignette', 128, 128, drawVignette);
+  makeTexture(scene, 'puddle', 24, 10, drawPuddle);
+  makeTexture(scene, 'snow_patch', 22, 9, drawSnowPatch);
+  makeTexture(scene, 'ripple', 16, 6, drawRipple);
+  makeTexture(scene, 'rain_splash', 12, 5, drawRainSplash);
+  makeTexture(scene, 'pebble_0', 8, 6, (ctx) => drawPebble(ctx, 0));
+  makeTexture(scene, 'pebble_1', 8, 6, (ctx) => drawPebble(ctx, 1));
+  makeTexture(scene, 'dirt_patch', 14, 8, drawDirtPatch);
+  makeTexture(scene, 'leaf', 6, 6, drawLeaf);
+  makeTexture(scene, 'snowflake', 5, 5, drawSnowflake);
+  makeTexture(scene, 'firefly', 5, 5, (ctx) => {
+    px(ctx, 0, 0, 5, 5, 'rgba(0,0,0,0)');
+    px(ctx, 2, 1, 1, 3, '#fff2a8');
+    px(ctx, 1, 2, 3, 1, '#ffe066');
+    px(ctx, 2, 2, 1, 1, '#ffffff');
   });
   makeTexture(scene, 'cloud', 64, 24, (ctx) => {
     px(ctx, 0, 0, 64, 24, 'rgba(0,0,0,0)');
