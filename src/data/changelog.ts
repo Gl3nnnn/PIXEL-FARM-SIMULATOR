@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.3.2';
+export const GAME_VERSION = '2.3.3';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.3',
+    date: '2026-11-01',
+    title: 'Consistent modal sizing',
+    changes: [
+      'Game panels now keep a consistent height when switching tabs, with scrolling inside the panel instead of resizing the whole modal.',
+      'Scrollbars reserve their space so panel content no longer shifts sideways between tabs.'
+    ]
+  },
   {
     version: '2.3.2',
     date: '2026-11-01',
