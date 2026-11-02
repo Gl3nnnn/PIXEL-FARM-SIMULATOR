@@ -85,6 +85,7 @@ export class GameUI {
   private iconCache = new Map<string, string>();
   private textureCache = new Map<string, string>();
   private avatarCache = new Map<string, string>();
+  private npcDialogueToken = 0;
   private joystick = { x: 0, y: 0 };
   private moveAccum = 0;
   private clockTimer: number | null = null;
@@ -555,6 +556,9 @@ export class GameUI {
     this.panelContent.innerHTML = '';
     this.panelTitle.textContent = `${entry.npc.name} · ${entry.npc.role}`;
     let npcSpeech: string | null = null;
+    let speechStage: 'idle' | 'player' | 'npc' = 'idle';
+    let speechTimer: number | null = null;
+    const token = ++this.npcDialogueToken;
     const render = (): void => {
       const current = this.state.npcList().find((item) => item.npc.id === id);
       if (!current) return;
@@ -579,28 +583,53 @@ export class GameUI {
       const greeting = current.record.met
         ? npcLine(current.npc, this.state.data)
         : 'A new face at the farm.';
+      const talkedToday = current.record.talkedDay === this.state.today;
       const conversation = el('div', 'npc-conversation');
 
       const playerSide = el('div', 'npc-chat player');
+      if (speechStage === 'player') playerSide.classList.add('speaking');
+      else if (speechStage === 'npc') playerSide.classList.add('listening');
       const playerFrame = el('div', 'npc-avatar-frame');
       playerFrame.appendChild(this.avatar('player_down_0', 'You'));
       playerSide.append(playerFrame, el('span', 'npc-chat-name', 'You'));
-      playerSide.appendChild(
-        el('p', 'npc-chat-bubble from-player', current.available ? `Hi, ${current.npc.name}!` : '...')
-      );
+      if (speechStage === 'player') {
+        const playerBubble = el('p', 'npc-chat-bubble from-player', `Hi, ${current.npc.name}!`);
+        playerBubble.setAttribute('aria-live', 'polite');
+        playerSide.appendChild(playerBubble);
+      }
       conversation.appendChild(playerSide);
 
       const npcSide = el('div', 'npc-chat npc');
+      if (speechStage === 'npc') npcSide.classList.add('speaking');
+      else if (speechStage === 'player') npcSide.classList.add('listening');
       const npcFrame = el('div', 'npc-avatar-frame');
       npcFrame.appendChild(this.avatar(`npc_${current.npc.id}`, current.npc.name));
       npcSide.append(npcFrame, el('span', 'npc-chat-name', current.npc.name));
-      const npcBubble = el('p', 'npc-chat-bubble from-npc', npcSpeech ?? greeting);
-      npcBubble.setAttribute('aria-live', 'polite');
-      npcSide.appendChild(npcBubble);
+      if (speechStage === 'npc') {
+        const npcBubble = el('p', 'npc-chat-bubble from-npc', npcSpeech ?? greeting);
+        npcBubble.setAttribute('aria-live', 'polite');
+        npcSide.appendChild(npcBubble);
+      }
       conversation.appendChild(npcSide);
+
+      if (speechStage === 'idle') {
+        conversation.classList.add('idle');
+        conversation.appendChild(
+          el(
+            'p',
+            'npc-chat-idle',
+            !current.available
+              ? `${current.npc.name} isn't here right now.`
+              : talkedToday
+                ? `You've already talked with ${current.npc.name} today.`
+                : current.record.met
+                  ? `Press Talk to chat with ${current.npc.name}.`
+                  : 'Press Talk to introduce yourself.'
+          )
+        );
+      }
       this.panelContent.appendChild(conversation);
 
-      const talkedToday = current.record.talkedDay === this.state.today;
       const actions = el('div', 'row-actions');
       actions.appendChild(
         button(talkedToday ? 'Talked today' : 'Talk', {
@@ -612,11 +641,26 @@ export class GameUI {
             audio.play(result.ok ? 'click' : 'error');
             if (result.ok) {
               npcSpeech = (result.message ?? greeting).replace(`${current.npc.name}: `, '');
+              speechStage = 'player';
               void this.requestSave();
+              render();
+              if (speechTimer !== null) window.clearTimeout(speechTimer);
+              speechTimer = window.setTimeout(() => {
+                speechTimer = null;
+                if (
+                  token !== this.npcDialogueToken ||
+                  this.currentPanel !== 'npc' ||
+                  this.panelLayer.classList.contains('hidden')
+                ) {
+                  return;
+                }
+                speechStage = 'npc';
+                render();
+              }, 700);
             } else {
               this.toast(result.message ?? '', 'error');
+              render();
             }
-            render();
           }
         })
       );
@@ -847,6 +891,7 @@ export class GameUI {
     this.panelContent.innerHTML = '';
     this.panelRefresh = null;
     this.currentPanel = null;
+    this.npcDialogueToken += 1;
     if (!this.pauseOpen) this.setPaused(false);
   }
 

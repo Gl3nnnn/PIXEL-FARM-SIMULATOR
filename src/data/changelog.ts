@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.4.0';
+export const GAME_VERSION = '2.4.1';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.4.1',
+    date: '2026-11-02',
+    title: 'Cleaner NPC conversations',
+    changes: [
+      'NPC dialogue stays quiet until you press Talk instead of showing a greeting automatically.',
+      'Conversations play out one speaker at a time, with the active avatar highlighted and the listener dimmed.'
+    ]
+  },
   {
     version: '2.4.0',
     date: '2026-11-02',
