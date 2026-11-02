@@ -49,6 +49,23 @@ export type CropShape =
   | 'rice'
   | 'sunflower';
 
+/** How a crop or animal is drawn from its colour palette. */
+export type PlantArchetype =
+  | 'grain'
+  | 'root'
+  | 'bush'
+  | 'vine'
+  | 'tall'
+  | 'head'
+  | 'tree'
+  | 'flower';
+
+/** Housing a species lives in. */
+export type HousingId = 'coop' | 'barn' | 'pond' | 'stable' | 'apiary' | 'hutch' | 'kennel' | 'aviary' | 'pasture';
+
+/** What a tool improves. */
+export type ToolEffect = 'till' | 'water' | 'speed' | 'bag' | 'luck' | 'rod' | 'mine';
+
 export interface CropDef {
   id: string;
   name: string;
@@ -60,7 +77,10 @@ export interface CropDef {
   regrowDays: number;
   yieldMin: number;
   yieldMax: number;
-  shape: CropShape;
+  /** Art style used for the classic ten crops. */
+  shape?: CropShape;
+  /** Art style for every other crop, drawn in the crop's palette. */
+  art?: PlantArchetype;
   palette: number[];
   desc: string;
 }
@@ -68,12 +88,16 @@ export interface CropDef {
 export interface AnimalDef {
   id: string;
   name: string;
-  housing: AnimalHousing;
+  housing: HousingId;
   price: number;
   productId: string;
   maturityDays: number;
   desc: string;
   colors: number[];
+  /** Art style used for the classic five animals. */
+  shape?: string;
+  /** Art style for every other animal, drawn in the animal's colours. */
+  art?: PlantArchetype;
 }
 
 export type BuildingKind =
@@ -98,10 +122,18 @@ export interface BuildingDef {
   desc: string;
   /** Animal slots for housing buildings. */
   capacity?: number;
+  /** The kind of animal this building houses. */
+  houses?: HousingId;
   /** Watering radius in tiles (well / sprinkler). */
   radius?: number;
   /** Inventory slots for storage buildings. */
   storage?: number;
+  /** Extra backpack slots from storage buildings. */
+  slots?: number;
+  /** Art style used for the classic buildings. */
+  art?: string;
+  /** Rooftop colour for other buildings. */
+  colors?: number[];
 }
 
 export interface RecipeDef {
@@ -296,6 +328,17 @@ export interface InventoryStack {
   quality: Quality;
 }
 
+export interface ToolDef {
+  id: string;
+  name: string;
+  desc: string;
+  price: number;
+  unlockLevel: number;
+  effect: ToolEffect;
+  bonus: number;
+  colors: number[];
+}
+
 export interface CropSave {
   id: string;
   growth: number;
@@ -415,6 +458,8 @@ export interface SaveData {
   tutorialStep: number;
   tutorialDone: boolean;
   selectedItemId: string;
+  /** Ids of the farm tools bought so far (see TOOLS). */
+  toolsOwned: string[];
 }
 
 export interface Settings {

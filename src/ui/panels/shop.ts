@@ -1,16 +1,19 @@
-import { CROPS, ITEMS, SEASON_INFO, SEED_IDS, UPGRADES, cropForSeed, levelFromXp } from '../../data/definitions';
-import { upgradeIconKeyFor } from '../../game/textures';
+import { CROPS, ITEMS, SEASON_INFO, SEED_IDS, TOOLS, UPGRADES, cropForSeed, levelFromXp } from '../../data/definitions';
+import { iconKeyFor, upgradeIconKeyFor } from '../../game/textures';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import {
-  button,
-  el,
-  iconImg,
-  pill,
-  section,
-  tabs
-} from '../uiKit';
+import { button, el, iconImg, pill, section, tabs } from '../uiKit';
+
+const TOOL_EFFECT_LABEL: Record<string, string> = {
+  till: 'Tilling',
+  water: 'Watering',
+  speed: 'Speed',
+  bag: 'Backpack',
+  luck: 'Luck',
+  rod: 'Fishing',
+  mine: 'Mining'
+};
 
 export function renderShop(ctx: UIContext, root: HTMLElement): void {
   let tab = 0;
@@ -25,7 +28,7 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
     );
     toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
     content.appendChild(toolbar);
-    content.appendChild(tabs(['Seeds', 'Supplies', 'Upgrades'], tab, (i) => {
+    content.appendChild(tabs(['Seeds', 'Supplies', 'Tools', 'Upgrades'], tab, (i) => {
       tab = i;
       render();
     }));
@@ -93,6 +96,51 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
                 const result = state.buyItem(id, qty);
                 ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
                 audio.play(result.ok ? 'coin' : 'error');
+                if (result.ok) ctx.requestSave();
+                render();
+              }
+            })
+          );
+        }
+        card.appendChild(actions);
+        grid.appendChild(card);
+      }
+      sec.appendChild(grid);
+      content.appendChild(sec);
+    } else if (tab === 2) {
+      const sec = section(
+        'Farm Tools',
+        'Buy tools to work faster. Only the best tool you own for each job counts.'
+      );
+      const grid = el('div', 'card-grid wide');
+      for (const tool of TOOLS) {
+        const owned = state.hasTool(tool.id);
+        const locked = state.level < tool.unlockLevel;
+        const card = el('div', 'shop-card column');
+        card.appendChild(iconImg(ctx.texture(iconKeyFor(tool.id)), 40, tool.name));
+        const info = el('div', 'shop-info');
+        info.appendChild(el('strong', undefined, tool.name));
+        info.appendChild(el('span', 'hint', tool.desc));
+        const tags = el('div', 'tag-row');
+        tags.appendChild(pill(TOOL_EFFECT_LABEL[tool.effect]));
+        if (owned) tags.appendChild(pill('Owned', 'good'));
+        if (locked) tags.appendChild(pill(`Level ${tool.unlockLevel}`, 'warn'));
+        info.appendChild(tags);
+        card.appendChild(info);
+        const actions = el('div', 'shop-actions');
+        if (owned) {
+          actions.appendChild(pill('Equipped', 'good'));
+        } else {
+          actions.appendChild(el('span', 'price', `${tool.price}g`));
+          actions.appendChild(
+            button('Buy', {
+              small: true,
+              variant: 'primary',
+              disabled: locked || state.data.coins < tool.price,
+              onClick: () => {
+                const result = state.buyTool(tool.id);
+                ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+                audio.play(result.ok ? 'level' : 'error');
                 if (result.ok) ctx.requestSave();
                 render();
               }

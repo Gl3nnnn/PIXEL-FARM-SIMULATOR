@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.4.2';
+export const GAME_VERSION = '2.5.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.5.0',
+    date: '2026-11-03',
+    title: 'A much bigger farm',
+    changes: [
+      'Fifty new crops to grow, from quick radishes to rare saffron and watermelons.',
+      'Fifty new animals with their own products, from bees and rabbits to camels and zebras.',
+      'Seven new animal homes and many new buildings, including a Stable, Apiary, Aviary and Great Pasture.',
+      'Fifty new farm tools that make tilling, watering, walking, fishing, mining and carrying easier.',
+      'A new Tools tab in the shop shows every tool, its job and its price.'
+    ]
+  },
   {
     version: '2.4.2',
     date: '2026-11-02',

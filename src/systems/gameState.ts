@@ -21,6 +21,7 @@ import {
   SEED_IDS,
   START_MINUTE,
   TILE,
+  TOOLS,
   UPGRADES,
   WORLD_H,
   WORLD_W,
@@ -35,6 +36,7 @@ import type {
   FestivalTier,
   MineNodeSave,
   NpcSave,
+  HousingId,
   Quality,
   QuestDef,
   SaveData,
@@ -42,6 +44,7 @@ import type {
   SkillKey,
   Stats,
   TileSave,
+  ToolEffect,
   Weather
 } from '../types';
 import {
@@ -175,7 +178,8 @@ export function createNewSave(): SaveData {
     spouseId: null,
     tutorialStep: 0,
     tutorialDone: false,
-    selectedItemId: 'hoe'
+    selectedItemId: 'hoe',
+    toolsOwned: []
   };
 }
 
@@ -258,7 +262,42 @@ export class GameState {
   }
 
   hasHelperHut(): boolean {
-    return this.data.buildings.some((b) => b.id === 'helper_hut');
+    return this.data.buildings.some((b) => BUILDINGS[b.id]?.kind === 'automation');
+  }
+
+  // ------------------------------------------------------------------ tools
+
+  /** The bonus of the best tool owned for a job. Only one tool per job counts. */
+  toolBonus(effect: ToolEffect): number {
+    let best = 0;
+    for (const tool of TOOLS) {
+      if (tool.effect !== effect || tool.bonus <= best) continue;
+      if (!this.data.toolsOwned.includes(tool.id)) continue;
+      best = tool.bonus;
+    }
+    return best;
+  }
+
+  hasTool(toolId: string): boolean {
+    return this.data.toolsOwned.includes(toolId);
+  }
+
+  buyTool(toolId: string): ActionResult {
+    const def = TOOLS.find((tool) => tool.id === toolId);
+    if (!def) return { ok: false, message: 'Unknown tool.' };
+    if (this.hasTool(toolId)) return { ok: false, message: 'You already own this tool.' };
+    if (this.level < def.unlockLevel) {
+      return { ok: false, message: `Unlocks at farmer level ${def.unlockLevel}.` };
+    }
+    if (this.data.coins < def.price) return { ok: false, message: 'Not enough coins.' };
+    this.data.coins -= def.price;
+    this.data.toolsOwned.push(toolId);
+    this.ensureCapacity();
+    this.addXp('business', 6, false);
+    this.emitChange();
+    this.emit('tool', { toolId });
+    this.checkProgress();
+    return { ok: true, message: `${def.name} equipped. ${def.desc}` };
   }
 
   get today(): number {
@@ -270,11 +309,12 @@ export class GameState {
   }
 
   capacity(): number {
-    const sheds = this.data.buildings.filter((b) => b.id === 'shed').length;
+    const sheds = this.data.buildings.reduce((sum, b) => sum + (BUILDINGS[b.id]?.slots ?? 0), 0);
     return (
       BASE_CAPACITY +
       (this.data.upgrades.backpack ?? 0) * 6 +
-      sheds * 24 +
+      sheds +
+      this.toolBonus('bag') +
       (this.data.farmhouseLevel - 1) * 4
     );
   }
@@ -429,7 +469,7 @@ export class GameState {
   // ------------------------------------------------------------------- farm
 
   tillAt(cx: number, cy: number): ActionResult & { tiles: number } {
-    const radius = this.data.upgrades.hoe ?? 0;
+    const radius = (this.data.upgrades.hoe ?? 0) + this.toolBonus('till');
     let count = 0;
     for (let y = cy - radius; y <= cy + radius; y++) {
       for (let x = cx - radius; x <= cx + radius; x++) {
@@ -452,7 +492,7 @@ export class GameState {
   }
 
   waterAt(cx: number, cy: number): ActionResult & { tiles: number } {
-    const radius = this.data.upgrades.can ?? 0;
+    const radius = (this.data.upgrades.can ?? 0) + this.toolBonus('water');
     let count = 0;
     for (let y = cy - radius; y <= cy + radius; y++) {
       for (let x = cx - radius; x <= cx + radius; x++) {
@@ -564,8 +604,9 @@ export class GameState {
   private rollQuality(tile: TileSave): Quality {
     const level = levelFromXp(this.data.xp.farming);
     const fert = tile.fertilized ? 0.16 : 0;
-    const goldChance = 0.02 + fert + level * 0.008;
-    const silverChance = 0.2 + fert * 1.4 + level * 0.015;
+    const luck = this.toolBonus('luck');
+    const goldChance = 0.02 + fert + level * 0.008 + luck;
+    const silverChance = 0.2 + fert * 1.4 + level * 0.015 + luck;
     const roll = this.rng();
     if (roll < goldChance) return 'gold';
     if (roll < goldChance + silverChance) return 'silver';
@@ -829,15 +870,15 @@ export class GameState {
 
   // ---------------------------------------------------------------- animals
 
-  housingCapacity(kind: 'coop' | 'barn'): number {
+  housingCapacity(kind: HousingId): number {
     return this.data.buildings.reduce((sum, b) => {
       const def = BUILDINGS[b.id];
-      if (def?.kind === 'housing' && def.id === kind) return sum + (def.capacity ?? 0);
+      if (def?.kind === 'housing' && def.houses === kind) return sum + (def.capacity ?? 0);
       return sum;
     }, 0);
   }
 
-  animalsInHousing(kind: 'coop' | 'barn'): number {
+  animalsInHousing(kind: HousingId): number {
     return this.data.animals.filter((a) => ANIMALS[a.species]?.housing === kind).length;
   }
 
@@ -845,7 +886,7 @@ export class GameState {
     const def = ANIMALS[species];
     if (!def) return undefined;
     return this.data.buildings.find(
-      (b) => b.id === def.housing && this.animalsInHousing(def.housing) < this.housingCapacity(def.housing)
+      (b) => BUILDINGS[b.id]?.houses === def.housing && this.animalsInHousing(def.housing) < this.housingCapacity(def.housing)
     );
   }
 
@@ -855,7 +896,7 @@ export class GameState {
     if (this.animalsInHousing(def.housing) >= this.housingCapacity(def.housing)) {
       return {
         ok: false,
-        message: `Build a ${def.housing === 'coop' ? 'chicken coop' : 'barn'} with free space first.`
+        message: `You need more ${def.housing} housing with free space first.`
       };
     }
     if (this.data.coins < def.price) return { ok: false, message: 'Not enough coins.' };
@@ -1255,7 +1296,7 @@ export class GameState {
 
   catchFish(): ActionResult & { fishId?: string; name?: string } {
     if (!this.hasItem('fishing_rod')) return { ok: false, message: 'You need a fishing rod.' };
-    const fish = selectFish(this.data, this.rng);
+    const fish = selectFish(this.data, this.rng, this.toolBonus('rod'));
     const item = ITEMS[fish.itemId];
     if (!item) return { ok: false, message: 'Unknown fish.' };
     if (this.freeSpaceFor(fish.itemId) < 1) return { ok: false, message: 'Your inventory is full.' };
@@ -1289,7 +1330,7 @@ export class GameState {
     if (!this.isWithinInteraction(node.x, node.y)) return { ok: false, message: 'Move closer to the rock.' };
     const hp = nodeHp(this.data, node);
     if (hp <= 0) return { ok: false, message: 'This rock needs time to reform.' };
-    const nextHp = hp - 1;
+    const nextHp = hp - (1 + this.toolBonus('mine'));
     const finalHit = nextHp <= 0;
     const loot = miningLoot(node.kind, finalHit, this.rng);
     for (const entry of loot) {

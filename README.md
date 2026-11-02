@@ -10,9 +10,9 @@ Once GitHub Pages is enabled, the game is available at:
 
 ## Features
 
-- 10 crops with season restrictions, growth stages, watering, fertilizing, and regrowth
-- 5 animals with feeding, petting, happiness, health, and daily products
-- 10 placeable buildings plus the upgradable farmhouse, farm expansions, and backpack upgrades
+- 60 crops with season restrictions, growth stages, watering, fertilizing, and regrowth
+- 55 animals with feeding, petting, happiness, health, and daily products
+- 9 kinds of animal housing, 50 farm tools with real bonuses, and 60+ placeable buildings plus the upgradable farmhouse, farm expansions, and backpack upgrades
 - Crafting recipes, a general store, and a market with deterministic daily price trends
 - 28-day seasons, weather (sun, rain, storm), day/night lighting, and lightning
 - Main quests, daily quests, achievements, six skills, and unlock progression

@@ -2127,7 +2127,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.state.paused && !this.sleeping) {
       const boots = this.state.data.upgrades.boots ?? 0;
-      let speed = 122 * (1 + boots * 0.12);
+      let speed = 122 * (1 + boots * 0.12 + this.state.toolBonus('speed'));
       const feetTile = worldToTile(this.player.x, this.player.y);
       if (isPathTile(feetTile.x, feetTile.y)) speed *= 1.25;
 

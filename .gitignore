@@ -10,3 +10,6 @@ Thumbs.db
 !.env.example
 shot-*.png
 scan_*.py
+
+# HORMACHUELOS: the AI's notes, screenshots and results stay on this PC
+.hormachuelos/

@@ -5,6 +5,7 @@ import {
   DEFAULT_SETTINGS,
   FESTIVAL_RIBBONS,
   NPCS,
+  TOOLS,
   levelFromXp
 } from '../data/definitions';
 import { MINE_NODES } from './world';
@@ -37,6 +38,7 @@ const COLLECTION_REWARD_IDS = new Set(
 const AUTOMATION_IDS = new Set(AUTOMATION.map((entry) => entry.id));
 const RIBBON_IDS = new Set(FESTIVAL_RIBBONS.map((ribbon) => ribbon.id));
 const MINE_NODE_IDS = new Set(MINE_NODES.map((node) => node.id));
+const TOOL_IDS = new Set(TOOLS.map((tool) => tool.id));
 
 interface StoredRecord {
   slot: number;
@@ -375,7 +377,10 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
       typeof d.spouseId === 'string' && NPCS[d.spouseId]?.romanceable ? d.spouseId : null,
     tutorialStep: Math.max(0, Math.floor(toFinite(d.tutorialStep, 0))),
     tutorialDone: toBool(d.tutorialDone, false),
-    selectedItemId: typeof d.selectedItemId === 'string' ? d.selectedItemId : 'hoe'
+    selectedItemId: typeof d.selectedItemId === 'string' ? d.selectedItemId : 'hoe',
+    toolsOwned: Array.isArray(d.toolsOwned)
+      ? d.toolsOwned.filter((id): id is string => typeof id === 'string' && TOOL_IDS.has(id))
+      : []
   };
 
   return save;

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ANIMALS, BUILDINGS, CROPS, ITEMS, NPCS, SEASONS, SEASON_INFO } from '../data/definitions';
-import type { AnimalDef, CropDef, NpcDef, Season } from '../types';
+import type { AnimalDef, BuildingDef, CropDef, NpcDef, Season } from '../types';
 import { mulberry32 } from '../systems/util';
 
 type Ctx = CanvasRenderingContext2D;
@@ -305,6 +305,10 @@ function drawNpc(ctx: Ctx, def: NpcDef, frame: number): void {
 
 function drawCrop(ctx: Ctx, def: CropDef, stage: number): void {
   px(ctx, 0, 0, 16, 16, 'rgba(0,0,0,0)');
+  if (!def.shape && def.art) {
+    drawPlant(ctx, def, stage);
+    return;
+  }
   const leaf = hex(def.palette[0]);
   const leaf2 = hex(def.palette[1]);
   const fruit = hex(def.palette[2]);
@@ -480,8 +484,437 @@ function drawCrop(ctx: Ctx, def: CropDef, stage: number): void {
   }
 }
 
+function drawPlant(ctx: Ctx, def: CropDef, stage: number): void {
+  const leaf = hex(def.palette[0]);
+  const leaf2 = hex(def.palette[1]);
+  const fruit = hex(def.palette[2]);
+  const fruitDark = hex(def.palette[3]);
+  const stem = '#3f6f2f';
+  const h = stage === 0 ? 3 : stage === 1 ? 6 : stage === 2 ? 9 : 12;
+  const ripe = stage === 3;
+  const top = 16 - h;
+
+  switch (def.art) {
+    case 'grain':
+      for (const x of [5, 8, 11]) {
+        px(ctx, x, top, 1, h, x === 8 ? leaf2 : leaf);
+        if (stage >= 2) {
+          px(ctx, x - 1, top + 1, 2, 2, leaf2);
+          px(ctx, x - 1, top + 5, 2, 1, leaf2);
+        }
+        if (ripe) {
+          px(ctx, x - 1, top - 1, 3, 3, fruit);
+          px(ctx, x, top - 2, 1, 1, fruitDark);
+          px(ctx, x, top + 2, 1, 1, fruitDark);
+        }
+      }
+      if (stage >= 1) px(ctx, 4, 14, 8, 1, leaf);
+      break;
+    case 'root':
+      if (stage === 0) {
+        px(ctx, 7, 11, 2, 4, stem);
+        px(ctx, 5, 10, 2, 2, leaf);
+        px(ctx, 9, 10, 2, 2, leaf2);
+      } else {
+        for (const x of [5, 8, 11]) {
+          px(ctx, x, top, 1, h, x === 8 ? leaf2 : leaf);
+          px(ctx, x - 1, top + 1, 2, 2, leaf);
+          px(ctx, x + 1, top + 3, 2, 2, leaf2);
+        }
+        if (ripe) {
+          px(ctx, 6, 13, 4, 2, fruit);
+          px(ctx, 7, 15, 2, 1, fruitDark);
+          px(ctx, 6, 13, 4, 1, shade(def.palette[2], 40));
+        }
+      }
+      break;
+    case 'bush':
+      px(ctx, 7, top + 2, 2, h - 2, stem);
+      disc(ctx, 8, 12, stage === 0 ? 2 : stage === 1 ? 3 : 4, leaf2);
+      if (stage >= 1) {
+        px(ctx, 3, 11, 4, 2, leaf);
+        px(ctx, 10, 10, 4, 2, leaf);
+      }
+      if (ripe) {
+        disc(ctx, 6, 10, 2, fruit);
+        disc(ctx, 11, 11, 2, fruit);
+        px(ctx, 5, 9, 1, 1, shade(def.palette[2], 50));
+        px(ctx, 10, 10, 1, 1, fruitDark);
+      }
+      break;
+    case 'vine':
+      px(ctx, 2, 15, 13, 1, leaf);
+      px(ctx, 4, 12, 9, 1, leaf2);
+      px(ctx, 7, top, 2, 16 - top, stem);
+      px(ctx, 2, 9, 5, 1, leaf);
+      px(ctx, 10, 7, 5, 1, leaf2);
+      if (stage >= 2) {
+        disc(ctx, 5, 12, 2, leaf2);
+        disc(ctx, 12, 11, 2, leaf);
+      }
+      if (ripe) {
+        disc(ctx, 8, 10, 3, fruit);
+        disc(ctx, 4, 12, 2, fruit);
+        px(ctx, 7, 8, 1, 1, shade(def.palette[2], 50));
+        px(ctx, 9, 12, 2, 1, fruitDark);
+      }
+      break;
+    case 'tall':
+      px(ctx, 7, top, 2, h, leaf2);
+      px(ctx, 6, top + 1, 1, h - 2, leaf);
+      if (stage >= 1) {
+        px(ctx, 4, top + 2, 2, 3, leaf);
+        px(ctx, 10, top + 4, 2, 3, leaf2);
+        px(ctx, 5, top + 6, 2, 2, leaf2);
+      }
+      if (stage >= 2) {
+        px(ctx, 9, top - 1, 3, 2, leaf);
+        px(ctx, 4, top - 1, 3, 2, leaf2);
+      }
+      if (ripe) {
+        px(ctx, 6, top - 3, 4, 3, fruit);
+        px(ctx, 7, top - 4, 2, 1, fruitDark);
+        px(ctx, 5, 15, 6, 1, stem);
+      }
+      break;
+    case 'head':
+      if (stage === 0) {
+        px(ctx, 7, 11, 2, 4, stem);
+        px(ctx, 5, 10, 4, 2, leaf);
+      } else {
+        px(ctx, 7, 12, 2, 4, stem);
+        px(ctx, 4, 11, 8, 2, leaf);
+        disc(ctx, 8, 10, stage === 1 ? 2 : stage === 2 ? 3 : 4, leaf2);
+        if (ripe) {
+          disc(ctx, 8, 9, 3, fruit);
+          px(ctx, 6, 8, 4, 1, shade(def.palette[2], -25));
+          px(ctx, 5, 12, 6, 1, leaf);
+          px(ctx, 7, 7, 1, 1, fruitDark);
+        }
+      }
+      break;
+    case 'tree':
+      px(ctx, 7, 9, 2, 7, stem);
+      px(ctx, 5, 14, 6, 1, stem);
+      disc(ctx, 8, 7, stage === 0 ? 3 : stage === 1 ? 4 : 5, leaf2);
+      px(ctx, 4, 6, 4, 2, leaf);
+      if (ripe) {
+        disc(ctx, 6, 8, 2, fruit);
+        disc(ctx, 11, 10, 2, fruit);
+        px(ctx, 5, 7, 1, 1, fruitDark);
+        px(ctx, 10, 9, 1, 1, fruitDark);
+      }
+      break;
+    case 'flower':
+      px(ctx, 7, top + 2, 2, h - 2, stem);
+      px(ctx, 5, 13, 3, 2, leaf);
+      px(ctx, 9, 11, 3, 2, leaf2);
+      if (stage >= 2) {
+        disc(ctx, 8, top + 1, 2, leaf2);
+      }
+      if (ripe) {
+        for (const [dx, dy] of [[0, -2], [-2, 0], [2, 0], [0, 2]] as const) {
+          px(ctx, 8 + dx - 1, top + dy, 2, 2, fruit);
+        }
+        px(ctx, 7, top, 2, 2, fruitDark);
+        px(ctx, 7, top, 1, 1, shade(def.palette[3], 60));
+      }
+      break;
+  }
+}
+
+function drawCreature(ctx: Ctx, def: AnimalDef, frame: number): void {
+  const [body, body2, accent] = def.colors;
+  const b = hex(body);
+  const b2 = hex(body2);
+  const a = hex(accent);
+  const leg = frame === 0 ? 0 : 1;
+
+  switch (def.art) {
+    case 'bush':
+      disc(ctx, 11, 9, 4, b);
+      disc(ctx, 6, 10, 4, b2);
+      px(ctx, 4, 6, 6, 6, b);
+      px(ctx, 13, 5, 4, 5, b);
+      px(ctx, 14, 3, 2, 2, b);
+      px(ctx, 13, 6, 1, 1, '#2a1a0a');
+      px(ctx, 16, 7, 2, 1, a);
+      px(ctx, 7, 12, 1, 3 - leg, b2);
+      px(ctx, 11, 13 + leg, 1, 2 - leg, b2);
+      px(ctx, 2, 9, 2, 2, b2);
+      px(ctx, 8, 8, 1, 1, '#f8f8f0');
+      break;
+    case 'tall':
+      px(ctx, 5, 6, 9, 6, b);
+      px(ctx, 4, 7, 2, 4, b2);
+      px(ctx, 12, 4, 4, 4, b);
+      px(ctx, 13, 2, 2, 2, a);
+      px(ctx, 14, 6, 1, 1, '#2a1a0a');
+      px(ctx, 8, 7, 4, 2, b2);
+      px(ctx, 6, 12, 1, 4 - leg, b2);
+      px(ctx, 12, 12 + leg, 1, 4 - leg, b2);
+      px(ctx, 3, 5, 1, 3, b2);
+      px(ctx, 9, 9, 1, 1, '#f8f8f0');
+      break;
+    default:
+      disc(ctx, 9, 9, 4, b);
+      disc(ctx, 5, 8, 3, b2);
+      px(ctx, 13, 5, 4, 4, b);
+      px(ctx, 14, 3, 2, 2, a);
+      px(ctx, 14, 6, 1, 1, '#2a1a0a');
+      px(ctx, 7, 13, 1, 3 - leg, b2);
+      px(ctx, 11, 13 + leg, 1, 3 - leg, b2);
+      px(ctx, 8, 7, 1, 1, '#f8f8f0');
+      break;
+  }
+}
+
+function drawStructure(ctx: Ctx, def: BuildingDef, w: number, h: number): void {
+  const hexc = hex;
+  const [wallColor, wallDarkColor, roofColor] = def.colors ?? [0xd8b98a, 0xb8996a, 0xb85a4a];
+  const wall = hexc(wallColor);
+  const wallDark = hexc(wallDarkColor);
+  const roof = hexc(roofColor);
+  const roofDark = shade(roofColor, -40);
+  const wood = '#8a5a34';
+  const woodDark = '#6b4426';
+  const roofH = def.kind === 'decor' ? 0 : Math.max(7, Math.round(h * 0.34));
+  const openLand = def.kind === 'housing' && (def.houses === 'pasture' || def.houses === 'pond');
+
+  px(ctx, 2, h - 2, w - 4, 2, 'rgba(0,0,0,0.18)');
+
+  if (!openLand && (def.kind === 'housing' || def.kind === 'storage' || def.kind === 'craft' || def.kind === 'greenhouse' || def.kind === 'automation')) {
+    px(ctx, 3, roofH, w - 6, h - roofH - 3, wall);
+    px(ctx, 3, roofH, w - 6, 2, shade(wallColor, 20));
+    px(ctx, 3, roofH, 2, h - roofH - 3, wallDark);
+    px(ctx, 0, roofH - 5, w, 6, roof);
+    px(ctx, 3, roofH - 8, w - 6, 4, roofDark);
+    px(ctx, 0, roofH, w, 2, roofDark);
+    for (let x = 6; x < w - 6; x += 9) px(ctx, x, roofH - 4, 2, 5, roofDark);
+    const doorW = Math.min(12, Math.max(8, Math.round(w / 3)));
+    px(ctx, Math.round(w / 2 - doorW / 2), h - 17, doorW, 15, woodDark);
+    px(ctx, Math.round(w / 2 - doorW / 2) + 1, h - 16, doorW - 2, 13, wood);
+    px(ctx, Math.round(w / 2) + 1, h - 10, 2, 2, '#e8c86a');
+    px(ctx, 7, roofH + 6, 7, 5, '#8ec8d8');
+    px(ctx, 8, roofH + 7, 5, 3, '#b8e8f0');
+    if (w >= 56) {
+      px(ctx, w - 15, roofH + 6, 7, 5, '#8ec8d8');
+      px(ctx, w - 14, roofH + 7, 5, 3, '#b8e8f0');
+    }
+    if (def.kind === 'greenhouse') {
+      px(ctx, 3, roofH, w - 6, h - roofH - 3, 'rgba(200,240,220,0.55)');
+      for (let x = 8; x < w - 4; x += 10) px(ctx, x, roofH + 1, 1, h - roofH - 4, '#9ab8a8');
+      px(ctx, 5, h - 8, 4, 4, '#6fae4f');
+      px(ctx, w - 10, h - 9, 4, 5, '#5b9b3a');
+    }
+    if (def.kind === 'storage') {
+      px(ctx, w - 11, h - 12, 7, 10, '#a8823a');
+      px(ctx, w - 11, h - 12, 7, 2, '#d0a850');
+    }
+    if (def.kind === 'craft') {
+      px(ctx, w - 10, roofH - 14, 4, 8, '#7a6a5a');
+      px(ctx, w - 11, roofH - 6, 6, 2, '#5a4a3a');
+    }
+    if (def.kind === 'automation') {
+      px(ctx, 4, roofH - 12, 5, 7, '#8a7a6a');
+      px(ctx, 4, roofH - 12, 5, 2, '#a89a88');
+    }
+    return;
+  }
+
+  if (openLand) {
+    // Open land: grass or water with a fence around it.
+    const inner = hexc(def.houses === 'pond' ? 0x4a9ac8 : 0x6fae4f);
+    px(ctx, 2, 4, w - 4, h - 8, inner);
+    if (def.houses === 'pond') {
+      px(ctx, 2, 4, w - 4, 2, '#7ac8e8');
+      px(ctx, 6, h / 2, w - 12, 2, '#9ad8f0');
+    } else {
+      for (let x = 6; x < w - 4; x += 7) px(ctx, x, h - 8, 2, 2, '#5b9b3a');
+    }
+    px(ctx, 0, 2, w, 2, wood);
+    px(ctx, 0, h - 4, w, 2, wood);
+    px(ctx, 0, 2, 2, h - 4, wood);
+    px(ctx, w - 2, 2, 2, h - 4, wood);
+    return;
+  }
+
+  if (def.kind === 'well' || def.kind === 'sprinkler') {
+    const stone = hexc(wallColor);
+    px(ctx, w / 2 - 8, h / 2 - 4, 16, 10, stone);
+    px(ctx, w / 2 - 8, h / 2 - 4, 16, 2, shade(wallColor, 25));
+    px(ctx, w / 2 - 5, h / 2 - 1, 10, 5, '#3f6a8a');
+    px(ctx, w / 2 - 5, h / 2 - 1, 10, 1, '#5a8aa8');
+    px(ctx, w / 2 - 10, h / 2 - 10, 2, 8, woodDark);
+    px(ctx, w / 2 + 8, h / 2 - 10, 2, 8, woodDark);
+    px(ctx, w / 2 - 12, h / 2 - 14, 24, 4, roof);
+    return;
+  }
+
+  // Decor.
+  if (def.id === 'fence_stone') {
+    px(ctx, 1, 8, 14, 4, hexc(wallColor));
+    px(ctx, 1, 6, 14, 2, hexc(wallDarkColor));
+    px(ctx, 1, 8, 14, 1, shade(wallColor, 30));
+    return;
+  }
+  if (def.id === 'lamp_post') {
+    px(ctx, 7, 6, 2, 9, '#3a3a3a');
+    px(ctx, 5, 4, 6, 3, roof);
+    px(ctx, 6, 3, 4, 1, '#4a4a4a');
+    return;
+  }
+  if (def.id === 'scarecrow') {
+    px(ctx, 7, 12, 2, 18, woodDark);
+    px(ctx, 1, 16, 14, 2, woodDark);
+    px(ctx, 4, 8, 8, 6, hexc(wallColor));
+    px(ctx, 3, 4, 10, 4, hexc(roofColor));
+    px(ctx, 5, 10, 1, 1, '#2a1a0a');
+    px(ctx, 9, 10, 1, 1, '#2a1a0a');
+    return;
+  }
+  if (def.id === 'fountain' || def.id === 'hot_spring') {
+    const stone = hexc(wallColor);
+    px(ctx, 4, 14, w - 8, 10, stone);
+    px(ctx, 4, 14, w - 8, 2, shade(wallColor, 25));
+    px(ctx, 8, 16, w - 16, 6, '#8ed8f0');
+    px(ctx, w / 2 - 2, 6, 4, 10, stone);
+    px(ctx, w / 2 - 4, 4, 8, 3, shade(wallColor, 20));
+    return;
+  }
+  if (def.id === 'statue') {
+    px(ctx, 4, 22, 8, 6, hexc(wallDarkColor));
+    px(ctx, 6, 8, 4, 14, hexc(wallColor));
+    disc(ctx, 8, 6, 3, hexc(wallColor));
+    return;
+  }
+  if (def.id === 'watchtower') {
+    px(ctx, 4, 10, w - 8, h - 14, hexc(wallColor));
+    px(ctx, 0, 4, w, 6, hexc(roofColor));
+    px(ctx, 2, 0, w - 4, 4, shade(roofColor, -40));
+    px(ctx, 6, 14, 4, 4, '#8ec8d8');
+    return;
+  }
+  // Generic pleasant decor: deck, bench, flower bed, gazebo, bridge, path.
+  px(ctx, 2, h - 8, w - 4, 6, hexc(wallColor));
+  px(ctx, 2, h - 8, w - 4, 1, hexc(wallDarkColor));
+  for (let x = 5; x < w - 3; x += 6) {
+    px(ctx, x, h - 11, 2, 3, '#6fae4f');
+    px(ctx, x - 1, h - 12, 4, 1, hexc(roofColor));
+  }
+}
+
+function drawToolIcon(ctx: Ctx, itemId: string): void {
+  const item = ITEMS[itemId];
+  const c1 = hex(item?.color ?? 0xc8a86a);
+  const c2 = hex(item?.color2 ?? 0x8a6a44);
+  if (/hoe|spade/.test(itemId)) {
+    px(ctx, 3, 4, 2, 11, '#8a5a34');
+    px(ctx, 4, 3, 9, 2, c1);
+    px(ctx, 11, 4, 3, 4, c1);
+    px(ctx, 12, 7, 1, 2, c2);
+    px(ctx, 4, 3, 6, 1, shade((item?.color ?? 0xc8a86a), 40));
+  } else if (/can|bucket|tank|canister/.test(itemId)) {
+    px(ctx, 4, 6, 8, 7, c1);
+    px(ctx, 5, 7, 6, 2, shade((item?.color ?? 0xc8a86a), 40));
+    px(ctx, 11, 4, 3, 2, c2);
+    px(ctx, 13, 3, 2, 2, c1);
+    px(ctx, 3, 8, 2, 2, c2);
+    px(ctx, 6, 4, 3, 2, c2);
+    px(ctx, 5, 13, 7, 1, c2);
+  } else if (/boots|wraps|coat|hat|gloves|apron|suit/.test(itemId)) {
+    px(ctx, 3, 3, 4, 8, c1);
+    px(ctx, 3, 3, 1, 8, shade((item?.color ?? 0xc8a86a), 35));
+    px(ctx, 3, 10, 6, 2, c2);
+    px(ctx, 2, 12, 8, 2, '#3a2a1a');
+    px(ctx, 9, 3, 4, 8, c1);
+    px(ctx, 9, 10, 6, 2, c2);
+    px(ctx, 9, 12, 7, 2, '#3a2a1a');
+  } else if (/bag|satchel|pack|tote|basket|pouch/.test(itemId)) {
+    px(ctx, 2, 6, 12, 8, c1);
+    px(ctx, 2, 6, 12, 2, c2);
+    px(ctx, 4, 3, 2, 4, c2);
+    px(ctx, 10, 3, 2, 4, c2);
+    px(ctx, 6, 9, 4, 3, c2);
+    px(ctx, 3, 13, 10, 1, shade((item?.color ?? 0xc8a86a), -30));
+  } else if (/charm|coin|clover|rabbit/.test(itemId)) {
+    disc(ctx, 8, 8, 5, c1);
+    disc(ctx, 6, 6, 2, shade((item?.color ?? 0xc8a86a), 45));
+    px(ctx, 7, 9, 2, 4, c2);
+    px(ctx, 4, 12, 8, 2, c2);
+    px(ctx, 6, 4, 1, 1, '#fff8d8');
+  } else if (/rod|hook/.test(itemId)) {
+    px(ctx, 3, 2, 2, 12, c2);
+    px(ctx, 4, 2, 2, 10, c1);
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(11, 2);
+    ctx.quadraticCurveTo(15, 7, 12, 14);
+    ctx.stroke();
+    px(ctx, 10, 11, 2, 2, '#c8d0d8');
+    px(ctx, 11, 14, 2, 2, c1);
+  } else if (/pick|hammer/.test(itemId)) {
+    px(ctx, 7, 4, 2, 11, c2);
+    px(ctx, 8, 4, 1, 11, c1);
+    px(ctx, 2, 5, 12, 2, c1);
+    px(ctx, 3, 3, 3, 2, c1);
+    px(ctx, 10, 3, 3, 2, c1);
+  } else if (/map/.test(itemId)) {
+    px(ctx, 2, 3, 12, 10, c1);
+    px(ctx, 2, 3, 12, 1, c2);
+    px(ctx, 4, 6, 3, 1, c2);
+    px(ctx, 8, 8, 4, 1, c2);
+    px(ctx, 5, 10, 2, 1, c2);
+    px(ctx, 2, 13, 12, 1, shade((item?.color ?? 0xc8a86a), -35));
+  } else if (/stone/.test(itemId)) {
+    px(ctx, 3, 6, 10, 7, c1);
+    px(ctx, 4, 5, 8, 2, shade((item?.color ?? 0xc8a86a), 25));
+    px(ctx, 3, 12, 10, 2, c2);
+  } else {
+    px(ctx, 3, 4, 10, 10, c1);
+    px(ctx, 3, 4, 10, 2, c2);
+    px(ctx, 6, 8, 4, 3, c2);
+  }
+}
+
+function drawProductIcon(ctx: Ctx, c1: string, c2: string, itemId: string): void {
+  if (/milk|butter|cheese|cream/.test(itemId)) {
+    px(ctx, 5, 3, 6, 2, '#dfe8f0');
+    px(ctx, 4, 5, 8, 9, c1);
+    px(ctx, 4, 8, 8, 3, c2);
+    px(ctx, 4, 12, 8, 2, c2);
+    px(ctx, 6, 9, 4, 1, '#ffffff');
+  } else if (/wool|fiber|down|fur|pelt|hair|silk|thread|feather/.test(itemId)) {
+    disc(ctx, 8, 8, 4, c1);
+    disc(ctx, 5, 7, 3, c1);
+    disc(ctx, 11, 7, 3, c1);
+    px(ctx, 5, 11, 6, 2, c2);
+    px(ctx, 6, 6, 1, 1, '#ffffff');
+    px(ctx, 9, 9, 1, 1, c2);
+  } else if (/pearl|scale|shell|spine|horn|tusk|antler|tooth/.test(itemId)) {
+    disc(ctx, 8, 9, 4, c1);
+    disc(ctx, 6, 7, 2, '#ffffff');
+    px(ctx, 5, 11, 6, 2, c2);
+    px(ctx, 7, 5, 1, 1, '#ffffff');
+  } else if (/honey/.test(itemId)) {
+    px(ctx, 4, 5, 8, 9, c1);
+    px(ctx, 5, 3, 6, 2, c2);
+    px(ctx, 5, 7, 6, 4, c2);
+    px(ctx, 7, 8, 2, 2, '#fff0b0');
+  } else {
+    disc(ctx, 8, 9, 4, c1);
+    px(ctx, 6, 7, 4, 2, c2);
+    px(ctx, 7, 12, 3, 1, c2);
+  }
+}
+
 function drawAnimal(ctx: Ctx, def: AnimalDef, frame: number): void {
   px(ctx, 0, 0, 20, 16, 'rgba(0,0,0,0)');
+  if (!def.shape && def.art) {
+    drawCreature(ctx, def, frame);
+    return;
+  }
   const [body, body2, accent] = def.colors;
   const legOffset = frame === 0 ? 0 : 1;
   switch (def.id) {
@@ -544,6 +977,11 @@ function drawAnimal(ctx: Ctx, def: AnimalDef, frame: number): void {
 
 function drawBuilding(ctx: Ctx, id: string, w: number, h: number): void {
   px(ctx, 0, 0, w, h, 'rgba(0,0,0,0)');
+  const shapeDef = BUILDINGS[id];
+  if (shapeDef && !shapeDef.art && shapeDef.colors) {
+    drawStructure(ctx, shapeDef, w, h);
+    return;
+  }
   const wall = '#d8b98a';
   const wallDark = '#b8996a';
   const roof = '#b85a4a';
@@ -922,6 +1360,20 @@ function drawItemIcon(ctx: Ctx, itemId: string): void {
     px(ctx, 5, 7, 3, 2, '#f0e090');
     px(ctx, 9, 10, 2, 2, c2);
     px(ctx, 6, 11, 3, 1, '#e0b840');
+  } else if (item.type === 'tool') {
+    drawToolIcon(ctx, itemId);
+  } else if (item.type === 'product') {
+    // Eggs are drawn as eggs, every other product as a shaped product.
+    if (/egg/.test(itemId)) {
+      ctx.fillStyle = c1;
+      ctx.beginPath();
+      ctx.ellipse(8, 9, 4, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      px(ctx, 6, 6, 1, 1, '#ffffff');
+      px(ctx, 5, 10, 1, 2, c2);
+    } else {
+      drawProductIcon(ctx, c1, c2, itemId);
+    }
   } else {
     disc(ctx, 8, 9, 4, c1);
     px(ctx, 6, 7, 4, 2, c2);

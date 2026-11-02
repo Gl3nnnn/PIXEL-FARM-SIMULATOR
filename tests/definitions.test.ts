@@ -12,6 +12,7 @@ import {
   RECIPES,
   SEASONS,
   SEED_IDS,
+  TOOLS,
   UPGRADES,
   levelFromXp,
   xpForLevel,
@@ -22,9 +23,9 @@ import type { QuestDef } from '../src/types';
 const quests: QuestDef[] = [...MAIN_QUESTS, ...ACHIEVEMENTS, ...DAILY_TEMPLATES.map((q) => ({ ...q, tier: 'daily' as const }))];
 
 describe('content definitions', () => {
-  it('ships ten crops and ten matching seeds', () => {
-    expect(Object.keys(CROPS)).toHaveLength(10);
-    expect(SEED_IDS).toHaveLength(10);
+  it('ships sixty crops and sixty matching seeds', () => {
+    expect(Object.keys(CROPS)).toHaveLength(60);
+    expect(SEED_IDS).toHaveLength(60);
     for (const seedId of SEED_IDS) {
       const item = ITEMS[seedId];
       expect(item.type).toBe('seed');
@@ -32,8 +33,9 @@ describe('content definitions', () => {
     }
   });
 
-  it('ships five animals and all required buildings', () => {
-    expect(Object.keys(ANIMALS)).toHaveLength(5);
+  it('ships fifty-five animals, fifty farm tools and all required buildings', () => {
+    expect(Object.keys(ANIMALS)).toHaveLength(55);
+    expect(TOOLS).toHaveLength(50);
     expect(Object.keys(ANIMALS)).toEqual(
       expect.arrayContaining(['chicken', 'duck', 'cow', 'sheep', 'pig'])
     );
@@ -51,6 +53,28 @@ describe('content definitions', () => {
         'path'
       ])
     );
+  });
+
+  it('gives every animal a home and a product that can be sold', () => {
+    for (const animal of Object.values(ANIMALS)) {
+      expect(ITEMS[animal.productId]).toBeDefined();
+      expect(ITEMS[animal.productId].sell).toBeGreaterThan(0);
+      expect(
+        Object.values(BUILDINGS).some((b) => b.kind === 'housing' && b.houses === animal.housing)
+      ).toBe(true);
+    }
+  });
+
+  it('gives every tool a unique job, price and level', () => {
+    const ids = new Set<string>();
+    for (const tool of TOOLS) {
+      expect(ids.has(tool.id)).toBe(false);
+      ids.add(tool.id);
+      expect(tool.price).toBeGreaterThan(0);
+      expect(tool.bonus).toBeGreaterThan(0);
+      expect(tool.unlockLevel).toBeGreaterThanOrEqual(1);
+      expect(['till', 'water', 'speed', 'bag', 'luck', 'rod', 'mine']).toContain(tool.effect);
+    }
   });
 
   it('has a coherent economy across items, recipes and upgrades', () => {

@@ -1,4 +1,5 @@
 import { ANIMALS, ITEMS } from '../../data/definitions';
+import type { HousingId } from '../../types';
 import { animalTexture } from '../../game/textures';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
@@ -13,18 +14,34 @@ import {
   section
 } from '../uiKit';
 
+const HOME_PANELS: Array<{ id: HousingId; label: string }> = [
+  { id: 'coop', label: 'Coop' },
+  { id: 'barn', label: 'Barn' },
+  { id: 'pond', label: 'Pond' },
+  { id: 'stable', label: 'Stable' },
+  { id: 'apiary', label: 'Apiary' },
+  { id: 'hutch', label: 'Hutch' },
+  { id: 'kennel', label: 'Kennel' },
+  { id: 'aviary', label: 'Aviary' },
+  { id: 'pasture', label: 'Pasture' }
+];
+
+function housingLabel(id: HousingId): string {
+  return HOME_PANELS.find((home) => home.id === id)?.label ?? id;
+}
+
 export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
   const render = () => {
     content.innerHTML = '';
     const state = ctx.state;
-    const coopCap = state.housingCapacity('coop');
-    const barnCap = state.housingCapacity('barn');
-    const coopUsed = state.animalsInHousing('coop');
-    const barnUsed = state.animalsInHousing('barn');
     const status = el('div', 'housing-status panel-toolbar');
-    status.appendChild(el('span', 'pill', `Coop ${coopUsed}/${coopCap}`));
-    status.appendChild(el('span', 'pill', `Barn ${barnUsed}/${barnCap}`));
+    const homes = HOME_PANELS.filter((home) => state.housingCapacity(home.id) > 0);
+    for (const home of homes) {
+      status.appendChild(
+        el('span', 'pill', `${home.label} ${state.animalsInHousing(home.id)}/${state.housingCapacity(home.id)}`)
+      );
+    }
     status.appendChild(el('span', 'pill', `Feed ×${state.countItem('feed')}`));
     status.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
     status.appendChild(
@@ -74,7 +91,7 @@ export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
         el('span', 'hint', `Produces ${ITEMS[def.productId]?.name ?? def.productId} · matures in ${def.maturityDays} days`)
       );
       const tags = el('div', 'tag-row');
-      tags.appendChild(pill(def.housing === 'coop' ? 'Coop' : 'Barn'));
+      tags.appendChild(pill(housingLabel(def.housing)));
       if (!room) tags.appendChild(pill('No housing space', 'warn'));
       info.appendChild(tags);
       card.appendChild(info);
@@ -102,7 +119,7 @@ export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
 
     const listSec = section('Your animals', 'Feed once per day. Happy, fed animals produce goods.');
     if (state.data.animals.length === 0) {
-      listSec.appendChild(emptyState('No animals yet. Build a coop or barn, then buy your first animal.'));
+      listSec.appendChild(emptyState('No animals yet. Build a home for them, then buy your first animal.'));
     }
     for (const animal of state.data.animals) {
       const def = ANIMALS[animal.species];

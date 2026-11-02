@@ -19,12 +19,14 @@ export function eligibleFish(save: SaveData): FishDef[] {
   return pool.length > 0 ? pool : [FISH.minnow];
 }
 
-export function selectFish(save: SaveData, rng: () => number = Math.random): FishDef {
+export function selectFish(save: SaveData, rng: () => number = Math.random, luck = 0): FishDef {
   const pool = eligibleFish(save);
-  const total = pool.reduce((sum, fish) => sum + fish.rarity, 0);
+  // A better rod makes the rarer fish a little more likely.
+  const weight = (fish: FishDef) => Math.pow(fish.rarity, 1 - Math.min(0.8, luck));
+  const total = pool.reduce((sum, fish) => sum + weight(fish), 0);
   let roll = rng() * Math.max(0.0001, total);
   for (const fish of pool) {
-    roll -= fish.rarity;
+    roll -= weight(fish);
     if (roll <= 0) return fish;
   }
   return pool[pool.length - 1];
