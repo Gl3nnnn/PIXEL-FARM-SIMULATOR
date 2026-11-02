@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.4.1';
+export const GAME_VERSION = '2.4.2';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.4.2',
+    date: '2026-11-02',
+    title: 'Conversations at your pace',
+    changes: [
+      'NPC conversations no longer advance automatically.',
+      'After you greet a visitor, press Continue when you are ready to hear their reply.'
+    ]
+  },
   {
     version: '2.4.1',
     date: '2026-11-02',

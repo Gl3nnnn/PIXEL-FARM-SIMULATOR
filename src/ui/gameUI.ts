@@ -85,7 +85,6 @@ export class GameUI {
   private iconCache = new Map<string, string>();
   private textureCache = new Map<string, string>();
   private avatarCache = new Map<string, string>();
-  private npcDialogueToken = 0;
   private joystick = { x: 0, y: 0 };
   private moveAccum = 0;
   private clockTimer: number | null = null;
@@ -557,8 +556,6 @@ export class GameUI {
     this.panelTitle.textContent = `${entry.npc.name} · ${entry.npc.role}`;
     let npcSpeech: string | null = null;
     let speechStage: 'idle' | 'player' | 'npc' = 'idle';
-    let speechTimer: number | null = null;
-    const token = ++this.npcDialogueToken;
     const render = (): void => {
       const current = this.state.npcList().find((item) => item.npc.id === id);
       if (!current) return;
@@ -631,36 +628,34 @@ export class GameUI {
       this.panelContent.appendChild(conversation);
 
       const actions = el('div', 'row-actions');
+      const canContinue = speechStage === 'player';
       actions.appendChild(
-        button(talkedToday ? 'Talked today' : 'Talk', {
+        button(canContinue ? 'Continue' : talkedToday ? 'Talked today' : 'Talk', {
           small: true,
           variant: 'primary',
-          disabled: !current.available || talkedToday,
+          disabled: !current.available || (talkedToday && !canContinue),
+          title: canContinue
+            ? `Hear ${current.npc.name}'s reply.`
+            : talkedToday
+              ? `You already talked with ${current.npc.name} today.`
+              : `Talk with ${current.npc.name}.`,
           onClick: () => {
+            if (speechStage === 'player') {
+              speechStage = 'npc';
+              render();
+              return;
+            }
+            if (talkedToday) return;
             const result = this.state.npcTalk(id);
             audio.play(result.ok ? 'click' : 'error');
             if (result.ok) {
               npcSpeech = (result.message ?? greeting).replace(`${current.npc.name}: `, '');
               speechStage = 'player';
               void this.requestSave();
-              render();
-              if (speechTimer !== null) window.clearTimeout(speechTimer);
-              speechTimer = window.setTimeout(() => {
-                speechTimer = null;
-                if (
-                  token !== this.npcDialogueToken ||
-                  this.currentPanel !== 'npc' ||
-                  this.panelLayer.classList.contains('hidden')
-                ) {
-                  return;
-                }
-                speechStage = 'npc';
-                render();
-              }, 700);
             } else {
               this.toast(result.message ?? '', 'error');
-              render();
             }
+            render();
           }
         })
       );
@@ -891,7 +886,6 @@ export class GameUI {
     this.panelContent.innerHTML = '';
     this.panelRefresh = null;
     this.currentPanel = null;
-    this.npcDialogueToken += 1;
     if (!this.pauseOpen) this.setPaused(false);
   }
 
