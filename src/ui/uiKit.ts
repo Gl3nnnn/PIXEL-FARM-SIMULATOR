@@ -46,6 +46,14 @@ export function iconImg(src: string, size = 40, alt = ''): HTMLImageElement {
   return img;
 }
 
+export function previewImg(src: string, alt = ''): HTMLImageElement {
+  const img = el('img', 'preview-img');
+  img.src = src;
+  img.alt = alt;
+  img.draggable = false;
+  return img;
+}
+
 export function itemCell(itemId: string, iconSrc: string, qty?: number, quality: Quality = 'normal'): HTMLElement {
   const def = ITEMS[itemId];
   const wrap = el('div', 'item-cell');

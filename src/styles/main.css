@@ -2952,6 +2952,52 @@ select {
   background: #fff9e7;
 }
 
+.preview-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 68px;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid #d4bf93;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fff9e7, #efe0bd);
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 0 rgba(60, 40, 18, 0.18));
+}
+
+.build-preview {
+  height: 82px;
+}
+
+.build-preview .preview-img {
+  width: auto;
+  height: 100%;
+}
+
+.animal-preview {
+  height: 76px;
+}
+
+.animal-preview .preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.animal-portrait .preview-img {
+  width: 48px;
+  height: auto;
+}
+
 .shop-info strong,
 .list-info strong {
   font-size: 12.5px;

@@ -3,6 +3,7 @@ import type { GameState } from '../systems/gameState';
 export interface UIContext {
   state: GameState;
   icon(itemId: string): string;
+  texture(key: string): string;
   toast(message: string, kind?: 'info' | 'success' | 'error' | 'reward'): void;
   refresh(): void;
   closePanel(): void;

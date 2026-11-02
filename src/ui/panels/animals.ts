@@ -1,4 +1,5 @@
 import { ANIMALS, ITEMS } from '../../data/definitions';
+import { animalTexture } from '../../game/textures';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
@@ -6,8 +7,8 @@ import {
   button,
   el,
   emptyState,
-  iconImg,
   pill,
+  previewImg,
   progressBar,
   section
 } from '../uiKit';
@@ -63,7 +64,9 @@ export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
       const used = state.animalsInHousing(def.housing);
       const room = used < cap;
       const card = el('div', 'shop-card');
-      card.appendChild(iconImg(ctx.icon(def.productId), 40, def.name));
+      const preview = el('div', 'preview-frame animal-preview');
+      preview.appendChild(previewImg(ctx.texture(animalTexture(def.id, 0)), def.name));
+      card.appendChild(preview);
       const info = el('div', 'shop-info');
       info.appendChild(el('strong', undefined, def.name));
       info.appendChild(el('span', 'hint', def.desc));
@@ -107,7 +110,7 @@ export function renderAnimals(ctx: UIContext, root: HTMLElement): void {
       const mature = state.animalMature(animal);
       const row = el('div', 'animal-row');
       const portrait = el('div', 'animal-portrait');
-      portrait.appendChild(iconImg(ctx.icon(def.productId), 40, def.name));
+      portrait.appendChild(previewImg(ctx.texture(animalTexture(def.id, 0)), def.name));
       row.appendChild(portrait);
       const info = el('div', 'list-info grow');
       const title = el('div', 'row-title');

@@ -83,6 +83,7 @@ export class GameUI {
   private currentPanel: string | null = null;
   private pauseOpen = false;
   private iconCache = new Map<string, string>();
+  private textureCache = new Map<string, string>();
   private avatarCache = new Map<string, string>();
   private joystick = { x: 0, y: 0 };
   private moveAccum = 0;
@@ -128,6 +129,7 @@ export class GameUI {
     this.ctx = {
       state,
       icon: (id) => this.icon(id),
+      texture: (key) => this.texture(key),
       toast: (msg, kind) => this.toast(msg, kind),
       refresh: () => this.refresh(),
       closePanel: () => this.closePanel(),
@@ -362,6 +364,18 @@ export class GameUI {
       url = '';
     }
     this.iconCache.set(itemId, url);
+    return url;
+  }
+
+  texture(key: string): string {
+    if (this.textureCache.has(key)) return this.textureCache.get(key)!;
+    let url = '';
+    try {
+      url = this.scene.textures.exists(key) ? this.scene.textures.getBase64(key) : '';
+    } catch {
+      url = '';
+    }
+    this.textureCache.set(key, url);
     return url;
   }
 

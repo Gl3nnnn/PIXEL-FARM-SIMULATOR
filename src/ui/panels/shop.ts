@@ -1,4 +1,5 @@
 import { CROPS, ITEMS, SEASON_INFO, SEED_IDS, UPGRADES, cropForSeed, levelFromXp } from '../../data/definitions';
+import { upgradeIconKeyFor } from '../../game/textures';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
@@ -112,6 +113,7 @@ export function renderShop(ctx: UIContext, root: HTMLElement): void {
         const cost = up.baseCost * (level + 1);
         const locked = state.level < up.unlockLevel;
         const card = el('div', 'shop-card column');
+        card.appendChild(iconImg(ctx.texture(upgradeIconKeyFor(up.id)), 40, up.name));
         const info = el('div', 'shop-info');
         info.appendChild(el('strong', undefined, up.name));
         info.appendChild(el('span', 'hint', up.desc));

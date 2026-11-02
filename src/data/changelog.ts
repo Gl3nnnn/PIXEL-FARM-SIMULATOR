@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.3.3';
+export const GAME_VERSION = '2.4.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.4.0',
+    date: '2026-11-02',
+    title: 'Shop and building previews',
+    changes: [
+      'Shop upgrades now show their tool artwork, including new boots and backpack icons.',
+      'Build cards preview the building sprite before you place it on the farm.',
+      'Animal cards and animal lists show the animal itself instead of its product.'
+    ]
+  },
   {
     version: '2.3.3',
     date: '2026-11-01',

@@ -928,6 +928,34 @@ function drawItemIcon(ctx: Ctx, itemId: string): void {
   }
 }
 
+function drawUpgradeIcon(ctx: Ctx, id: string): void {
+  px(ctx, 0, 0, 16, 16, 'rgba(0,0,0,0)');
+  if (id === 'boots') {
+    px(ctx, 2, 3, 4, 7, '#8a5a34');
+    px(ctx, 2, 3, 1, 7, '#b07848');
+    px(ctx, 2, 9, 6, 2, '#7a4e2e');
+    px(ctx, 1, 11, 7, 2, '#4a2e18');
+    px(ctx, 4, 4, 2, 1, '#e8d0a0');
+    px(ctx, 4, 6, 2, 1, '#e8d0a0');
+    px(ctx, 9, 3, 4, 7, '#8a5a34');
+    px(ctx, 9, 3, 1, 7, '#b07848');
+    px(ctx, 9, 9, 6, 2, '#7a4e2e');
+    px(ctx, 8, 11, 7, 2, '#4a2e18');
+    px(ctx, 11, 4, 2, 1, '#e8d0a0');
+    px(ctx, 11, 6, 2, 1, '#e8d0a0');
+  } else {
+    px(ctx, 3, 4, 10, 10, '#8a5a34');
+    px(ctx, 4, 2, 8, 3, '#6a4426');
+    px(ctx, 4, 5, 8, 2, '#a87446');
+    px(ctx, 6, 1, 2, 4, '#6a4426');
+    px(ctx, 9, 1, 2, 4, '#6a4426');
+    px(ctx, 5, 9, 6, 4, '#a87446');
+    px(ctx, 7, 7, 2, 2, '#e8c84a');
+    px(ctx, 5, 10, 4, 1, '#c09058');
+    px(ctx, 3, 13, 10, 1, '#5a3a20');
+  }
+}
+
 function drawFestivalStall(ctx: Ctx): void {
   px(ctx, 0, 0, 32, 32, 'rgba(0,0,0,0)');
   px(ctx, 3, 14, 26, 16, '#c8a06a');
@@ -1240,6 +1268,9 @@ export function generateTextures(scene: Phaser.Scene): void {
   for (const id of Object.keys(ITEMS)) {
     makeTexture(scene, `icon_${id}`, 16, 16, (ctx) => drawItemIcon(ctx, id));
   }
+  for (const id of ['boots', 'backpack']) {
+    makeTexture(scene, `icon_upgrade_${id}`, 16, 16, (ctx) => drawUpgradeIcon(ctx, id));
+  }
 
   // ---- misc
   makeTexture(scene, 'rain', 4, 12, (ctx) => {
@@ -1345,6 +1376,13 @@ export function createPlayerAnimations(scene: Phaser.Scene): void {
 
 export function iconKeyFor(itemId: string): string {
   return ITEMS[itemId] ? `icon_${itemId}` : 'icon_feed';
+}
+
+export function upgradeIconKeyFor(id: string): string {
+  if (id === 'hoe') return 'icon_hoe';
+  if (id === 'can') return 'icon_watering_can';
+  if (id === 'boots' || id === 'backpack') return `icon_upgrade_${id}`;
+  return 'icon_hoe';
 }
 
 export function animalTexture(species: string, frame: number): string {

@@ -1,8 +1,9 @@
 import { AUTOMATION, BUILDINGS, PLOTS } from '../../data/definitions';
+import { buildingTexture } from '../../game/textures';
 import { audio } from '../../systems/audio';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import { button, el, pill, section } from '../uiKit';
+import { button, el, pill, previewImg, section } from '../uiKit';
 
 export function renderBuild(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
@@ -23,6 +24,9 @@ export function renderBuild(ctx: UIContext, root: HTMLElement): void {
       const locked = state.level < def.unlockLevel;
       const count = owned(def.id);
       const card = el('div', 'build-card');
+      const preview = el('div', 'preview-frame build-preview');
+      preview.appendChild(previewImg(ctx.texture(buildingTexture(def.id)), def.name));
+      card.appendChild(preview);
       const info = el('div', 'shop-info');
       info.appendChild(el('strong', undefined, def.name));
       info.appendChild(el('span', 'hint', def.desc));
