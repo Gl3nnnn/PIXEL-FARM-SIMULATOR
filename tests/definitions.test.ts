@@ -23,9 +23,9 @@ import type { QuestDef } from '../src/types';
 const quests: QuestDef[] = [...MAIN_QUESTS, ...ACHIEVEMENTS, ...DAILY_TEMPLATES.map((q) => ({ ...q, tier: 'daily' as const }))];
 
 describe('content definitions', () => {
-  it('ships sixty crops and sixty matching seeds', () => {
-    expect(Object.keys(CROPS)).toHaveLength(60);
-    expect(SEED_IDS).toHaveLength(60);
+  it('ships ninety-four crops and ninety-four matching seeds', () => {
+    expect(Object.keys(CROPS)).toHaveLength(94);
+    expect(SEED_IDS).toHaveLength(94);
     for (const seedId of SEED_IDS) {
       const item = ITEMS[seedId];
       expect(item.type).toBe('seed');
@@ -33,8 +33,8 @@ describe('content definitions', () => {
     }
   });
 
-  it('ships fifty-five animals, fifty farm tools and all required buildings', () => {
-    expect(Object.keys(ANIMALS)).toHaveLength(55);
+  it('ships seventy-five animals, fifty farm tools and all required buildings', () => {
+    expect(Object.keys(ANIMALS)).toHaveLength(75);
     expect(TOOLS).toHaveLength(50);
     expect(Object.keys(ANIMALS)).toEqual(
       expect.arrayContaining(['chicken', 'duck', 'cow', 'sheep', 'pig'])
@@ -88,7 +88,7 @@ describe('content definitions', () => {
       for (const input of recipe.inputs) expect(ITEMS[input.itemId]).toBeDefined();
     }
     expect(UPGRADES).toHaveLength(4);
-    expect(PLOTS).toHaveLength(6);
+    expect(PLOTS).toHaveLength(11);
     expect(SEASONS).toHaveLength(4);
   });
 

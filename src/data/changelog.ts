@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.5.0';
+export const GAME_VERSION = '2.8.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,43 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.8.0',
+    date: '2026-11-04',
+    title: 'A day that has an end',
+    changes: [
+      'Energy: every job now costs a little energy, and sleep refills it. Running out means the day is done.',
+      'Professions: at skill level 5 and 10 you pick one of two paths per skill, such as Tiller or Rancher.',
+      'Wild plants appear on open ground each morning and can be picked up for early income.',
+      'Crows now eat unprotected crops overnight. A Scarecrow keeps them off the fields around it.',
+      'Cooking matters: eating a dish gives a day of faster walking, better harvests or a burst of energy.',
+      'Community bundles: bring the village its favourite goods for coins, XP and rare rewards.',
+      'A mailbox with letters that arrive as your farm grows, each with a little gift inside.',
+      'New Community panel (U) holds the energy bar, professions, bundles and mail.'
+    ]
+  },
+  {
+    version: '2.7.0',
+    date: '2026-11-03',
+    title: 'Orchards and new faces',
+    changes: [
+      'Thirty-four new crops, including fruit trees that keep fruiting: pear, peach, apple, cherry, lemon, lime, cocoa and more.',
+      'New herbs and spices for the southern fields: mint, rosemary, cardamom, turmeric, cassava, taro and mushrooms.',
+      'Twenty new animals, from eels and kiwis to bison, highland cows and corgis.',
+      'Two bigger homes: the Big Ranch holds eight large animals and the Farm Pond holds eight water animals.'
+    ]
+  },
+  {
+    version: '2.6.0',
+    date: '2026-11-03',
+    title: 'Room to grow',
+    changes: [
+      'The farm is now much bigger, with open land below the old fields to build on.',
+      'Five new fields to buy: Willow, Terrace, Lakeside, Orchard and Sunrise.',
+      'Three new ponds for fishing, plus a second quarry with nine more rocks to mine.',
+      'New roads across the southern land, so every field and pond is easy to reach.'
+    ]
+  },
   {
     version: '2.5.0',
     date: '2026-11-03',

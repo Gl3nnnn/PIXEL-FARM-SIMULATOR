@@ -15,7 +15,16 @@ export const MINE_NODES: MineNodeDef[] = [
   { id: 'q10', x: 41, y: 29, kind: 'gem' },
   { id: 'q11', x: 37, y: 31, kind: 'iron' },
   { id: 'q12', x: 39, y: 31, kind: 'stone' },
-  { id: 'q13', x: 41, y: 31, kind: 'gold' }
+  { id: 'q13', x: 41, y: 31, kind: 'gold' },
+  { id: 'q14', x: 49, y: 42, kind: 'stone' },
+  { id: 'q15', x: 50, y: 43, kind: 'copper' },
+  { id: 'q16', x: 51, y: 42, kind: 'iron' },
+  { id: 'q17', x: 52, y: 43, kind: 'gold' },
+  { id: 'q18', x: 53, y: 42, kind: 'gem' },
+  { id: 'q19', x: 50, y: 45, kind: 'stone' },
+  { id: 'q20', x: 52, y: 45, kind: 'iron' },
+  { id: 'q21', x: 54, y: 44, kind: 'gold' },
+  { id: 'q22', x: 54, y: 45, kind: 'gem' }
 ];
 
 export interface Rect {
@@ -28,7 +37,20 @@ export interface Rect {
 export const PONDS: Rect[] = [
   { x: 36, y: 3, w: 5, h: 4 },
   { x: 2, y: 27, w: 4, h: 4 },
-  { x: 40, y: 20, w: 2, h: 5 }
+  { x: 40, y: 20, w: 2, h: 5 },
+  { x: 50, y: 33, w: 6, h: 5 },
+  { x: 48, y: 8, w: 5, h: 4 },
+  { x: 4, y: 40, w: 5, h: 4 }
+];
+
+/** Roads of the enlarged farm: each entry is one straight run of path tiles, kept clear of the fields. */
+export const ROADS: Rect[] = [
+  { x: 6, y: 27, w: 52, h: 1 },
+  { x: 6, y: 37, w: 44, h: 1 },
+  { x: 6, y: 44, w: 42, h: 1 },
+  { x: 16, y: 8, w: 1, h: 20 },
+  { x: 27, y: 8, w: 1, h: 20 },
+  { x: 47, y: 8, w: 1, h: 37 }
 ];
 
 /** Deterministic decorative/obstacle layout, identical for every play-through. */
@@ -41,12 +63,12 @@ const flowerSet = new Map<string, number>();
     PLOTS.some((p) => x >= p.x - 1 && x < p.x + p.w + 1 && y >= p.y - 1 && y < p.y + p.h + 1);
 
   const isPath = (x: number, y: number): boolean => {
-    if (x === 5 || x === 6) return y >= 6 && y <= 32;
+    if (x === 5 || x === 6) return y >= 6 && y <= 44;
     if (y === 8) return x >= 3 && x <= 40;
     if (y === 18) return x >= 5 && x <= 42;
     if (x === 20 && y >= 8 && y <= 18) return true;
     if (x === 32 && y >= 8 && y <= 21) return true;
-    return false;
+    return ROADS.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
   };
 
   const inFarmhouse = (x: number, y: number): boolean =>
@@ -66,7 +88,7 @@ const flowerSet = new Map<string, number>();
         obstacleSet.add(tileKey(x, y));
         continue;
       }
-      if ((x === 5 || x === 6) && y >= 6 && y <= 32) continue;
+      if ((x === 5 || x === 6) && y >= 6 && y <= 44) continue;
       if (isPath(x, y) || inFarmhouse(x, y) || inPond(x, y) || blockedByPlot(x, y)) continue;
 
       const roll = rng();
@@ -106,9 +128,24 @@ const flowerSet = new Map<string, number>();
     }
   }
 
+  // Airfield-clearing sweep: no trees or boulders may stand on the new fields.
+  for (const plot of PLOTS) {
+    for (let y = plot.y - 1; y <= plot.y + plot.h; y++) {
+      for (let x = plot.x - 1; x <= plot.x + plot.w; x++) {
+        if (x <= 0 || y <= 0 || x >= WORLD_W - 1 || y >= WORLD_H - 1) continue;
+        obstacleSet.delete(tileKey(x, y));
+      }
+    }
+  }
+
   // Clear a small quarry clearing in the south-east corner.
   for (let y = 26; y <= 31; y++) {
     for (let x = 36; x <= 41; x++) obstacleSet.delete(tileKey(x, y));
+  }
+
+  // Clear the new south-east quarry.
+  for (let y = 40; y <= 46; y++) {
+    for (let x = 47; x <= 55; x++) obstacleSet.delete(tileKey(x, y));
   }
 })();
 
@@ -116,12 +153,12 @@ export const OBSTACLES = obstacleSet;
 export const FLOWERS = flowerSet;
 
 export function isPathTile(x: number, y: number): boolean {
-  if (x === 5 || x === 6) return y >= 6 && y <= 32;
+  if (x === 5 || x === 6) return y >= 6 && y <= 44;
   if (y === 8) return x >= 3 && x <= 40;
   if (y === 18) return x >= 5 && x <= 42;
   if (x === 20 && y >= 8 && y <= 18) return true;
   if (x === 32 && y >= 8 && y <= 21) return true;
-  return false;
+  return ROADS.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 }
 
 export function isWaterTile(x: number, y: number): boolean {

@@ -397,6 +397,85 @@ export interface SeasonalSave {
   bonusClaimed: boolean;
 }
 
+// ------------------------------------------------------- cozy farm life types
+
+/** What a chosen profession improves. */
+export type ProfessionKind = 'maxEnergy' | 'energyCost' | 'sellPrice' | 'extraYield' | 'luck';
+
+export interface ProfessionDef {
+  id: string;
+  skill: SkillKey;
+  /** 5 or 10: the skill level that offers this choice. */
+  level: number;
+  name: string;
+  desc: string;
+  kind: ProfessionKind;
+  value: number;
+}
+
+export interface ForageDef {
+  id: string;
+  itemId: string;
+  seasons: Season[];
+  /** Higher means it appears more often. */
+  weight: number;
+}
+
+export interface ForageSave {
+  uid: string;
+  itemId: string;
+  x: number;
+  y: number;
+  day: number;
+}
+
+export interface MailDef {
+  id: string;
+  from: string;
+  subject: string;
+  body: string;
+  coins: number;
+  /** Appears once the farmer reaches this level (1 = any time). */
+  atLevel: number;
+  itemId?: string;
+  itemQty?: number;
+}
+
+export interface MailSave {
+  id: string;
+  read: boolean;
+  claimed: boolean;
+  day: number;
+}
+
+/** A one-day food buff that is active on a given day. */
+export interface BuffEntry {
+  id: string;
+  day: number;
+}
+
+export interface BundleRequirement {
+  itemId: string;
+  qty: number;
+}
+
+export interface BundleDef {
+  id: string;
+  name: string;
+  desc: string;
+  requirements: BundleRequirement[];
+  coins: number;
+  xp: number;
+  rewardItemId?: string;
+  rewardQty?: number;
+}
+
+export interface BundleSave {
+  id: string;
+  donated: Record<string, number>;
+  claimed: boolean;
+}
+
 export interface Stats {
   harvests: number;
   cropsSold: number;
@@ -416,6 +495,8 @@ export interface Stats {
   fishingCasts: number;
   rocksMined: number;
   oresMined: number;
+  foragePicked: number;
+  cropsLost: number;
 }
 
 export interface PlayerSave {
@@ -460,6 +541,18 @@ export interface SaveData {
   selectedItemId: string;
   /** Ids of the farm tools bought so far (see TOOLS). */
   toolsOwned: string[];
+  /** Day energy left. Sleep refills it. */
+  energy: number;
+  /** Chosen profession ids, keyed by skill. */
+  professions: Record<string, string[]>;
+  /** Wild plants waiting to be picked on the map. */
+  forage: ForageSave[];
+  /** Letters that have arrived in the mailbox. */
+  mail: MailSave[];
+  /** Community bundle progress. */
+  bundles: BundleSave[];
+  /** Food buffs, cleared when the day ends. */
+  buffs: BuffEntry[];
 }
 
 export interface Settings {

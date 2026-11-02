@@ -1,4 +1,4 @@
-import { SEASON_INFO, xpProgress } from '../../data/definitions';
+import { PLOTS, SEASON_INFO, xpProgress } from '../../data/definitions';
 import { functionalBuildingCount } from '../../systems/quests';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
@@ -40,7 +40,7 @@ export function renderStats(ctx: UIContext, root: HTMLElement): void {
   const farm = section('Farm');
   farm.appendChild(statRow('Day', `${d.day} · ${SEASON_INFO[d.season].name} · Year ${d.year}`));
   farm.appendChild(statRow('Coins', formatNumber(d.coins)));
-  farm.appendChild(statRow('Fields owned', `${d.unlockedPlots} / 6`));
+  farm.appendChild(statRow('Fields owned', `${d.unlockedPlots} / ${PLOTS.length}`));
   farm.appendChild(statRow('Buildings', String(functionalBuildingCount(d))));
   farm.appendChild(statRow('Animals', String(d.animals.length)));
   farm.appendChild(statRow('Inventory', `${d.inventory.filter(Boolean).length} / ${state.capacity()}`));

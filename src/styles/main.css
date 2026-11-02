@@ -3974,3 +3974,197 @@ select {
     animation: none;
   }
 }
+
+/* ------------------------------------------------- cozy life additions */
+.energy-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #d8e6c8;
+}
+
+.energy-chip .energy-label {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.energy-chip strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.energy-chip .energy-bar {
+  flex: 1;
+  min-width: 64px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(6, 18, 10, 0.7);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.energy-chip .energy-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7ad06a, #b8e86a);
+  transition: width 160ms ease;
+}
+
+.energy-chip.low .energy-fill {
+  background: linear-gradient(90deg, #d86a4a, #f0a24a);
+}
+
+.energy-chip.low .energy-label {
+  color: #ffb08a;
+  opacity: 1;
+}
+
+.community-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.energy-bar.progress {
+  margin: 6px 0 10px;
+}
+
+.energy-cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.energy-cost {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.energy-cost-label {
+  font-size: 12px;
+  color: #d4e4c8;
+}
+
+.buff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+
+.profession-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.profession-row:last-child {
+  border-bottom: none;
+}
+
+.profession-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profession-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.profession-title p,
+.profession-info p {
+  margin: 0;
+}
+
+.bundle-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 10px;
+}
+
+.bundle-card.done {
+  border-color: rgba(140, 220, 130, 0.5);
+  background: rgba(90, 170, 90, 0.1);
+}
+
+.bundle-head,
+.bundle-row,
+.bundle-footer,
+.mail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bundle-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.bundle-row {
+  padding: 4px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.07);
+}
+
+.bundle-item {
+  flex: 1;
+  min-width: 90px;
+}
+
+.bundle-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.bundle-footer {
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mail-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 10px;
+}
+
+.mail-card.unread {
+  border-color: rgba(240, 210, 120, 0.55);
+  background: rgba(240, 210, 120, 0.07);
+}
+
+.mail-head {
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mail-body {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.9;
+}

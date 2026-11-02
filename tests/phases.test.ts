@@ -5,8 +5,8 @@ import { makeState, findBuildSpot } from './helpers';
 describe('collection album', () => {
   it('records items as they enter the inventory and pays milestones once', () => {
     const state = makeState(() => 0.5);
-    // The crop album now holds sixty crops, so give the test backpack room for them.
-    state.data.upgrades.backpack = 9;
+    // The crop album now holds ninety crops, so give the test backpack room for them.
+    state.data.upgrades.backpack = 20;
     state.ensureCapacity();
     const crops = COLLECTION_SETS.find((set) => set.id === 'crops')!;
     for (const itemId of crops.itemIds) state.addItem(itemId, 1);

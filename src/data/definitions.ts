@@ -2,31 +2,36 @@ import type {
   AnimalDef,
   AutomationDef,
   BuildingDef,
+  BundleDef,
   CollectionSetDef,
   CropDef,
   FestivalContestDef,
   FestivalDef,
   FishDef,
+  ForageDef,
   HousingId,
   ItemDef,
+  MailDef,
   NpcDef,
   PlantArchetype,
+  ProfessionDef,
   QuestDef,
   RecipeDef,
   Season,
   Settings,
+  SkillKey,
   ToolDef,
   UpgradeDef,
   Weather
 } from '../types';
 
 export const TILE = 32;
-export const WORLD_W = 44;
-export const WORLD_H = 34;
+export const WORLD_W = 64;
+export const WORLD_H = 48;
 export const DAYS_PER_SEASON = 28;
 export const START_MINUTE = 6 * 60;
 export const MINUTES_PER_REAL_SECOND = 3;
-export const CURRENT_SAVE_VERSION = 9;
+export const CURRENT_SAVE_VERSION = 10;
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
 export const SKILLS = ['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as const;
@@ -59,7 +64,12 @@ export const PLOTS = [
   { id: 2, x: 28, y: 10, w: 8, h: 6, cost: 1800, name: 'River Field' },
   { id: 3, x: 6, y: 19, w: 9, h: 6, cost: 4500, name: 'South Field' },
   { id: 4, x: 18, y: 19, w: 9, h: 6, cost: 9000, name: 'Meadow Field' },
-  { id: 5, x: 30, y: 21, w: 8, h: 6, cost: 16000, name: 'Sunset Field' }
+  { id: 5, x: 30, y: 21, w: 8, h: 6, cost: 16000, name: 'Sunset Field' },
+  { id: 6, x: 14, y: 29, w: 9, h: 6, cost: 26000, name: 'Willow Field' },
+  { id: 7, x: 26, y: 29, w: 9, h: 6, cost: 38000, name: 'Terrace Field' },
+  { id: 8, x: 38, y: 31, w: 9, h: 6, cost: 52000, name: 'Lakeside Field' },
+  { id: 9, x: 14, y: 39, w: 9, h: 5, cost: 70000, name: 'Orchard Field' },
+  { id: 10, x: 26, y: 39, w: 9, h: 5, cost: 92000, name: 'Sunrise Field' }
 ] as const;
 
 export const FARMHOUSE = { x: 4, y: 3, w: 4, h: 3 };
@@ -128,7 +138,16 @@ export const ITEMS: Record<string, ItemDef> = {
 
   grilled_fish: { id: 'grilled_fish', name: 'Grilled Fish', type: 'crafted', price: 160, sell: 160, stack: 99, desc: 'A simple, filling fish dish.', color: 0xd8a05a, color2: 0x9a6a2a },
   fish_stew: { id: 'fish_stew', name: 'Fish Stew', type: 'crafted', price: 360, sell: 360, stack: 99, desc: 'A hearty fisherman\'s stew.', color: 0xe8b86a, color2: 0xb87a3a },
-  salmon_dinner: { id: 'salmon_dinner', name: 'Salmon Dinner', type: 'crafted', price: 430, sell: 430, stack: 99, desc: 'A celebratory salmon plate.', color: 0xe88a6a, color2: 0xa85a3a }
+  salmon_dinner: { id: 'salmon_dinner', name: 'Salmon Dinner', type: 'crafted', price: 430, sell: 430, stack: 99, desc: 'A celebratory salmon plate.', color: 0xe88a6a, color2: 0xa85a3a },
+
+  daffodil: { id: 'daffodil', name: 'Daffodil', type: 'crop', price: 38, sell: 38, stack: 99, desc: 'A bright spring wildflower.', color: 0xf0d84a, color2: 0x5b9b3a },
+  leek: { id: 'leek', name: 'Wild Leek', type: 'crop', price: 46, sell: 46, stack: 99, desc: 'A mild wild onion from the hedgerow.', color: 0x8fc466, color2: 0xe8e8d8 },
+  mushroom: { id: 'mushroom', name: 'Wild Mushroom', type: 'crop', price: 60, sell: 60, stack: 99, desc: 'Found under the old trees.', color: 0xc06a4a, color2: 0xf0e2c8 },
+  spice_berry: { id: 'spice_berry', name: 'Spice Berry', type: 'crop', price: 52, sell: 52, stack: 99, desc: 'A warm, peppery summer berry.', color: 0xd8546a, color2: 0x9a3448 },
+  grapes: { id: 'grapes', name: 'Wild Grapes', type: 'crop', price: 70, sell: 70, stack: 99, desc: 'A cluster of small sweet grapes.', color: 0x8a5ab8, color2: 0x5a3a7a },
+  hazelnut: { id: 'hazelnut', name: 'Hazelnut', type: 'crop', price: 80, sell: 80, stack: 99, desc: 'A fallen autumn nut.', color: 0xb8905a, color2: 0x7a5a34 },
+  winter_root: { id: 'winter_root', name: 'Winter Root', type: 'crop', price: 65, sell: 65, stack: 99, desc: 'A pale root that survives the frost.', color: 0xe8dcc0, color2: 0x9a8a6a },
+  snow_yam: { id: 'snow_yam', name: 'Snow Yam', type: 'crop', price: 95, sell: 95, stack: 99, desc: 'Sweet, rare and buried in snow.', color: 0xf0ece0, color2: 0xc0b89a }
 };
 
 export const CROPS: Record<string, CropDef> = {
@@ -143,6 +162,227 @@ export const CROPS: Record<string, CropDef> = {
   rice: { id: 'rice', name: 'Rice', seedId: 'rice_seed', harvestId: 'rice', seasons: ['summer'], growthDays: 5, regrowDays: 0, yieldMin: 2, yieldMax: 4, shape: 'rice', palette: [0x6f9b3a, 0x9bb85a, 0xe8e3c0, 0xc0bb98], desc: 'Loves the summer sun.' },
   sunflowers: { id: 'sunflowers', name: 'Sunflowers', seedId: 'sunflower_seed', harvestId: 'sunflowers', seasons: ['summer', 'fall'], growthDays: 4, regrowDays: 0, yieldMin: 1, yieldMax: 1, shape: 'sunflower', palette: [0x4f8c38, 0x6f9b3a, 0xf0c43a, 0xb8902a], desc: 'Bright and valuable.' }
 };
+
+// --------------------------------------------------- cozy life: energy, jobs
+/** A farmer's day holds this much energy. Sleep refills it. */
+export const BASE_MAX_ENERGY = 220;
+
+/** Energy spent by each kind of work. */
+export const ENERGY_COST = {
+  till: 4,
+  water: 2,
+  plant: 1,
+  harvest: 2,
+  fertilize: 2,
+  mine: 5,
+  fish: 3,
+  forage: 1
+} as const;
+
+export interface EnergyCostItem {
+  key: keyof typeof ENERGY_COST;
+  label: string;
+}
+
+export const ENERGY_ACTIONS: EnergyCostItem[] = [
+  { key: 'till', label: 'Till soil' },
+  { key: 'water', label: 'Water crops' },
+  { key: 'plant', label: 'Plant a seed' },
+  { key: 'harvest', label: 'Harvest' },
+  { key: 'fertilize', label: 'Fertilize' },
+  { key: 'mine', label: 'Mine a rock' },
+  { key: 'fish', label: 'Cast the rod' },
+  { key: 'forage', label: 'Pick wild plants' }
+];
+
+/** A one-day buff from eating a cooked dish. */
+export interface BuffDef {
+  id: string;
+  itemId: string;
+  name: string;
+  kind: 'speed' | 'luck' | 'energy';
+  value: number;
+  desc: string;
+}
+
+export const BUFFS: BuffDef[] = [
+  { id: 'buff_speed', itemId: 'grilled_fish', name: 'Light Feet', kind: 'speed', value: 0.2, desc: 'Walk 20% faster for the rest of the day.' },
+  { id: 'buff_luck', itemId: 'bread', name: 'Good Fortune', kind: 'luck', value: 0.06, desc: 'Better harvest quality for the rest of the day.' },
+  { id: 'buff_energy', itemId: 'omelette', name: 'Hearty Meal', kind: 'energy', value: 60, desc: 'Restores 60 energy right away.' },
+  { id: 'buff_luck_stew', itemId: 'fish_stew', name: "Angler's Luck", kind: 'luck', value: 0.1, desc: 'Better harvest quality for the rest of the day.' },
+  { id: 'buff_speed_pie', itemId: 'pumpkin_pie', name: 'Festival Spirit', kind: 'speed', value: 0.15, desc: 'Walk 15% faster for the rest of the day.' }
+];
+
+export const PROFESSIONS: ProfessionDef[] = [
+  { id: 'tiller', skill: 'farming', level: 5, name: 'Tiller', kind: 'extraYield', value: 1, desc: 'Crops have a chance to yield one extra item.' },
+  { id: 'rancher', skill: 'farming', level: 5, name: 'Rancher', kind: 'sellPrice', value: 0.1, desc: 'Animal products and crops sell for 10% more.' },
+  { id: 'botanist', skill: 'farming', level: 10, name: 'Botanist', kind: 'luck', value: 0.06, desc: 'Harvests are more likely to be silver or gold.' },
+  { id: 'homesteader', skill: 'farming', level: 10, name: 'Homesteader', kind: 'maxEnergy', value: 40, desc: 'Your day holds 40 more energy.' },
+
+  { id: 'shepherd', skill: 'animal', level: 5, name: 'Shepherd', kind: 'extraYield', value: 1, desc: 'Animals have a chance to give a second product.' },
+  { id: 'cowhand', skill: 'animal', level: 5, name: 'Cowhand', kind: 'sellPrice', value: 0.1, desc: 'Animal products sell for 10% more.' },
+  { id: 'breeder', skill: 'animal', level: 10, name: 'Breeder', kind: 'luck', value: 0.05, desc: 'Animals stay happier and give better products.' },
+  { id: 'early_bird', skill: 'animal', level: 10, name: 'Early Bird', kind: 'energyCost', value: 0.2, desc: 'All farm work costs 20% less energy.' },
+
+  { id: 'artisan', skill: 'crafting', level: 5, name: 'Artisan', kind: 'sellPrice', value: 0.15, desc: 'Everything you craft sells for 15% more.' },
+  { id: 'tinkerer', skill: 'crafting', level: 5, name: 'Tinkerer', kind: 'luck', value: 0.05, desc: 'A little extra luck in everything you do.' },
+  { id: 'blacksmith', skill: 'crafting', level: 10, name: 'Blacksmith', kind: 'extraYield', value: 1, desc: 'Mining rocks can drop one extra ore.' },
+  { id: 'architect', skill: 'crafting', level: 10, name: 'Architect', kind: 'maxEnergy', value: 30, desc: 'Your day holds 30 more energy.' },
+
+  { id: 'merchant', skill: 'business', level: 5, name: 'Merchant', kind: 'sellPrice', value: 0.15, desc: 'Everything you sell is worth 15% more.' },
+  { id: 'haggler', skill: 'business', level: 5, name: 'Haggler', kind: 'energyCost', value: 0.1, desc: 'Farm work costs 10% less energy.' },
+  { id: 'tycoon', skill: 'business', level: 10, name: 'Tycoon', kind: 'sellPrice', value: 0.2, desc: 'Everything you sell is worth 20% more.' },
+  { id: 'innkeeper', skill: 'business', level: 10, name: 'Innkeeper', kind: 'maxEnergy', value: 30, desc: 'Your day holds 30 more energy.' },
+
+  { id: 'angler', skill: 'fishing', level: 5, name: 'Angler', kind: 'extraYield', value: 1, desc: 'Fishing can land an extra fish.' },
+  { id: 'spear_fisher', skill: 'fishing', level: 5, name: 'Spear Fisher', kind: 'energyCost', value: 0.15, desc: 'Casting the rod costs less energy.' },
+  { id: 'pond_keeper', skill: 'fishing', level: 10, name: 'Pond Keeper', kind: 'luck', value: 0.05, desc: 'Better luck with every catch.' },
+  { id: 'lure_master', skill: 'fishing', level: 10, name: 'Lure Master', kind: 'extraYield', value: 1, desc: 'Fish are more likely to come in pairs.' },
+
+  { id: 'prospector', skill: 'mining', level: 5, name: 'Prospector', kind: 'extraYield', value: 1, desc: 'Rocks can drop an extra stone or ore.' },
+  { id: 'miner', skill: 'mining', level: 5, name: 'Miner', kind: 'energyCost', value: 0.15, desc: 'Mining costs less energy.' },
+  { id: 'gem_hunter', skill: 'mining', level: 10, name: 'Gem Hunter', kind: 'luck', value: 0.06, desc: 'Gems are more likely from rocks.' },
+  { id: 'foreman', skill: 'mining', level: 10, name: 'Foreman', kind: 'maxEnergy', value: 30, desc: 'Your day holds 30 more energy.' }
+];
+
+export function professionsFor(skill: SkillKey, level: number): ProfessionDef[] {
+  return PROFESSIONS.filter((p) => p.skill === skill && p.level === level);
+}
+
+// ------------------------------------------------------------------ foraging
+/** Wild plants that appear on the farm each morning and can be picked up. */
+export const FORAGE: ForageDef[] = [
+  { id: 'daffodil', itemId: 'daffodil', seasons: ['spring'], weight: 5 },
+  { id: 'leek', itemId: 'leek', seasons: ['spring'], weight: 4 },
+  { id: 'mushroom', itemId: 'mushroom', seasons: ['spring', 'fall'], weight: 4 },
+  { id: 'spice_berry', itemId: 'spice_berry', seasons: ['summer'], weight: 5 },
+  { id: 'grapes', itemId: 'grapes', seasons: ['summer', 'fall'], weight: 3 },
+  { id: 'hazelnut', itemId: 'hazelnut', seasons: ['fall'], weight: 4 },
+  { id: 'winter_root', itemId: 'winter_root', seasons: ['winter'], weight: 5 },
+  { id: 'snow_yam', itemId: 'snow_yam', seasons: ['winter'], weight: 3 }
+];
+
+// ---------------------------------------------------------------------- mail
+/** Letters that arrive in the mailbox as the farm grows. */
+export const LETTERS: MailDef[] = [
+  {
+    id: 'letter_welcome', from: 'Village Council', subject: 'Welcome to your new farm',
+    body: 'The whole village is glad you took over the old plot. Here is a little something to help you start. Press Sleep in the top bar to end the day, and remember to water your crops.',
+    coins: 150, atLevel: 1
+  },
+  {
+    id: 'letter_scarecrow', from: 'Rowan', subject: 'Crows love fresh seeds',
+    body: 'A friendly warning: crows will try to eat your crops overnight. Build a Scarecrow in the Build menu and the birds keep their distance from the crops around it.',
+    coins: 0, atLevel: 2
+  },
+  {
+    id: 'letter_professions', from: 'Village Council', subject: 'Your skills are growing',
+    body: 'Once a skill reaches level 5 you may pick a profession. Open Community to choose one. Professions never expire, so pick the life that suits you.',
+    coins: 0, atLevel: 3, itemId: 'bread', itemQty: 1
+  },
+  {
+    id: 'letter_bundles', from: 'Old Town Hall', subject: 'The empty bundles',
+    body: 'The old community bundles have sat empty for years. Bring the village its favourite goods and it will remember how to celebrate again.',
+    coins: 0, atLevel: 4
+  },
+  {
+    id: 'letter_kitchen', from: 'Tessa', subject: 'Eat well, work well',
+    body: 'A cooked dish at the Workshop fills you up or gives you a day of good luck. Try a grilled fish before a long day in the field.',
+    coins: 0, atLevel: 5, itemId: 'grilled_fish', itemQty: 1
+  },
+  {
+    id: 'letter_stars', from: 'Orin', subject: 'The pond is quiet tonight',
+    body: 'Some nights the pond is so calm you can see the stars in it. If you find a lucky charm out there, keep it. Come fish with me some time.',
+    coins: 200, atLevel: 7
+  }
+];
+
+// ----------------------------------------------------------- community bundles
+export const BUNDLE_SETS: BundleDef[] = [
+  {
+    id: 'spring_bundle', name: 'Spring Pantry',
+    desc: 'The village pantry is bare after winter. A few spring crops would fill it again.',
+    requirements: [
+      { itemId: 'carrots', qty: 5 },
+      { itemId: 'cabbage', qty: 3 },
+      { itemId: 'strawberries', qty: 3 }
+    ],
+    coins: 600, xp: 60
+  },
+  {
+    id: 'craft_bundle', name: "Builder's Bundle",
+    desc: 'Rowan needs material for the new bridge. Any sturdy goods will do.',
+    requirements: [
+      { itemId: 'stone', qty: 20 },
+      { itemId: 'copper_ore', qty: 5 },
+      { itemId: 'flour', qty: 2 }
+    ],
+    coins: 900, xp: 90
+  },
+  {
+    id: 'kitchen_bundle', name: 'Kitchen Bundle',
+    desc: 'Long tables are being set out for the feast. The cooks are short of ingredients.',
+    requirements: [
+      { itemId: 'egg', qty: 5 },
+      { itemId: 'milk', qty: 3 },
+      { itemId: 'bread', qty: 2 },
+      { itemId: 'cheese', qty: 1 }
+    ],
+    coins: 1200, xp: 120
+  },
+  {
+    id: 'pond_bundle', name: 'Pond Bundle',
+    desc: 'Orin is restocking the village pond and asks for a few catches.',
+    requirements: [
+      { itemId: 'minnow', qty: 3 },
+      { itemId: 'carp', qty: 3 },
+      { itemId: 'bass', qty: 2 },
+      { itemId: 'trout', qty: 1 }
+    ],
+    coins: 1500, xp: 150
+  },
+  {
+    id: 'artisan_bundle', name: 'Artisan Bundle',
+    desc: "June wants to show the village what a good farm can make.",
+    requirements: [
+      { itemId: 'cloth', qty: 2 },
+      { itemId: 'jam', qty: 2 },
+      { itemId: 'truffle_oil', qty: 1 }
+    ],
+    coins: 2000, xp: 200
+  },
+  {
+    id: 'miner_bundle', name: "Miner's Bundle",
+    desc: 'The quarry families are rebuilding. Ore and gems go a long way.',
+    requirements: [
+      { itemId: 'iron_ore', qty: 8 },
+      { itemId: 'gold_ore', qty: 3 },
+      { itemId: 'gem', qty: 1 }
+    ],
+    coins: 2600, xp: 260, rewardItemId: 'gem', rewardQty: 1
+  },
+  {
+    id: 'harvest_bundle', name: 'Autumn Harvest',
+    desc: 'A warm autumn feast needs the best of the autumn fields.',
+    requirements: [
+      { itemId: 'pumpkins', qty: 2 },
+      { itemId: 'corn', qty: 5 },
+      { itemId: 'sunflowers', qty: 2 },
+      { itemId: 'rice', qty: 3 }
+    ],
+    coins: 2200, xp: 220
+  },
+  {
+    id: 'rare_bundle', name: 'Rare Finds',
+    desc: 'The museum display has three empty cases. Only the finest will do.',
+    requirements: [
+      { itemId: 'golden_carp', qty: 1 },
+      { itemId: 'koi', qty: 1 },
+      { itemId: 'truffle', qty: 2 }
+    ],
+    coins: 4000, xp: 400, rewardItemId: 'gem', rewardQty: 2
+  }
+];
 
 // ------------------------------------------------------------- expanded crops
 /** Extra crops beyond the classic ten. Each one gets a seed and a harvest item. */
@@ -209,7 +449,48 @@ const EXTRA_CROP_SPECS: Array<{
   { id: 'celery', name: 'Celery', seedPrice: 36, sell: 52, seasons: ['summer', 'fall'], days: 5, regrow: 0, min: 2, max: 3, art: 'tall', palette: [0x4f8c38, 0x76b34a, 0x8ab84a, 0x5a8a2a], desc: 'Crisp ribs that grow best in cool soil.' },
   { id: 'spinach', name: 'Spinach', seedPrice: 24, sell: 34, seasons: ['spring', 'winter'], days: 3, regrow: 2, min: 2, max: 3, art: 'head', palette: [0x2f6f33, 0x4f8c38, 0x3a7a34, 0x25522a], desc: 'Tender leaves that grow back fast.' },
   { id: 'vanilla', name: 'Vanilla', seedPrice: 210, sell: 320, seasons: ['summer'], days: 10, regrow: 0, min: 1, max: 1, art: 'vine', palette: [0x3f7d3a, 0x5b9b3a, 0x6a4a2a, 0x3f2a15], desc: 'Long pods cured into the finest spice.' },
-  { id: 'saffron', name: 'Saffron', seedPrice: 240, sell: 360, seasons: ['fall'], days: 9, regrow: 0, min: 1, max: 1, art: 'flower', palette: [0x5b8c38, 0x76b34a, 0xe87a3a, 0xb04a1f], desc: 'Precious red threads from purple flowers.' }
+  { id: 'saffron', name: 'Saffron', seedPrice: 240, sell: 360, seasons: ['fall'], days: 9, regrow: 0, min: 1, max: 1, art: 'flower', palette: [0x5b8c38, 0x76b34a, 0xe87a3a, 0xb04a1f], desc: 'Precious red threads from purple flowers.' },
+
+  // ------------------------------------------------- new land, richer harvests
+  // Fruit trees: slow to start, then they keep fruiting again and again.
+  { id: 'pear', name: 'Pear', seedPrice: 118, sell: 172, seasons: ['spring', 'fall'], days: 7, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x4f8c38, 0x76b34a, 0xd8d84a, 0xa8a82a], desc: 'A small orchard tree that fruits year after year.' },
+  { id: 'peach', name: 'Peach', seedPrice: 132, sell: 192, seasons: ['summer'], days: 8, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x4f8c38, 0x76b34a, 0xf0a070, 0xc07048], desc: 'Soft, sun-warmed fruit from a summer tree.' },
+  { id: 'apple', name: 'Apple', seedPrice: 126, sell: 184, seasons: ['fall'], days: 8, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x3f7d3a, 0x5b9b3a, 0xd83a3a, 0x9a2020], desc: 'Crisp red apples, the pride of any orchard.' },
+  { id: 'cherry', name: 'Cherry', seedPrice: 140, sell: 204, seasons: ['spring', 'summer'], days: 8, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x3f7d3a, 0x5b9b3a, 0xc81f3a, 0x8a1028], desc: 'Sweet pairs of fruit on a slender tree.' },
+  { id: 'plum', name: 'Plum', seedPrice: 112, sell: 164, seasons: ['fall'], days: 7, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x4f8c38, 0x6fae4f, 0x7a3a8a, 0x4f2058], desc: 'Deep purple fruit with a dusty bloom.' },
+  { id: 'apricot', name: 'Apricot', seedPrice: 124, sell: 180, seasons: ['spring'], days: 7, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x4f8c38, 0x76b34a, 0xe88a3a, 0xb05a1f], desc: 'Golden fruit that ripens early in the year.' },
+  { id: 'coconut', name: 'Coconut', seedPrice: 200, sell: 290, seasons: ['summer'], days: 10, regrow: 5, min: 1, max: 1, art: 'tree', palette: [0x2f6f33, 0x4f8c38, 0x8a6a44, 0x5a4028], desc: 'A tall palm that gives one heavy nut at a time.' },
+  { id: 'fig', name: 'Fig', seedPrice: 160, sell: 232, seasons: ['summer', 'fall'], days: 8, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x3f7d3a, 0x5b9b3a, 0x8a3a5a, 0x5a2038], desc: 'Sweet fruit hidden under broad leaves.' },
+  { id: 'persimmon', name: 'Persimmon', seedPrice: 148, sell: 216, seasons: ['fall'], days: 8, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x6f9b3a, 0x88b447, 0xe86a2a, 0xb0401a], desc: 'Bright orange fruit that hangs into winter.' },
+  { id: 'avocado', name: 'Avocado', seedPrice: 210, sell: 300, seasons: ['summer'], days: 10, regrow: 5, min: 1, max: 1, art: 'tree', palette: [0x2f6f33, 0x4f8c38, 0x3a5a2a, 0xc8d878], desc: 'Creamy green fruit worth the long wait.' },
+  { id: 'lemon', name: 'Lemon', seedPrice: 136, sell: 198, seasons: ['summer'], days: 8, regrow: 4, min: 1, max: 2, art: 'tree', palette: [0x3f7d3a, 0x5b9b3a, 0xf0d83a, 0xc0a81f], desc: 'Sharp, sunny citrus from a tidy tree.' },
+  { id: 'lime', name: 'Lime', seedPrice: 108, sell: 158, seasons: ['summer'], days: 7, regrow: 3, min: 1, max: 2, art: 'tree', palette: [0x3f7d3a, 0x5b9b3a, 0x8ad83a, 0x4f8a1f], desc: 'Small green citrus with a bright bite.' },
+  { id: 'cocoa', name: 'Cocoa', seedPrice: 230, sell: 330, seasons: ['summer'], days: 11, regrow: 5, min: 1, max: 1, art: 'tree', palette: [0x2f6f33, 0x4f8c38, 0x8a5a2a, 0x4f2a10], desc: 'Pods full of beans for the finest chocolate.' },
+  // Tall plants.
+  { id: 'banana', name: 'Banana', seedPrice: 176, sell: 256, seasons: ['summer'], days: 9, regrow: 4, min: 2, max: 3, art: 'tall', palette: [0x3f7d3a, 0x5b9b3a, 0xf0d84a, 0xb0a02a], desc: 'Bunches of fruit on a broad-leafed plant.' },
+  { id: 'hops', name: 'Hops', seedPrice: 104, sell: 152, seasons: ['summer', 'fall'], days: 7, regrow: 3, min: 2, max: 3, art: 'tall', palette: [0x4f8c38, 0x76b34a, 0x8aa84a, 0x5a7a24], desc: 'Climbing cones for brewing.' },
+  { id: 'scallion', name: 'Scallion', seedPrice: 22, sell: 32, seasons: ['spring', 'summer'], days: 3, regrow: 2, min: 2, max: 4, art: 'tall', palette: [0x4f8c38, 0x76b34a, 0x9ad878, 0x5a8a3a], desc: 'Quick green stems that come back again.' },
+  { id: 'fennel', name: 'Fennel', seedPrice: 48, sell: 70, seasons: ['spring', 'fall'], days: 5, regrow: 0, min: 1, max: 2, art: 'tall', palette: [0x4f8c38, 0x76b34a, 0xc8d89a, 0x8a9a5a], desc: 'Feathery tops over a crunchy bulb.' },
+  { id: 'cardamom', name: 'Cardamom', seedPrice: 168, sell: 242, seasons: ['summer'], days: 9, regrow: 4, min: 1, max: 2, art: 'tall', palette: [0x3f7d3a, 0x5b9b3a, 0xa8c878, 0x6a8a3a], desc: 'A rare spice plant with fragrant pods.' },
+  // Bushes and leafy plants.
+  { id: 'mushroom', name: 'Mushroom', seedPrice: 56, sell: 82, seasons: ['fall', 'winter'], days: 3, regrow: 2, min: 2, max: 3, art: 'bush', palette: [0x8a7a5a, 0xb0a080, 0xc86a4a, 0x8a3a24], desc: 'Grows fast in cool, damp shade.' },
+  { id: 'lemongrass', name: 'Lemongrass', seedPrice: 26, sell: 38, seasons: ['summer'], days: 4, regrow: 2, min: 2, max: 3, art: 'bush', palette: [0x5b8c38, 0x88b447, 0xc8d87a, 0x8a9a4a], desc: 'Sharp green blades with a citrus scent.' },
+  { id: 'rosemary', name: 'Rosemary', seedPrice: 44, sell: 64, seasons: ['spring', 'winter'], days: 5, regrow: 3, min: 2, max: 3, art: 'bush', palette: [0x2f6f33, 0x4f8c38, 0x5a9aa8, 0x2f6a78], desc: 'A woody herb that grows all year.' },
+  { id: 'mint', name: 'Mint', seedPrice: 24, sell: 34, seasons: ['spring', 'summer'], days: 3, regrow: 2, min: 2, max: 4, art: 'bush', palette: [0x3f7d3a, 0x6fae4f, 0x6ad89a, 0x2f8a5a], desc: 'Cool, spreading leaves.' },
+  { id: 'aloe', name: 'Aloe', seedPrice: 72, sell: 104, seasons: ['summer', 'fall'], days: 6, regrow: 3, min: 1, max: 2, art: 'bush', palette: [0x4f8c38, 0x76b34a, 0x6a9a7a, 0x3a6a4a], desc: 'Thick leaves full of soothing gel.' },
+  { id: 'blackcurrant', name: 'Blackcurrant', seedPrice: 74, sell: 108, seasons: ['summer'], days: 6, regrow: 2, min: 3, max: 4, art: 'bush', palette: [0x3f7d3a, 0x5b9b3a, 0x4a2a4a, 0x2a1528], desc: 'Small dark berries on a heavy bush.' },
+  // Flowers.
+  { id: 'mustard', name: 'Mustard', seedPrice: 36, sell: 52, seasons: ['spring', 'fall'], days: 4, regrow: 0, min: 2, max: 3, art: 'flower', palette: [0x6f9b3a, 0x88b447, 0xf0d83a, 0xb8a81f], desc: 'A field of yellow flowers and sharp seeds.' },
+  { id: 'lotus', name: 'Lotus', seedPrice: 130, sell: 188, seasons: ['summer'], days: 7, regrow: 0, min: 1, max: 1, art: 'flower', palette: [0x4f8c38, 0x6fae4f, 0xf0a8c8, 0xc07a9a], desc: 'A pale pink bloom that opens at dawn.' },
+  { id: 'jasmine', name: 'Jasmine', seedPrice: 84, sell: 122, seasons: ['summer'], days: 5, regrow: 2, min: 1, max: 2, art: 'flower', palette: [0x4f8c38, 0x76b34a, 0xf8f4e8, 0xd8d0b8], desc: 'Small white flowers with a sweet scent.' },
+  { id: 'clover', name: 'Clover', seedPrice: 18, sell: 26, seasons: ['spring'], days: 2, regrow: 1, min: 3, max: 5, art: 'flower', palette: [0x4f8c38, 0x76b34a, 0xe8a8d8, 0xb078a8], desc: 'Fast little flowers that keep returning.' },
+  // Grains and roots.
+  { id: 'chickpea', name: 'Chickpea', seedPrice: 42, sell: 60, seasons: ['spring', 'fall'], days: 5, regrow: 0, min: 3, max: 4, art: 'grain', palette: [0x6f9b3a, 0x88b447, 0xd8c89a, 0xa89a6a], desc: 'Sturdy pods full of round seeds.' },
+  { id: 'tapioca', name: 'Cassava', seedPrice: 70, sell: 100, seasons: ['summer'], days: 7, regrow: 0, min: 1, max: 2, art: 'root', palette: [0x4f8c38, 0x76b34a, 0xb89a7a, 0x8a6a4a], desc: 'Big starchy roots dug at season end.' },
+  { id: 'taro', name: 'Taro', seedPrice: 62, sell: 90, seasons: ['summer', 'fall'], days: 6, regrow: 0, min: 1, max: 2, art: 'root', palette: [0x3f7d3a, 0x5b9b3a, 0x9a8a9a, 0x6a5a6a], desc: 'Broad leaves over a nutty root.' },
+  { id: 'parsnip', name: 'Parsnip', seedPrice: 34, sell: 48, seasons: ['fall', 'winter'], days: 4, regrow: 0, min: 2, max: 3, art: 'root', palette: [0x4f8c38, 0x6fae4f, 0xe8dcc0, 0xb0a080], desc: 'Sweet roots that taste best after frost.' },
+  { id: 'jicama', name: 'Jicama', seedPrice: 58, sell: 84, seasons: ['summer'], days: 6, regrow: 0, min: 1, max: 2, art: 'root', palette: [0x4f8c38, 0x76b34a, 0xcdb894, 0x9a8260], desc: 'A crisp, watery root from warm soil.' },
+  { id: 'turmeric', name: 'Turmeric', seedPrice: 110, sell: 160, seasons: ['summer', 'fall'], days: 8, regrow: 0, min: 1, max: 2, art: 'root', palette: [0x4f8c38, 0x76b34a, 0xe8a02a, 0xb06a10], desc: 'Bold golden roots used for dye and spice.' }
 ];
 
 function seasonLabel(seasons: Season[]): string {
@@ -329,7 +610,32 @@ const EXTRA_ANIMAL_SPECS: Array<{
   { id: 'boar', name: 'Boar', housing: 'pasture', price: 1750, productId: 'boar_tusk', productName: 'Boar Tusk', productSell: 244, maturityDays: 7, art: 'tall', colors: [0x4a3a2a, 0x2a1a0a, 0xf0e8d8], desc: 'Tough, proud and fond of mud.' },
   { id: 'yak_ox', name: 'Ox', housing: 'pasture', price: 2600, productId: 'ox_horn', productName: 'Ox Horn', productSell: 288, maturityDays: 8, art: 'tall', colors: [0x3a2a1a, 0x2a1a0a, 0xd8c8a8], desc: 'Steady, patient workhorse of the farm.' },
   { id: 'wildebeest', name: 'Wildebeest', housing: 'pasture', price: 3300, productId: 'beest_horn', productName: 'Beest Horn', productSell: 356, maturityDays: 9, art: 'tall', colors: [0x5a4a3a, 0x3a2a1a, 0x2a1a0a], desc: 'Born to run across open country.' },
-  { id: 'moth', name: 'Silk Moth', housing: 'hutch', price: 580, productId: 'moth_thread', productName: 'Moth Thread', productSell: 98, maturityDays: 3, art: 'bush', colors: [0xe8dcc8, 0xc8b8a0, 0xf8f0dc], desc: 'Spins a glimmering thread by night.' }
+  { id: 'moth', name: 'Silk Moth', housing: 'hutch', price: 580, productId: 'moth_thread', productName: 'Moth Thread', productSell: 98, maturityDays: 3, art: 'bush', colors: [0xe8dcc8, 0xc8b8a0, 0xf8f0dc], desc: 'Spins a glimmering thread by night.' },
+
+  // --------------------------------------- new faces for the wide-open land
+  // Pond crew.
+  { id: 'eel', name: 'Eel', housing: 'pond', price: 700, productId: 'eel_oil', productName: 'Eel Oil', productSell: 118, maturityDays: 4, art: 'tall', colors: [0x3a4a3a, 0x2a3a2a, 0xc8d8a8], desc: 'Slippery, patient and rich in oil.' },
+  { id: 'whitefish', name: 'Whitefish', housing: 'pond', price: 430, productId: 'whitefish_roe', productName: 'Whitefish Roe', productSell: 72, maturityDays: 3, art: 'bush', colors: [0xd8dcd0, 0xb0b4a8, 0xe8e8d8], desc: 'A pale, quick little pond fish.' },
+  { id: 'tadpole', name: 'Tadpole Pool', housing: 'pond', price: 165, productId: 'tadpole_roe', productName: 'Tadpole Roe', productSell: 44, maturityDays: 2, art: 'bush', colors: [0x5a8a3a, 0x3a6a24, 0xc8e8a8], desc: 'A busy pool of tiny swimmers.' },
+  { id: 'kiwi_bird', name: 'Kiwi Bird', housing: 'aviary', price: 980, productId: 'kiwi_egg', productName: 'Kiwi Egg', productSell: 176, maturityDays: 6, art: 'bush', colors: [0x6a4a2a, 0x4a2a12, 0xc8a878], desc: 'Round, shy and full of surprises.' },
+  // Prairie grazers.
+  { id: 'bison', name: 'Bison', housing: 'pasture', price: 3100, productId: 'bison_wool', productName: 'Bison Wool', productSell: 292, maturityDays: 8, art: 'tall', colors: [0x4a3a2a, 0x2a1a0a, 0xd8c8a8], desc: 'A shaggy giant that keeps the cold out.' },
+  { id: 'gazelle', name: 'Gazelle', housing: 'pasture', price: 1600, productId: 'gazelle_horn', productName: 'Gazelle Horn', productSell: 216, maturityDays: 6, art: 'tall', colors: [0xc8a878, 0xa88858, 0x3a2a1a], desc: 'Light on its feet, always ready to run.' },
+  { id: 'antelope', name: 'Antelope', housing: 'pasture', price: 1950, productId: 'antelope_horn', productName: 'Antelope Horn', productSell: 254, maturityDays: 7, art: 'tall', colors: [0xb08050, 0x8a5a2a, 0xf0e8d8], desc: 'Long sweeping horns and a steady gaze.' },
+  { id: 'bighorn_sheep', name: 'Bighorn Sheep', housing: 'pasture', price: 2250, productId: 'bighorn_wool', productName: 'Bighorn Wool', productSell: 248, maturityDays: 7, art: 'tall', colors: [0xa89478, 0x8a7658, 0x6a5a44], desc: 'Curled horns and a thick warm coat.' },
+  { id: 'cow_highland', name: 'Highland Cow', housing: 'pasture', price: 2500, productId: 'highland_milk', productName: 'Highland Milk', productSell: 262, maturityDays: 7, art: 'tall', colors: [0xb06a3a, 0x8a4a1a, 0xf0e0c8], desc: 'Long fringe, gentle eyes, rich milk.' },
+  { id: 'ram', name: 'Ram', housing: 'pasture', price: 1800, productId: 'ram_wool', productName: 'Ram Wool', productSell: 224, maturityDays: 7, art: 'tall', colors: [0xf0ece0, 0xc8c4b8, 0x6a5a4a], desc: 'Heavy curled horns and thick fleece.' },
+  { id: 'wombat', name: 'Wombat', housing: 'pasture', price: 1500, productId: 'wombat_fur', productName: 'Wombat Fur', productSell: 196, maturityDays: 6, art: 'bush', colors: [0x8a7a5a, 0x6a5a3a, 0x3a2a1a], desc: 'Short legs, big heart, excellent digging.' },
+  { id: 'emu_chick', name: 'Emu Chick', housing: 'pasture', price: 720, productId: 'chick_down', productName: 'Chick Down', productSell: 112, maturityDays: 4, art: 'bush', colors: [0x9a8a6a, 0x7a6a4a, 0xe8dcc0], desc: 'Striped and wobbly, but growing fast.' },
+  // Additions for the smaller homes.
+  { id: 'pheasant_gold', name: 'Golden Pheasant', housing: 'aviary', price: 1550, productId: 'golden_feather', productName: 'Golden Feather', productSell: 236, maturityDays: 6, art: 'bush', colors: [0xe8b83a, 0xd8902a, 0xd83a2a], desc: 'A flash of gold across the aviary.' },
+  { id: 'parrot', name: 'Parrot', housing: 'aviary', price: 1750, productId: 'parrot_feather', productName: 'Parrot Feather', productSell: 254, maturityDays: 7, art: 'bush', colors: [0x3aa86a, 0x2a8a4a, 0xe8d83a], desc: 'Loud, clever and endlessly colourful.' },
+  { id: 'chinchilla', name: 'Chinchilla', housing: 'hutch', price: 880, productId: 'chinchilla_fur', productName: 'Chinchilla Fur', productSell: 142, maturityDays: 5, art: 'bush', colors: [0xa8a8b0, 0x888890, 0xe8e8f0], desc: 'Cloud-soft fur and a nervous hop.' },
+  { id: 'honeybee', name: 'Wild Honeybee', housing: 'apiary', price: 430, productId: 'wild_honey', productName: 'Wild Honey', productSell: 88, maturityDays: 2, art: 'bush', colors: [0xf0d84a, 0x3a2a1a, 0xe8b83a], desc: 'Stronger honey from a wilder hive.' },
+  { id: 'turkey_royal', name: 'Royal Turkey', housing: 'coop', price: 620, productId: 'royal_egg', productName: 'Royal Egg', productSell: 96, maturityDays: 4, art: 'bush', colors: [0xd8d0c0, 0xb0a898, 0xc83a3a], desc: 'Struts about like it owns the coop.' },
+  { id: 'calf_orphan', name: 'Orphan Calf', housing: 'barn', price: 640, productId: 'orphan_milk', productName: 'Orphan Milk', productSell: 86, maturityDays: 3, art: 'bush', colors: [0xe8e0d0, 0xc8c0b0, 0x6a5a4a], desc: 'A warm little calf that needs a barn.' },
+  { id: 'greyhound', name: 'Greyhound', housing: 'kennel', price: 1580, productId: 'greyhound_hair', productName: 'Greyhound Hair', productSell: 214, maturityDays: 6, art: 'tall', colors: [0x9a9aa0, 0x7a7a80, 0x3a3a40], desc: 'Built like an arrow and twice as fast.' },
+  { id: 'corgi', name: 'Corgi', housing: 'kennel', price: 980, productId: 'corgi_fur', productName: 'Corgi Fur', productSell: 154, maturityDays: 5, art: 'bush', colors: [0xe8b84a, 0xc8982a, 0xf8f4e8], desc: 'Short legs, big bark, endless cheer.' }
 ];
 
 for (const spec of EXTRA_ANIMAL_SPECS) {
@@ -431,6 +737,8 @@ const EXTRA_BUILDING_SPECS: Array<{
   { id: 'tanning_rack', name: 'Tanning Rack', w: 2, h: 1, cost: 780, unlockLevel: 4, kind: 'craft', colors: [0x8a6a44, 0x6a4a28, 0xd8c8a8], desc: 'Cures hides and pelts.' },
   { id: 'aquarium', name: 'Fish Hatchery', w: 3, h: 2, cost: 2050, unlockLevel: 6, kind: 'housing', houses: 'pond', capacity: 3, colors: [0x5a9aa8, 0x3a7a88, 0xb8e8f0], desc: 'A small tank for three water animals.' },
   { id: 'orchard', name: 'Orchard Plot', w: 4, h: 3, cost: 2300, unlockLevel: 5, kind: 'housing', houses: 'pasture', capacity: 3, colors: [0x5a9a3a, 0x3f7a2a, 0xd8b84a], desc: 'Shaded ground for three large animals.' },
+  { id: 'ranch', name: 'Big Ranch', w: 5, h: 4, cost: 4200, unlockLevel: 7, kind: 'housing', houses: 'pasture', capacity: 8, colors: [0x7aa84a, 0x5a8a34, 0xc8d878], desc: 'Wide open land for eight big animals.' },
+  { id: 'pond_farm', name: 'Farm Pond', w: 4, h: 3, cost: 2400, unlockLevel: 6, kind: 'housing', houses: 'pond', capacity: 8, colors: [0x3a8ab8, 0x2a6a98, 0x9ae0f4], desc: 'A deep pond that holds eight water animals.' },
   { id: 'gazebo', name: 'Gazebo', w: 3, h: 2, cost: 1450, unlockLevel: 3, kind: 'decor', colors: [0xf0e8d8, 0xc8c0a8, 0x6a8a5a], desc: 'A pretty shelter for the garden.' },
   { id: 'statue', name: 'Farm Statue', w: 1, h: 2, cost: 980, unlockLevel: 3, kind: 'decor', colors: [0xb8b8b0, 0x8a8a82, 0xd8d8d0], desc: 'A stone reminder of your hard work.' },
   { id: 'fountain', name: 'Fountain', w: 2, h: 2, cost: 1650, unlockLevel: 4, kind: 'decor', colors: [0xa8b0b8, 0x88909a, 0x8ed8f0], desc: 'Moving water and a soft sound.' },

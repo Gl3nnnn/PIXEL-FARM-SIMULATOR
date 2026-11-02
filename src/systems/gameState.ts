@@ -1,19 +1,27 @@
 import {
   ANIMALS,
   AUTOMATION,
+  BASE_MAX_ENERGY,
+  BUFFS,
   BUILDINGS,
+  BUNDLE_SETS,
   COLLECTION_SETS,
   CROPS,
   CURRENT_SAVE_VERSION,
   DAYS_PER_SEASON,
+  ENERGY_COST,
   FESTIVAL_CONTESTS,
   FESTIVALS,
   FISH,
+  FORAGE,
   ITEMS,
+  LETTERS,
   MAIN_QUESTS,
   MINUTES_PER_REAL_SECOND,
   NPCS,
   PLOTS,
+  PROFESSIONS,
+  professionsFor,
   QUALITY_MULTIPLIER,
   RECIPES,
   SEASONS,
@@ -113,7 +121,9 @@ const EMPTY_STATS: Stats = {
   fishCaught: 0,
   fishingCasts: 0,
   rocksMined: 0,
-  oresMined: 0
+  oresMined: 0,
+  foragePicked: 0,
+  cropsLost: 0
 };
 
 type Handler = (payload?: unknown) => void;
@@ -179,7 +189,13 @@ export function createNewSave(): SaveData {
     tutorialStep: 0,
     tutorialDone: false,
     selectedItemId: 'hoe',
-    toolsOwned: []
+    toolsOwned: [],
+    energy: BASE_MAX_ENERGY,
+    professions: {},
+    forage: [],
+    mail: [],
+    bundles: [],
+    buffs: []
   };
 }
 
@@ -203,6 +219,7 @@ export class GameState {
     this.ensureSeasonalBoard();
     this.ensureFestivalDay();
     this.ensureNpcs();
+    this.ensureDailyLife();
     this.syncCollectionFromInventory();
   }
 
@@ -219,6 +236,333 @@ export class GameState {
         };
       }
     }
+  }
+
+  // ----------------------------------------------------------------- energy
+
+  /** Total energy a full day holds. Professions can raise it. */
+  maxEnergy(): number {
+    return BASE_MAX_ENERGY + this.professionSum('maxEnergy');
+  }
+
+  energy(): number {
+    return clamp(this.data.energy, 0, this.maxEnergy());
+  }
+
+  /** How much energy an action costs, after professions. */
+  energyCost(key: keyof typeof ENERGY_COST): number {
+    const base = ENERGY_COST[key] ?? 1;
+    const discount = clamp(this.professionSum('energyCost'), 0, 0.6);
+    return Math.max(0, Math.floor(base * (1 - discount)));
+  }
+
+  hasEnergy(amount: number): boolean {
+    return this.energy() >= amount;
+  }
+
+  spendEnergy(amount: number): void {
+    if (amount <= 0) return;
+    this.data.energy = Math.max(0, this.energy() - amount);
+  }
+
+  restoreEnergy(amount: number): void {
+    this.data.energy = clamp(this.energy() + amount, 0, this.maxEnergy());
+  }
+
+  /** "Not enough energy" message used by every action. */
+  private outOfEnergy(cost: number): ActionResult {
+    this.emitChange();
+    return {
+      ok: false,
+      message: `You are too tired (${cost} energy needed). Sleep to refill, or eat a cooked dish.`
+    };
+  }
+
+  // ------------------------------------------------------------ professions
+
+  /** Adds up the chosen professions that improve one thing. */
+  professionSum(kind: string): number {
+    let total = 0;
+    for (const chosen of Object.values(this.data.professions ?? {})) {
+      for (const id of chosen) {
+        const def = PROFESSIONS.find((p) => p.id === id);
+        if (def && def.kind === kind) total += def.value;
+      }
+    }
+    return total;
+  }
+
+  hasProfession(id: string): boolean {
+    return Object.values(this.data.professions ?? {}).some((list) => list.includes(id));
+  }
+
+  /** The two options offered at a skill level, or empty when already chosen. */
+  professionChoices(skill: SkillKey, level: number) {
+    const chosen = this.data.professions?.[skill] ?? [];
+    const unlocked = this.skillLevel(skill) >= level;
+    return professionsFor(skill, level).map((def) => ({
+      def,
+      chosen: chosen.includes(def.id),
+      unlocked
+    }));
+  }
+
+  chooseProfession(id: string): ActionResult {
+    const def = PROFESSIONS.find((p) => p.id === id);
+    if (!def) return { ok: false, message: 'Unknown profession.' };
+    if (this.hasProfession(id)) return { ok: false, message: 'You already chose that profession.' };
+    if (this.skillLevel(def.skill) < def.level) {
+      return { ok: false, message: `Reach ${def.skill} level ${def.level} first.` };
+    }
+    if (!this.data.professions) this.data.professions = {};
+    const list = this.data.professions[def.skill] ?? [];
+    const sameTier = list.some(
+      (id) => PROFESSIONS.find((p) => p.id === id)?.level === def.level
+    );
+    if (sameTier) {
+      return { ok: false, message: 'You already chose a profession for this skill at that level.' };
+    }
+    this.data.professions[def.skill] = [...list, id];
+    if (def.kind === 'maxEnergy') this.data.energy = this.maxEnergy();
+    this.emitChange();
+    this.emit('profession', { id });
+    this.checkAchievements();
+    return { ok: true, message: `You are now a ${def.name}. ${def.desc}` };
+  }
+
+  // ------------------------------------------------------------------ buffs
+
+  /** Eat a cooked dish for a one-day buff. */
+  eat(itemId: string): ActionResult {
+    const buff = BUFFS.find((b) => b.itemId === itemId);
+    if (!buff) return { ok: false, message: 'That is not a cooked dish.' };
+    if (!this.hasItem(itemId)) return { ok: false, message: 'You do not have that dish.' };
+    if (buff.kind === 'energy' && this.energy() >= this.maxEnergy()) {
+      return { ok: false, message: 'You are already full of energy.' };
+    }
+    this.removeItem(itemId, 1);
+    if (buff.kind === 'energy') {
+      this.restoreEnergy(buff.value);
+      this.emitChange();
+      return { ok: true, message: `${buff.name}! You feel refreshed.` };
+    }
+    this.data.buffs = [{ id: buff.id, day: this.today }];
+    this.emitChange();
+    return { ok: true, message: `${buff.name} for today: ${buff.desc}` };
+  }
+
+  /** Buffs that are still active today. */
+  activeBuffs() {
+    const today = this.today;
+    return (this.data.buffs ?? [])
+      .filter((entry) => entry.day === today)
+      .map((entry) => BUFFS.find((b) => b.id === entry.id))
+      .filter((b): b is NonNullable<typeof b> => !!b);
+  }
+
+  buffSum(kind: 'speed' | 'luck'): number {
+    return this.activeBuffs()
+      .filter((b) => b.kind === kind)
+      .reduce((sum, b) => sum + b.value, 0);
+  }
+
+  // ----------------------------------------------------------------- forage
+
+  /** Rolls the wild plants that appear on the farm this morning. */
+  private spawnForage(): number {
+    const list = FORAGE.filter((f) => f.seasons.includes(this.data.season));
+    if (list.length === 0) {
+      this.data.forage = [];
+      return 0;
+    }
+    const total = list.reduce((sum, f) => sum + f.weight, 0);
+    const count = randomInt(2, 4, this.rng);
+    const spawned: SaveData['forage'] = [];
+    const used = new Set<string>();
+    for (let i = 0; i < count; i++) {
+      let roll = this.rng() * total;
+      let pickDef = list[0];
+      for (const f of list) {
+        roll -= f.weight;
+        if (roll <= 0) {
+          pickDef = f;
+          break;
+        }
+      }
+      for (let tries = 0; tries < 40; tries++) {
+        const x = randomInt(2, WORLD_W - 3, this.rng);
+        const y = randomInt(3, WORLD_H - 3, this.rng);
+        const key = `${x},${y}`;
+        if (used.has(key)) continue;
+        if (!this.isForageSpot(x, y)) continue;
+        used.add(key);
+        spawned.push({ uid: uid('f'), itemId: pickDef.itemId, x, y, day: this.data.day });
+        break;
+      }
+    }
+    this.data.forage = spawned;
+    return spawned.length;
+  }
+
+  /** Wild plants only grow on open, walkable, unowned ground. */
+  isForageSpot(x: number, y: number): boolean {
+    if (!inBounds(x, y)) return false;
+    if (isWaterTile(x, y) || isObstacleTile(x, y) || isPathTile(x, y)) return false;
+    if (isMineNodeTile(x, y)) return false;
+    if (plotIndexAt(x, y) >= 0) return false;
+    if (this.buildingAt(x, y)) return false;
+    return true;
+  }
+
+  forageAt(x: number, y: number) {
+    return (this.data.forage ?? []).find((f) => f.x === x && f.y === y);
+  }
+
+  pickForage(forageUid: string): ActionResult {
+    const list = this.data.forage ?? [];
+    const spot = list.find((f) => f.uid === forageUid);
+    if (!spot) return { ok: false, message: 'Nothing to pick there.' };
+    const cost = this.energyCost('forage');
+    if (!this.hasEnergy(cost)) return this.outOfEnergy(cost);
+    if (this.freeSpaceFor(spot.itemId) < 1) return { ok: false, message: 'Your backpack is full.' };
+    this.spendEnergy(cost);
+    this.addItem(spot.itemId, 1);
+    this.data.forage = list.filter((f) => f.uid !== forageUid);
+    this.data.stats.foragePicked += 1;
+    this.addXp('farming', 3, false);
+    this.emitChange();
+    this.emit('forage', { x: spot.x, y: spot.y });
+    return { ok: true, message: `Picked ${ITEMS[spot.itemId]?.name ?? 'a wild plant'}.` };
+  }
+
+  // ------------------------------------------------------------------- mail
+
+  /** Letters waiting in the mailbox. */
+  unreadMail(): number {
+    return (this.data.mail ?? []).filter((m) => !m.read).length;
+  }
+
+  claimLetter(id: string): ActionResult {
+    const def = LETTERS.find((l) => l.id === id);
+    if (!def) return { ok: false, message: 'Unknown letter.' };
+    const entry = (this.data.mail ?? []).find((m) => m.id === id);
+    if (!entry) return { ok: false, message: 'That letter has not arrived yet.' };
+    if (entry.claimed) return { ok: false, message: 'You already took what was enclosed.' };
+    if (def.itemId && this.freeSpaceFor(def.itemId) < (def.itemQty ?? 1)) {
+      return { ok: false, message: 'Make room in your backpack first.' };
+    }
+    entry.claimed = true;
+    entry.read = true;
+    if (def.coins > 0) {
+      this.data.coins += def.coins;
+      this.data.stats.coinsEarned += def.coins;
+    }
+    if (def.itemId) this.addItem(def.itemId, def.itemQty ?? 1);
+    this.emitChange();
+    const parts: string[] = [];
+    if (def.coins > 0) parts.push(`${def.coins} coins`);
+    if (def.itemId) parts.push(`${def.itemQty ?? 1} × ${ITEMS[def.itemId]?.name ?? def.itemId}`);
+    return { ok: true, message: parts.length ? `Took ${parts.join(' and ')}.` : 'Letter read.' };
+  }
+
+  /** New letters arrive as the farmer levels up. */
+  private deliverLetters(): string[] {
+    const arrived: string[] = [];
+    if (!this.data.mail) this.data.mail = [];
+    for (const letter of LETTERS) {
+      if (this.data.mail.some((m) => m.id === letter.id)) continue;
+      if (this.level < letter.atLevel) continue;
+      this.data.mail.push({ id: letter.id, read: false, claimed: false, day: this.data.day });
+      arrived.push(letter.subject);
+    }
+    return arrived;
+  }
+
+  // --------------------------------------------------------------- bundles
+
+  bundleState(id: string) {
+    const def = BUNDLE_SETS.find((b) => b.id === id);
+    if (!def) return null;
+    const saved = (this.data.bundles ?? []).find((b) => b.id === id);
+    const donated = saved?.donated ?? {};
+    const requirements = def.requirements.map((req) => ({
+      ...req,
+      donated: Math.min(req.qty, donated[req.itemId] ?? 0),
+      done: (donated[req.itemId] ?? 0) >= req.qty
+    }));
+    return {
+      def,
+      requirements,
+      complete: requirements.every((r) => r.done),
+      claimed: saved?.claimed ?? false
+    };
+  }
+
+  /** Hands goods from the backpack to a community bundle. */
+  donateToBundle(id: string, itemId: string): ActionResult {
+    const state = this.bundleState(id);
+    if (!state) return { ok: false, message: 'Unknown bundle.' };
+    if (state.claimed) return { ok: false, message: 'That bundle is already complete.' };
+    const req = state.requirements.find((r) => r.itemId === itemId);
+    if (!req) return { ok: false, message: 'That bundle does not ask for this.' };
+    if (req.done) return { ok: false, message: 'That part of the bundle is already filled.' };
+    if (!this.hasItem(itemId)) return { ok: false, message: 'You do not have that item.' };
+    const need = req.qty - req.donated;
+    const qty = Math.min(need, this.countItem(itemId));
+    this.removeItem(itemId, qty);
+    if (!this.data.bundles) this.data.bundles = [];
+    let saved = this.data.bundles.find((b) => b.id === id);
+    if (!saved) {
+      saved = { id, donated: {}, claimed: false };
+      this.data.bundles.push(saved);
+    }
+    saved.donated[itemId] = (saved.donated[itemId] ?? 0) + qty;
+    this.emitChange();
+    const name = ITEMS[itemId]?.name ?? itemId;
+    if (this.bundleState(id)?.complete) {
+      return { ok: true, message: `${name} donated. The ${state.def.name} bundle is complete! Claim your reward.` };
+    }
+    return { ok: true, message: `Donated ${qty} × ${name}.` };
+  }
+
+  claimBundle(id: string): ActionResult {
+    const state = this.bundleState(id);
+    if (!state) return { ok: false, message: 'Unknown bundle.' };
+    if (state.claimed) return { ok: false, message: 'Reward already claimed.' };
+    if (!state.complete) return { ok: false, message: 'Fill every line of the bundle first.' };
+    const saved = (this.data.bundles ?? []).find((b) => b.id === id);
+    if (saved) saved.claimed = true;
+    if (state.def.rewardItemId) {
+      if (this.freeSpaceFor(state.def.rewardItemId) < (state.def.rewardQty ?? 1)) {
+        return { ok: false, message: 'Make room in your backpack first.' };
+      }
+      this.addItem(state.def.rewardItemId, state.def.rewardQty ?? 1);
+    }
+    this.data.coins += state.def.coins;
+    this.data.stats.coinsEarned += state.def.coins;
+    this.grantXp(state.def.xp);
+    this.emitChange();
+    this.emit('bundle', { id });
+    return { ok: true, message: `Bundle complete! +${state.def.coins} coins.` };
+  }
+
+  bundlesCompleted(): number {
+    return (this.data.bundles ?? []).filter((b) => b.claimed).length;
+  }
+
+  /** Fills in anything a save from an older version is missing. */
+  private ensureDailyLife(): void {
+    if (!this.data.professions) this.data.professions = {};
+    if (!Array.isArray(this.data.forage)) this.data.forage = [];
+    if (!Array.isArray(this.data.mail)) this.data.mail = [];
+    if (!Array.isArray(this.data.bundles)) this.data.bundles = [];
+    if (!Array.isArray(this.data.buffs)) this.data.buffs = [];
+    const max = this.maxEnergy();
+    if (typeof this.data.energy !== 'number' || !Number.isFinite(this.data.energy)) {
+      this.data.energy = max;
+    }
+    this.data.energy = clamp(this.data.energy, 0, max);
+    this.deliverLetters();
   }
 
   private syncCollectionFromInventory(): void {
@@ -470,6 +814,8 @@ export class GameState {
 
   tillAt(cx: number, cy: number): ActionResult & { tiles: number } {
     const radius = (this.data.upgrades.hoe ?? 0) + this.toolBonus('till');
+    const perTile = this.energyCost('till');
+    if (!this.hasEnergy(perTile)) return { ...this.outOfEnergy(perTile), tiles: 0 };
     let count = 0;
     for (let y = cy - radius; y <= cy + radius; y++) {
       for (let x = cx - radius; x <= cx + radius; x++) {
@@ -477,8 +823,10 @@ export class GameState {
         const tile = this.tileAt(x, y);
         if (tile?.tilled) continue;
         if (!this.isWithinInteraction(x, y)) continue;
+        if (!this.hasEnergy(perTile)) break;
         const t = this.ensureTile(x, y);
         t.tilled = true;
+        this.spendEnergy(perTile);
         this.data.stats.tills += 1;
         this.addXp('farming', 1, false);
         count += 1;
@@ -493,13 +841,17 @@ export class GameState {
 
   waterAt(cx: number, cy: number): ActionResult & { tiles: number } {
     const radius = (this.data.upgrades.can ?? 0) + this.toolBonus('water');
+    const perTile = this.energyCost('water');
+    if (!this.hasEnergy(perTile)) return { ...this.outOfEnergy(perTile), tiles: 0 };
     let count = 0;
     for (let y = cy - radius; y <= cy + radius; y++) {
       for (let x = cx - radius; x <= cx + radius; x++) {
         if (!inBounds(x, y) || !this.isWithinInteraction(x, y)) continue;
         const tile = this.tileAt(x, y);
         if (!tile || !tile.tilled || tile.watered) continue;
+        if (!this.hasEnergy(perTile)) break;
         tile.watered = true;
+        this.spendEnergy(perTile);
         this.data.stats.waters += 1;
         this.addXp('farming', 1, false);
         count += 1;
@@ -519,6 +871,9 @@ export class GameState {
     if (!tile?.tilled) return { ok: false, message: 'Till the soil first.' };
     if (tile.fertilized) return { ok: false, message: 'This tile is already fertilized.' };
     if (!this.hasItem('fertilizer')) return { ok: false, message: 'You have no fertilizer.' };
+    const fertCost = this.energyCost('fertilize');
+    if (!this.hasEnergy(fertCost)) return this.outOfEnergy(fertCost);
+    this.spendEnergy(fertCost);
     this.removeItem('fertilizer', 1);
     tile.fertilized = true;
     this.addXp('farming', 1, false);
@@ -539,6 +894,9 @@ export class GameState {
       return { ok: false, message: `${cropDef.name} grows in ${seasons}. Build a greenhouse to plant it now.` };
     }
     if (!this.hasItem(seedId)) return { ok: false, message: 'You are out of those seeds.' };
+    const plantCost = this.energyCost('plant');
+    if (!this.hasEnergy(plantCost)) return this.outOfEnergy(plantCost);
+    this.spendEnergy(plantCost);
     this.removeItem(seedId, 1);
     tile.crop = { id: cropDef.id, growth: 0, dryDays: 0, regrows: 0 };
     this.data.stats.planted += 1;
@@ -567,10 +925,14 @@ export class GameState {
     }
 
     const quality = this.rollQuality(tile);
-    const yieldQty = randomInt(def.yieldMin, def.yieldMax, this.rng);
+    const harvestCost = this.energyCost('harvest');
+    if (!this.hasEnergy(harvestCost)) return this.outOfEnergy(harvestCost);
+    let yieldQty = randomInt(def.yieldMin, def.yieldMax, this.rng);
+    if (this.professionSum('extraYield') > 0 && this.rng() < 0.25) yieldQty += 1;
     if (this.freeSpaceFor(def.harvestId, quality) < yieldQty) {
       return { ok: false, message: 'Your inventory is full!' };
     }
+    this.spendEnergy(harvestCost);
     this.addItem(def.harvestId, yieldQty, quality);
     this.data.stats.harvests += 1;
     if (def.id === 'carrots') this.data.stats.carrotsHarvested += yieldQty;
@@ -604,7 +966,7 @@ export class GameState {
   private rollQuality(tile: TileSave): Quality {
     const level = levelFromXp(this.data.xp.farming);
     const fert = tile.fertilized ? 0.16 : 0;
-    const luck = this.toolBonus('luck');
+    const luck = this.toolBonus('luck') + this.professionSum('luck') + this.buffSum('luck');
     const goldChance = 0.02 + fert + level * 0.008 + luck;
     const silverChance = 0.2 + fert * 1.4 + level * 0.015 + luck;
     const roll = this.rng();
@@ -640,7 +1002,8 @@ export class GameState {
     const def = ITEMS[itemId];
     if (!def) return 0;
     const base = def.sell || def.price;
-    return Math.max(1, Math.round(base * QUALITY_MULTIPLIER[quality] * this.marketTrend(itemId)));
+    const bonus = 1 + this.professionSum('sellPrice');
+    return Math.max(1, Math.round(base * QUALITY_MULTIPLIER[quality] * this.marketTrend(itemId) * bonus));
   }
 
   marketTrend(itemId: string): number {
@@ -991,8 +1354,10 @@ export class GameState {
     const def = ANIMALS[animal.species];
     if (!def) return { ok: false, message: 'Unknown animal.' };
     if (!animal.productReady) return { ok: false, message: 'No product ready yet.' };
-    if (this.freeSpaceFor(def.productId) < 1) return { ok: false, message: 'Your inventory is full.' };
-    this.addItem(def.productId, 1);
+    let qty = 1;
+    if (this.professionSum('extraYield') > 0 && this.rng() < 0.25) qty = 2;
+    if (this.freeSpaceFor(def.productId) < qty) return { ok: false, message: 'Your inventory is full.' };
+    this.addItem(def.productId, qty);
     animal.productReady = false;
     this.data.stats.productsCollected += 1;
     if (def.productId === 'egg' || def.productId === 'duck_egg') {
@@ -1328,11 +1693,17 @@ export class GameState {
     if (!node) return { ok: false, message: 'That rock is gone.' };
     if (!this.hasItem('pickaxe')) return { ok: false, message: 'You need a pickaxe.' };
     if (!this.isWithinInteraction(node.x, node.y)) return { ok: false, message: 'Move closer to the rock.' };
+    const mineCost = this.energyCost('mine');
+    if (!this.hasEnergy(mineCost)) return this.outOfEnergy(mineCost);
     const hp = nodeHp(this.data, node);
     if (hp <= 0) return { ok: false, message: 'This rock needs time to reform.' };
     const nextHp = hp - (1 + this.toolBonus('mine'));
     const finalHit = nextHp <= 0;
     const loot = miningLoot(node.kind, finalHit, this.rng);
+    if (this.professionSum('extraYield') > 0 && this.rng() < 0.25) {
+      const ore = loot.find((entry) => ITEMS[entry.itemId]?.type === 'ore');
+      if (ore) ore.qty += 1;
+    }
     for (const entry of loot) {
       const def = ITEMS[entry.itemId];
       if (def && this.freeSpaceFor(entry.itemId) < entry.qty) {
@@ -1340,6 +1711,7 @@ export class GameState {
       }
     }
     for (const entry of loot) this.addItem(entry.itemId, entry.qty);
+    this.spendEnergy(mineCost);
     const state: MineNodeSave = {
       hp: nextHp,
       respawnDay: finalHit ? this.today + 2 : 0
@@ -1624,6 +1996,22 @@ export class GameState {
       if (def?.kind === 'sprinkler') this.waterAroundBuilding(b, def.radius ?? 1);
     }
 
+    // 5b) A good night's sleep refills the day's energy.
+    d.energy = this.maxEnergy();
+    d.buffs = [];
+
+    // 5c) Wild plants appear on open ground, and crows look for a meal.
+    this.spawnForage();
+    const crows = this.crowAttack();
+    if (crows.eaten > 0) {
+      wilted += crows.eaten;
+      messages.push(
+        crows.scared
+          ? `Crows pecked ${crows.eaten} crop${crows.eaten === 1 ? '' : 's'}, but your scarecrow kept most of them away.`
+          : `${crows.eaten} crop${crows.eaten === 1 ? ' was' : 's were'} eaten by crows overnight. A scarecrow would protect your fields.`
+      );
+    }
+
     // 6) Storm damage.
     if (d.weather === 'storm') {
       let damaged = 0;
@@ -1661,6 +2049,8 @@ export class GameState {
       messages.push(`${FESTIVALS[d.season].name} judging is open today!`);
     }
     d.daily = generateDaily(d.day, d.stats, this.rng);
+    const newLetters = this.deliverLetters();
+    if (newLetters.length > 0) messages.push(`New mail: ${newLetters.join(', ')}.`);
     this.checkProgress();
 
     this.emitChange();
@@ -1679,6 +2069,33 @@ export class GameState {
   }
 
   // -------------------------------------------------------------- progress
+
+  /** Crows try to eat crops overnight. Scarecrows keep them off nearby fields. */
+  crowAttack(): { eaten: number; scared: boolean } {
+    // Give a new farm a few calm nights before the birds find it.
+    if (this.data.stats.daysPlayed < 3) return { eaten: 0, scared: false };
+    const scarecrows = this.data.buildings.filter((b) => b.id === 'scarecrow');
+    let eaten = 0;
+    let scared = false;
+    for (const [key, tile] of Object.entries(this.data.tiles)) {
+      if (!tile.crop) continue;
+      const def = CROPS[tile.crop.id];
+      if (!def || tile.crop.growth >= def.growthDays) continue;
+      const [sx, sy] = key.split(',').map(Number);
+      const guarded = scarecrows.some(
+        (s) => Math.abs(s.x - sx) <= 4 && Math.abs(s.y - sy) <= 4
+      );
+      const chance = guarded ? 0.02 : 0.06;
+      if (guarded) scared = true;
+      if (this.rng() < chance) {
+        tile.crop = undefined;
+        tile.fertilized = false;
+        eaten += 1;
+      }
+    }
+    this.data.stats.cropsLost += eaten;
+    return { eaten, scared };
+  }
 
   addXp(skill: SkillKey, amount: number, check = true): void {
     if (amount <= 0) return;

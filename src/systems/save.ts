@@ -1,10 +1,16 @@
 import {
   AUTOMATION,
+  BASE_MAX_ENERGY,
+  BUFFS,
+  BUNDLE_SETS,
   COLLECTION_SETS,
   CURRENT_SAVE_VERSION,
   DEFAULT_SETTINGS,
   FESTIVAL_RIBBONS,
+  ITEMS,
+  LETTERS,
   NPCS,
+  PROFESSIONS,
   TOOLS,
   levelFromXp
 } from '../data/definitions';
@@ -113,7 +119,9 @@ function sanitizeStats(raw: unknown): Stats {
     fishCaught: Math.max(0, toFinite(stats.fishCaught, 0)),
     fishingCasts: Math.max(0, toFinite(stats.fishingCasts, 0)),
     rocksMined: Math.max(0, toFinite(stats.rocksMined, 0)),
-    oresMined: Math.max(0, toFinite(stats.oresMined, 0))
+    oresMined: Math.max(0, toFinite(stats.oresMined, 0)),
+    foragePicked: Math.max(0, toFinite(stats.foragePicked, 0)),
+    cropsLost: Math.max(0, toFinite(stats.cropsLost, 0))
   };
 }
 
@@ -225,6 +233,78 @@ function sanitizeSeasonal(raw: unknown): SeasonalSave | null {
   };
 }
 
+function sanitizeProfessions(raw: unknown): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  if (!isRecord(raw)) return result;
+  for (const [skill, value] of Object.entries(raw)) {
+    if (!Array.isArray(value)) continue;
+    const ids = value.filter(
+      (id): id is string =>
+        typeof id === 'string' && PROFESSIONS.some((p) => p.id === id && p.skill === skill)
+    );
+    const perTier = new Map<number, string>();
+    for (const id of ids) {
+      const def = PROFESSIONS.find((p) => p.id === id);
+      if (def && !perTier.has(def.level)) perTier.set(def.level, id);
+    }
+    if (perTier.size > 0) result[skill] = [...perTier.values()];
+  }
+  return result;
+}
+
+function sanitizeForage(raw: unknown): SaveData['forage'] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .filter((entry) => typeof entry.itemId === 'string' && !!ITEMS[entry.itemId as string])
+    .map((entry) => ({
+      uid: typeof entry.uid === 'string' ? entry.uid : 'f',
+      itemId: entry.itemId as string,
+      x: Math.max(0, Math.floor(toFinite(entry.x, 0))),
+      y: Math.max(0, Math.floor(toFinite(entry.y, 0))),
+      day: Math.max(0, Math.floor(toFinite(entry.day, 0)))
+    }));
+}
+
+function sanitizeMail(raw: unknown): SaveData['mail'] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .filter((entry) => typeof entry.id === 'string' && LETTERS.some((l) => l.id === entry.id))
+    .map((entry) => ({
+      id: entry.id as string,
+      read: toBool(entry.read, false),
+      claimed: toBool(entry.claimed, false),
+      day: Math.max(0, Math.floor(toFinite(entry.day, 0)))
+    }));
+}
+
+function sanitizeBundles(raw: unknown): SaveData['bundles'] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .filter((entry) => typeof entry.id === 'string' && BUNDLE_SETS.some((b) => b.id === entry.id))
+    .map((entry) => {
+      const donated: Record<string, number> = {};
+      const saved = isRecord(entry.donated) ? entry.donated : {};
+      for (const [itemId, qty] of Object.entries(saved)) {
+        donated[itemId] = Math.max(0, Math.floor(toFinite(qty, 0)));
+      }
+      return { id: entry.id as string, donated, claimed: toBool(entry.claimed, false) };
+    });
+}
+
+function sanitizeBuffs(raw: unknown): SaveData['buffs'] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .filter((entry) => typeof entry.id === 'string' && BUFFS.some((b) => b.id === entry.id))
+    .map((entry) => ({
+      id: entry.id as string,
+      day: Math.max(0, Math.floor(toFinite(entry.day, 0)))
+    }));
+}
+
 /** Upgrades older save shapes. Exported for tests. */
 export function migrateSave(raw: unknown): SaveData {
   if (!isRecord(raw)) throw new Error('Save data is not an object.');
@@ -280,6 +360,15 @@ export function migrateSave(raw: unknown): SaveData {
     if (!isRecord(data.npcs)) data.npcs = {};
     if (typeof data.spouseId !== 'string') data.spouseId = null;
     data.version = 9;
+  }
+  if (version < 10) {
+    if (typeof data.energy !== 'number') data.energy = BASE_MAX_ENERGY;
+    if (!isRecord(data.professions)) data.professions = {};
+    if (!Array.isArray(data.forage)) data.forage = [];
+    if (!Array.isArray(data.mail)) data.mail = [];
+    if (!Array.isArray(data.bundles)) data.bundles = [];
+    if (!Array.isArray(data.buffs)) data.buffs = [];
+    data.version = 10;
   }
 
   data.version = CURRENT_SAVE_VERSION;
@@ -380,7 +469,13 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
     selectedItemId: typeof d.selectedItemId === 'string' ? d.selectedItemId : 'hoe',
     toolsOwned: Array.isArray(d.toolsOwned)
       ? d.toolsOwned.filter((id): id is string => typeof id === 'string' && TOOL_IDS.has(id))
-      : []
+      : [],
+    energy: Math.max(0, toFinite(d.energy, BASE_MAX_ENERGY)),
+    professions: sanitizeProfessions(d.professions),
+    forage: sanitizeForage(d.forage),
+    mail: sanitizeMail(d.mail),
+    bundles: sanitizeBundles(d.bundles),
+    buffs: sanitizeBuffs(d.buffs)
   };
 
   return save;

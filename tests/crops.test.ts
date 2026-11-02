@@ -96,9 +96,9 @@ describe('crop lifecycle', () => {
     expect(state.fertilizeAt(FIELD_X, FIELD_Y).ok).toBe(false);
   });
 
-  it('exposes all sixty seeds with valid crop definitions', () => {
-    expect(SEED_IDS).toHaveLength(60);
-    expect(Object.keys(CROPS)).toHaveLength(60);
+  it('exposes all ninety-four seeds with valid crop definitions', () => {
+    expect(SEED_IDS).toHaveLength(94);
+    expect(Object.keys(CROPS)).toHaveLength(94);
     for (const seedId of SEED_IDS) {
       expect(stateCanPlant(seedId)).toBeDefined();
     }

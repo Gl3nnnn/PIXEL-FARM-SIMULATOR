@@ -10,19 +10,24 @@ Once GitHub Pages is enabled, the game is available at:
 
 ## Features
 
-- 60 crops with season restrictions, growth stages, watering, fertilizing, and regrowth
-- 55 animals with feeding, petting, happiness, health, and daily products
+- 94 crops with season restrictions, growth stages, watering, fertilizing, and regrowth
+- 75 animals with feeding, petting, happiness, health, and daily products
 - 9 kinds of animal housing, 50 farm tools with real bonuses, and 60+ placeable buildings plus the upgradable farmhouse, farm expansions, and backpack upgrades
 - Crafting recipes, a general store, and a market with deterministic daily price trends
 - 28-day seasons, weather (sun, rain, storm), day/night lighting, and lightning
 - Main quests, daily quests, achievements, six skills, and unlock progression
+- **Energy**: farm work spends energy, sleep refills it, and cooked dishes restore or buff it
+- **Professions**: pick one of two paths per skill at level 5 and again at level 10
+- **Foraging**: seasonal wild plants appear on open ground each morning and can be picked up
+- **Crows**: birds eat unprotected crops overnight unless a Scarecrow stands nearby
+- **Community bundles**: eight donation bundles with coins, XP and rare item rewards, plus a mailbox that delivers letters with gifts as you level up
 - Seasonal festival board with three themed contracts, plus Day 28 judging contests and ribbons
 - Farm Almanac with crop economics, livestock returns, fish records, and a collection album
 - Helper's Cottage automation: auto-feed, auto-collect, auto-harvest, and auto-replant
 - Eight seasonal fish, bait, a fishing minigame, and three fish recipes
-- A quarry with 13 respawning stone, copper, iron, gold, and gem nodes
+- A 64 × 48 tile farm: 11 fields to unlock, six ponds to fish, and two quarries with 22 rock nodes
 - Five visitors with weekly schedules, requests, gifts, birthdays, hearts, romance, and marriage
-- Three local save slots backed by IndexedDB, with autosave, v1-v9 migration, and JSON backup/restore
+- Three local save slots backed by IndexedDB, with autosave, v1-v10 migration, and JSON backup/restore
 - Desktop keyboard/mouse controls plus touch joystick and USE button
 - Procedural pixel art and synthesized audio with zero external asset downloads
 
@@ -35,6 +40,7 @@ Once GitHub Pages is enabled, the game is available at:
 | Select hotbar slot | Number keys `1`-`0` or click a slot |
 | Shop / Market / Bag | `H` / `M` / `I` |
 | Build / Quests / Almanac / People | `B` / `Q` / `L` / `T` |
+| Community (energy, professions, bundles, mail) | `U` |
 | Fish / mine | Select the fishing rod or pickaxe, then click water or a quarry rock |
 | Pause | `Esc` |
 | Sleep and advance the day | Sleep button in the HUD |
@@ -45,9 +51,11 @@ Open the **Quest Journal** for seasonal contracts. Each season has three themed 
 
 Buy the **Fishing Rod** and **Pickaxe** at the store, then use the hotbar to fish at the pond edge or mine quarry rocks. Bait widens the fishing minigame's catch zone. The **Helper's Cottage** unlocks overnight automation helpers after farmer level 6. Visitors appear on weekly schedules; talk, give gifts, and build hearts with `T` or by clicking a visitor.
 
+Every job spends **energy**, shown in the top bar. When it runs low, sleep to refill it, or eat a cooked dish. Skills reach level 5 and 10 to unlock **professions**, chosen in the **Community** panel with `U`. The same panel holds the **community bundles** (donate goods for coins, XP and rare rewards) and your **mailbox**. Wild plants appear on open ground each morning; click one to pick it up. After your first few days, **crows** start eating young crops overnight - a **Scarecrow** keeps them away from the fields around it.
+
 ## Save Backups
 
-Saves stay in this browser unless you export them. Open **Load Game** and choose **Export** on an occupied slot to download a JSON backup. Use **Import save** to restore a backup into any slot; occupied slots require confirmation before being replaced. Backups are compatible with older v1-v9 saves and are validated before import.
+Saves stay in this browser unless you export them. Open **Load Game** and choose **Export** on an occupied slot to download a JSON backup. Use **Import save** to restore a backup into any slot; occupied slots require confirmation before being replaced. Backups are compatible with older v1-v10 saves and are validated before import.
 
 ## Development
 

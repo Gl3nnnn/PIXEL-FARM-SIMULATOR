@@ -18,6 +18,7 @@ import { renderStats } from './panels/stats';
 import { renderSettings } from './panels/settings';
 import { renderFestival } from './panels/festival';
 import { renderPeople } from './panels/people';
+import { renderCommunity } from './panels/community';
 import { npcLine } from '../systems/npcs';
 import type Phaser from 'phaser';
 
@@ -47,6 +48,7 @@ const PANEL_META: Record<string, { title: string; subtitle: string }> = {
   stats: { title: 'Statistics', subtitle: 'A snapshot of your farming journey and lifetime totals.' },
   festival: { title: 'Festival Day', subtitle: 'Show the judges your finest goods. One entry per year.' },
   people: { title: 'People', subtitle: 'Talk, fulfill requests, and build friendships with farm visitors.' },
+  community: { title: 'Community', subtitle: 'Manage your energy, professions, community bundles, and mail.' },
   settings: { title: 'Settings', subtitle: 'Adjust sound and manage your local save.' }
 };
 
@@ -61,6 +63,7 @@ export class GameUI {
   private dateEl!: HTMLElement;
   private clockEl!: HTMLElement;
   private weatherEl!: HTMLElement;
+  private energyEl!: HTMLElement;
   private levelEl!: HTMLElement;
   private levelBar!: HTMLElement;
   private saveEl!: HTMLElement;
@@ -107,6 +110,7 @@ export class GameUI {
     stats: renderStats,
     festival: renderFestival,
     people: renderPeople,
+    community: renderCommunity,
     settings: renderSettings
   };
 
@@ -165,7 +169,7 @@ export class GameUI {
     const xpWrap = el('div', 'level-bar');
     this.levelBar = el('div', 'level-fill');
     xpWrap.appendChild(this.levelBar);
-    middle.append(levelTop, xpWrap);
+    middle.append(levelTop, xpWrap, this.energyEl);
 
     const right = el('div', 'hud-cluster hud-buttons');
     const mk = (label: string, panel: string, key?: string) => {
@@ -223,6 +227,7 @@ export class GameUI {
       this.navMoreMenu.appendChild(item);
     };
     moreItem('Animals', 'animals');
+    moreItem('Community', 'community', 'U');
     moreItem('Workshop', 'craft', 'C');
     moreItem('Almanac', 'almanac', 'L');
     moreItem('People', 'people', 'T');
@@ -923,7 +928,20 @@ export class GameUI {
     this.levelEl.textContent = `Farmer Lv ${xp.level}`;
     this.levelBar.style.width = `${Math.max(2, Math.min(100, (xp.into / Math.max(1, xp.need)) * 100))}%`;
     this.renderHotbar();
+    this.refreshEnergyChip();
     this.updateTutorial();
+  }
+
+  private refreshEnergyChip(): void {
+    if (!this.energyEl) return;
+    const cur = this.state.energy();
+    const max = this.state.maxEnergy();
+    const pct = Math.max(0, Math.min(100, (cur / Math.max(1, max)) * 100));
+    this.energyEl.classList.toggle('low', cur <= max * 0.15);
+    this.energyEl.innerHTML =
+      `<span class="energy-label">Energy</span>` +
+      `<span class="energy-bar"><span class="energy-fill" style="width:${pct}%"></span></span>` +
+      `<strong>${cur}/${max}</strong>`;
   }
 
   private refreshClock(): void {
@@ -1227,7 +1245,8 @@ export class GameUI {
       q: 'quests',
       l: 'almanac',
       t: 'people',
-      c: 'craft'
+      c: 'craft',
+      u: 'community'
     };
     const panel = keys[e.key.toLowerCase()];
     if (panel && !e.ctrlKey && !e.metaKey) {

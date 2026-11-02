@@ -125,6 +125,7 @@ export class GameScene extends Phaser.Scene {
   private buildMode: string | null = null;
   private pendingBuild: { x: number; y: number } | null = null;
   private sleeping = false;
+  private forageViews: Phaser.GameObjects.Image[] = [];
   private lastGroundSeason: Season | null = null;
   private lastLightUpdate = 0;
   private waterFrameTimer?: Phaser.Time.TimerEvent;
@@ -189,6 +190,7 @@ export class GameScene extends Phaser.Scene {
     this.buildLockedPlots();
     this.buildMineNodes();
     this.buildNpcs();
+    this.drawForage();
     this.buildFestivalDecor();
     this.createAnimals();
     this.createPlayer();
@@ -574,6 +576,29 @@ export class GameScene extends Phaser.Scene {
       gfx.fillRect(px + TILE - 2, py, 2, TILE);
       gfx.fillStyle(foam, 0.45);
       gfx.fillRect(px + TILE - 3, py + 5, 2, TILE - 10);
+    }
+  }
+
+  private drawForage(): void {
+    if (this.forageViews) {
+      this.forageViews.forEach((sprite) => sprite.destroy());
+    }
+    this.forageViews = [];
+    for (const spot of this.state.data.forage ?? []) {
+      const sprite = this.add
+        .image(spot.x * TILE + TILE / 2, spot.y * TILE + TILE / 2, `icon_${spot.itemId}`)
+        .setDepth(540)
+        .setScale(0.7);
+      sprite.setAlpha(0.95);
+      this.tweens.add({
+        targets: sprite,
+        y: sprite.y - 2,
+        duration: 1400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
+      this.forageViews.push(sprite);
     }
   }
 
@@ -1215,6 +1240,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const item = this.state.selectedItem();
+    const wild = this.state.forageAt(x, y);
+    if (wild) {
+      const picked = this.state.pickForage(wild.uid);
+      if (picked.ok) {
+        audio.play('harvest');
+        this.ui.notify(picked.message ?? 'Picked.', 'success');
+        this.spawnActionParticles(x, y, 'sparkle');
+        this.drawForage();
+        void this.saveGame();
+      } else {
+        audio.play('error');
+        this.ui.notify(picked.message ?? 'You cannot pick that.', 'error');
+      }
+      return;
+    }
     const node = this.state.mineNodeAtTile(x, y);
     if (node) {
       if (item !== 'pickaxe') {
@@ -1776,6 +1816,7 @@ export class GameScene extends Phaser.Scene {
       this.facing = 'down';
       this.player.setTexture('player_down_0');
       this.lastLightUpdate = 400;
+      this.drawForage();
       this.updateLighting(0);
       this.cameras.main.fadeIn(520, 6, 12, 24);
       this.sleeping = false;
@@ -2127,7 +2168,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.state.paused && !this.sleeping) {
       const boots = this.state.data.upgrades.boots ?? 0;
-      let speed = 122 * (1 + boots * 0.12 + this.state.toolBonus('speed'));
+      let speed = 122 * (1 + boots * 0.12 + this.state.toolBonus('speed') + this.state.buffSum('speed'));
       const feetTile = worldToTile(this.player.x, this.player.y);
       if (isPathTile(feetTile.x, feetTile.y)) speed *= 1.25;
 
