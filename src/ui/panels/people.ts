@@ -1,5 +1,5 @@
 import { audio } from '../../systems/audio';
-import { NPC_MAX_HEARTS } from '../../systems/npcs';
+import { NPC_MAX_HEARTS, npcScheduleLabel } from '../../systems/npcs';
 import type { UIContext } from '../context';
 import { button, el, pill, progressBar, section } from '../uiKit';
 
@@ -47,6 +47,9 @@ export function renderPeople(ctx: UIContext, root: HTMLElement): void {
       const tags = el('div', 'tag-row');
       tags.appendChild(pill(entry.status, entry.status === 'Married' ? 'good' : ''));
       tags.appendChild(pill(`Birthday ${entry.birthday}`, entry.birthdayToday ? 'gold' : ''));
+      tags.appendChild(pill(npcScheduleLabel(entry.npc)));
+      const heartEvents = entry.record.heartEvents?.length ?? 0;
+      tags.appendChild(pill(`Heart events ${heartEvents}/5`, heartEvents >= 5 ? 'good' : ''));
       tags.appendChild(
         pill(
           entry.available ? 'Visiting now' : entry.reason,

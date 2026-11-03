@@ -104,6 +104,14 @@ export function npcAvailable(
   return { available: true, reason: 'On the farm now.' };
 }
 
+const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** A readable routine for the visitor: which days they call, and their hours. */
+export function npcScheduleLabel(npc: NpcDef): string {
+  const days = npc.visitDays.map((day) => WEEKDAY_NAMES[day] ?? String(day)).join(', ');
+  return `${days} · 8:00 AM – 6:00 PM`;
+}
+
 export function isNpcBirthday(npc: NpcDef, save: SaveData): boolean {
   return npc.birthdaySeason === save.season && npc.birthdayDay === save.day;
 }

@@ -1293,6 +1293,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const { x, y } = worldToTile(wx, wy);
+    const building = this.state.data.buildings.find((entry) => {
+      const def = BUILDINGS[entry.id];
+      if (!def) return false;
+      return x >= entry.x && x < entry.x + def.w && y >= entry.y && y < entry.y + def.h;
+    });
+    if (building) {
+      if (building.id === 'shipping_bin') {
+        this.ui.openPanel('shipping');
+        return;
+      }
+      if (BUILDINGS[building.id]?.kind === 'farmhouse') {
+        this.ui.openPanel('home');
+        return;
+      }
+    }
     this.performTileAction(x, y);
   }
 
@@ -2277,7 +2292,13 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.state.paused && !this.sleeping) {
       const boots = this.state.data.upgrades.boots ?? 0;
-      let speed = 122 * (1 + boots * 0.12 + this.state.toolBonus('speed') + this.state.buffSum('speed'));
+      let speed =
+      122 *
+      (1 +
+        boots * 0.12 +
+        this.state.toolBonus('speed') +
+        this.state.buffSum('speed') +
+        this.state.horseSpeedBonus());
       const feetTile = worldToTile(this.player.x, this.player.y);
       if (isPathTile(feetTile.x, feetTile.y)) speed *= 1.25;
 

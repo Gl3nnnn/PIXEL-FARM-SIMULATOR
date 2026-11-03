@@ -16,7 +16,8 @@ export type ItemType =
   | 'feed'
   | 'fertilizer'
   | 'fish'
-  | 'ore';
+  | 'ore'
+  | 'artifact';
 
 export type AnimalHousing = 'coop' | 'barn';
 
@@ -109,7 +110,8 @@ export type BuildingKind =
   | 'sprinkler'
   | 'decor'
   | 'farmhouse'
-  | 'automation';
+  | 'automation'
+  | 'shipping';
 
 export interface BuildingDef {
   id: string;
@@ -309,6 +311,8 @@ export interface NpcSave {
   giftedDay: number;
   met: boolean;
   requestWeek: number;
+  /** Friendship thresholds whose heart event has already played. */
+  heartEvents?: number[];
 }
 
 export interface UpgradeDef {
@@ -476,6 +480,103 @@ export interface BundleSave {
   claimed: boolean;
 }
 
+// ------------------------------------------------------- adventure & town life
+
+/** A weapon carried into the old mine. */
+export interface WeaponDef {
+  id: string;
+  name: string;
+  damage: number;
+  price: number;
+  unlockLevel: number;
+  desc: string;
+  color: number;
+}
+
+export type MineMonsterKind = 'slime' | 'bat' | 'crab' | 'shadow' | 'golem';
+
+export interface MineMonsterDef {
+  id: MineMonsterKind;
+  name: string;
+  minFloor: number;
+  hp: number;
+  damage: number;
+  xp: number;
+  loot: string[];
+  color: number;
+}
+
+/** Persistent progress for the multi-floor old mine. */
+export interface MineRunSave {
+  floor: number;
+  maxFloor: number;
+  hp: number;
+  maxHp: number;
+  weapon: string;
+  weapons: string[];
+  elevator: number[];
+  monstersDefeated: number;
+}
+
+export interface ShippingSave {
+  items: InventoryStack[];
+}
+
+export interface ChildSave {
+  id: string;
+  name: string;
+  ageDays: number;
+}
+
+export interface FamilySave {
+  children: ChildSave[];
+}
+
+export interface HouseSave {
+  furniture: string[];
+}
+
+export type FurnitureBonus = 'energy' | 'luck' | 'capacity' | 'friendship';
+
+export interface FurnitureDef {
+  id: string;
+  name: string;
+  cost: number;
+  bonus: FurnitureBonus;
+  value: number;
+  desc: string;
+  color: number;
+}
+
+export interface MuseumSave {
+  donated: string[];
+  claimed: string[];
+}
+
+export interface MuseumRewardDef {
+  id: string;
+  count: number;
+  coins: number;
+  xp: number;
+  itemId?: string;
+  itemQty?: number;
+  desc: string;
+}
+
+export interface PetSave {
+  type: 'dog' | 'cat' | null;
+  name: string;
+  affection: number;
+  lastPetDay: number;
+}
+
+export interface FestivalGameSave {
+  season: Season;
+  year: number;
+  played: boolean;
+  score: number;
+}
+
 export interface Stats {
   harvests: number;
   cropsSold: number;
@@ -497,6 +598,9 @@ export interface Stats {
   oresMined: number;
   foragePicked: number;
   cropsLost: number;
+  monstersDefeated: number;
+  artifactsFound: number;
+  itemsShipped: number;
 }
 
 export interface PlayerSave {
@@ -553,6 +657,22 @@ export interface SaveData {
   bundles: BundleSave[];
   /** Food buffs, cleared when the day ends. */
   buffs: BuffEntry[];
+  /** Progress in the old mine. */
+  mineRun: MineRunSave;
+  /** Goods waiting to be sold by the shipping bin overnight. */
+  shipping: ShippingSave;
+  /** Spouse, children and the family home. */
+  family: FamilySave;
+  /** Furniture placed inside the farmhouse. */
+  house: HouseSave;
+  /** Artifacts donated to the town museum. */
+  museum: MuseumSave;
+  /** The farm pet. */
+  pet: PetSave;
+  /** Whether a horse lives in the stable. */
+  horseOwned: boolean;
+  /** Festival minigame progress for the current season. */
+  festivalGame: FestivalGameSave;
 }
 
 export interface Settings {

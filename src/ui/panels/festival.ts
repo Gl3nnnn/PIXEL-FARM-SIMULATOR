@@ -35,6 +35,35 @@ export function renderFestival(ctx: UIContext, root: HTMLElement): void {
     card.appendChild(tags);
     content.appendChild(card);
 
+    const game = state.festivalGameState();
+    const gameSec = section('Festival Games', 'Three crates, one prize. A lucky farmer picks well.');
+    if (game.played) {
+      gameSec.appendChild(
+        el('p', 'hint', `You scored ${game.score} points at the games this season.`)
+      );
+    } else {
+      const row = el('div', 'row-actions');
+      for (let i = 0; i < 3; i++) {
+        row.appendChild(
+          button(`Crate ${i + 1}`, {
+            variant: i === 1 ? 'gold' : 'primary',
+            onClick: () => {
+              const result = state.playFestivalGame(i);
+              ctx.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+              audio.play(result.ok ? 'level' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+      }
+      gameSec.appendChild(row);
+      gameSec.appendChild(
+        el('p', 'hint', `Your luck bonus is +${Math.round(game.luck * 100)}%. One play each festival.`)
+      );
+    }
+    content.appendChild(gameSec);
+
     if (festival.submitted) {
       const result = section('Judging Result');
       result.appendChild(

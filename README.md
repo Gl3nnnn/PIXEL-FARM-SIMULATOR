@@ -27,7 +27,14 @@ Once GitHub Pages is enabled, the game is available at:
 - Eight seasonal fish, bait, a fishing minigame, and three fish recipes
 - A 64 × 48 tile farm laid out like a farmstead: a road grid, three fenced rows of fields (12 to unlock, every one with an upright rail fence and one gate facing its lane), two ponds to fish, and two quarries with 22 rock nodes
 - Five visitors with weekly schedules, requests, gifts, birthdays, hearts, romance, and marriage
-- Three local save slots backed by IndexedDB, with autosave, v1-v10 migration, and JSON backup/restore
+- **Old Mine**: 120 floors of procedural rock, ore, monsters, four weapons, a blacksmith, and an elevator every five floors
+- **Town hub**: clinic, saloon, museum, mine entrance, shipping, and homestead all reachable from one panel
+- **Shipping Bin**: leave goods overnight and the trader sells them at market price
+- **Museum**: six artifacts to donate, with three curator reward milestones
+- **Homestead**: adoption and growing children, a dog or cat with affection and luck bonuses, a rideable horse, and ten furniture pieces with permanent perks
+- NPC daily schedule labels and heart events with one-time coin rewards
+- Seasonal festival minigame with a luck-based prize crate
+- Three local save slots backed by IndexedDB, with autosave, v1-v11 migration, and JSON backup/restore
 - Desktop keyboard/mouse controls plus touch joystick and USE button
 - Procedural pixel art and synthesized audio with zero external asset downloads
 
@@ -41,7 +48,10 @@ Once GitHub Pages is enabled, the game is available at:
 | Shop / Market / Bag | `H` / `M` / `I` |
 | Build / Quests / Almanac / People | `B` / `Q` / `L` / `T` |
 | Community (energy, professions, bundles, mail) | `U` |
+| Town / Old Mine / Shipping / Homestead | `Y` / `N` / `V` / `O` |
+| Museum | `X` or from the Town panel |
 | Fish / mine | Select the fishing rod or pickaxe, then click water or a quarry rock |
+| Enter the shipping bin or farmhouse | Click the building on the farm |
 | Pause | `Esc` |
 | Sleep and advance the day | Sleep button in the HUD |
 

@@ -7,20 +7,30 @@ import {
   CURRENT_SAVE_VERSION,
   DEFAULT_SETTINGS,
   FESTIVAL_RIBBONS,
+  FURNITURE,
   ITEMS,
   LETTERS,
+  MINE_MAX_FLOOR,
+  MUSEUM_REWARDS,
   NPCS,
   PROFESSIONS,
   TOOLS,
+  WEAPONS,
   levelFromXp
 } from '../data/definitions';
+import { createMineRun } from './adventure';
 import { MINE_NODES } from './world';
 import type {
   AutomationSave,
+  ChildSave,
   CollectionSave,
+  FestivalGameSave,
   FestivalSave,
   InventoryStack,
+  MineRunSave,
+  MuseumSave,
   NpcSave,
+  PetSave,
   Quality,
   SaveData,
   SaveSlotInfo,
@@ -121,7 +131,10 @@ function sanitizeStats(raw: unknown): Stats {
     rocksMined: Math.max(0, toFinite(stats.rocksMined, 0)),
     oresMined: Math.max(0, toFinite(stats.oresMined, 0)),
     foragePicked: Math.max(0, toFinite(stats.foragePicked, 0)),
-    cropsLost: Math.max(0, toFinite(stats.cropsLost, 0))
+    cropsLost: Math.max(0, toFinite(stats.cropsLost, 0)),
+    monstersDefeated: Math.max(0, toFinite(stats.monstersDefeated, 0)),
+    artifactsFound: Math.max(0, toFinite(stats.artifactsFound, 0)),
+    itemsShipped: Math.max(0, toFinite(stats.itemsShipped, 0))
   };
 }
 
@@ -188,7 +201,13 @@ function sanitizeNpcs(raw: unknown): Record<string, NpcSave> {
       talkedDay: Math.max(0, toFinite(value.talkedDay, 0)),
       giftedDay: Math.max(0, toFinite(value.giftedDay, 0)),
       met: toBool(value.met, false),
-      requestWeek: Math.max(0, Math.floor(toFinite(value.requestWeek, 0)))
+      requestWeek: Math.max(0, Math.floor(toFinite(value.requestWeek, 0))),
+      heartEvents: Array.isArray(value.heartEvents)
+        ? value.heartEvents
+            .filter((threshold): threshold is number => typeof threshold === 'number')
+            .map((threshold) => Math.floor(threshold))
+            .filter((threshold) => [200, 400, 600, 800, 1000].includes(threshold))
+        : []
     };
   }
   return result;
@@ -305,6 +324,127 @@ function sanitizeBuffs(raw: unknown): SaveData['buffs'] {
     }));
 }
 
+const WEAPON_IDS = new Set(WEAPONS.map((weapon) => weapon.id));
+const FURNITURE_IDS = new Set(FURNITURE.map((entry) => entry.id));
+const MUSEUM_REWARD_IDS = new Set(MUSEUM_REWARDS.map((reward) => reward.id));
+
+function sanitizeMineRun(raw: unknown): MineRunSave {
+  const fallback = createMineRun();
+  if (!isRecord(raw)) return fallback;
+  const floor = Math.max(1, Math.min(MINE_MAX_FLOOR, Math.floor(toFinite(raw.floor, 1))));
+  const maxFloor = Math.max(
+    floor,
+    Math.min(MINE_MAX_FLOOR, Math.floor(toFinite(raw.maxFloor, floor)))
+  );
+  const weapons = Array.isArray(raw.weapons)
+    ? raw.weapons.filter((id): id is string => typeof id === 'string' && WEAPON_IDS.has(id))
+    : [];
+  if (!weapons.includes('rusty_sword')) weapons.unshift('rusty_sword');
+  const weapon =
+    typeof raw.weapon === 'string' && weapons.includes(raw.weapon) ? raw.weapon : 'rusty_sword';
+  const maxHp = Math.max(1, Math.floor(toFinite(raw.maxHp, fallback.maxHp)));
+  const elevator = Array.isArray(raw.elevator)
+    ? raw.elevator
+        .map((value) => Math.floor(toFinite(value, 0)))
+        .filter((value) => value >= 1 && value <= maxFloor && value % 5 === 1)
+    : [];
+  if (!elevator.includes(1)) elevator.unshift(1);
+  return {
+    floor,
+    maxFloor,
+    hp: Math.max(0, Math.min(maxHp, Math.floor(toFinite(raw.hp, maxHp)))),
+    maxHp,
+    weapon,
+    weapons: [...new Set(weapons)],
+    elevator: [...new Set(elevator)].sort((a, b) => a - b),
+    monstersDefeated: Math.max(0, Math.floor(toFinite(raw.monstersDefeated, 0)))
+  };
+}
+
+function sanitizeShipping(raw: unknown): SaveData['shipping'] {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const items: InventoryStack[] = [];
+  if (Array.isArray(record.items)) {
+    for (const entry of record.items) {
+      if (!isRecord(entry)) continue;
+      const itemId = typeof entry.itemId === 'string' ? entry.itemId : '';
+      const def = ITEMS[itemId];
+      if (!def || def.type === 'tool') continue;
+      const qty = Math.max(0, Math.min(def.stack, Math.floor(toFinite(entry.qty, 0))));
+      if (qty <= 0) continue;
+      const quality: Quality =
+        entry.quality === 'silver' || entry.quality === 'gold' ? entry.quality : 'normal';
+      items.push({ itemId, qty, quality });
+    }
+  }
+  return { items };
+}
+
+function sanitizeFamily(raw: unknown): SaveData['family'] {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const children: ChildSave[] = [];
+  if (Array.isArray(record.children)) {
+    for (const entry of record.children) {
+      if (!isRecord(entry)) continue;
+      const id = typeof entry.id === 'string' ? entry.id : '';
+      if (!id) continue;
+      children.push({
+        id,
+        name: typeof entry.name === 'string' && entry.name ? entry.name.slice(0, 24) : 'Little One',
+        ageDays: Math.max(0, Math.floor(toFinite(entry.ageDays, 0)))
+      });
+      if (children.length >= 2) break;
+    }
+  }
+  return { children };
+}
+
+function sanitizeHouse(raw: unknown): SaveData['house'] {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const furniture = Array.isArray(record.furniture)
+    ? [...new Set(record.furniture.filter((id): id is string => typeof id === 'string' && FURNITURE_IDS.has(id)))]
+    : [];
+  return { furniture };
+}
+
+function sanitizeMuseum(raw: unknown): MuseumSave {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const artifactIds = Object.values(ITEMS)
+    .filter((item) => item.type === 'artifact')
+    .map((item) => item.id);
+  const artifactSet = new Set(artifactIds);
+  const donated = Array.isArray(record.donated)
+    ? [...new Set(record.donated.filter((id): id is string => typeof id === 'string' && artifactSet.has(id)))]
+    : [];
+  const claimed = Array.isArray(record.claimed)
+    ? [...new Set(record.claimed.filter((id): id is string => typeof id === 'string' && MUSEUM_REWARD_IDS.has(id)))]
+    : [];
+  return { donated, claimed };
+}
+
+function sanitizePet(raw: unknown): PetSave {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const type = record.type === 'dog' || record.type === 'cat' ? record.type : null;
+  return {
+    type,
+    name: typeof record.name === 'string' && record.name ? record.name.slice(0, 24) : type ? 'Pip' : '',
+    affection: Math.max(0, Math.min(100, Math.floor(toFinite(record.affection, type ? 20 : 0)))),
+    lastPetDay: Math.max(0, Math.floor(toFinite(record.lastPetDay, 0)))
+  };
+}
+
+function sanitizeFestivalGame(raw: unknown): FestivalGameSave {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  return {
+    season: SEASONS.includes(record.season as never)
+      ? (record.season as FestivalGameSave['season'])
+      : 'spring',
+    year: Math.max(1, Math.floor(toFinite(record.year, 1))),
+    played: toBool(record.played, false),
+    score: Math.max(0, Math.floor(toFinite(record.score, 0)))
+  };
+}
+
 /** Upgrades older save shapes. Exported for tests. */
 export function migrateSave(raw: unknown): SaveData {
   if (!isRecord(raw)) throw new Error('Save data is not an object.');
@@ -369,6 +509,19 @@ export function migrateSave(raw: unknown): SaveData {
     if (!Array.isArray(data.bundles)) data.bundles = [];
     if (!Array.isArray(data.buffs)) data.buffs = [];
     data.version = 10;
+  }
+  if (version < 11) {
+    if (!isRecord(data.mineRun)) data.mineRun = createMineRun();
+    if (!isRecord(data.shipping)) data.shipping = { items: [] };
+    if (!isRecord(data.family)) data.family = { children: [] };
+    if (!isRecord(data.house)) data.house = { furniture: [] };
+    if (!isRecord(data.museum)) data.museum = { donated: [], claimed: [] };
+    if (!isRecord(data.pet)) data.pet = { type: null, name: '', affection: 0, lastPetDay: 0 };
+    if (typeof data.horseOwned !== 'boolean') data.horseOwned = false;
+    if (!isRecord(data.festivalGame)) {
+      data.festivalGame = { season: 'spring', year: 1, played: false, score: 0 };
+    }
+    data.version = 11;
   }
 
   data.version = CURRENT_SAVE_VERSION;
@@ -475,7 +628,15 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
     forage: sanitizeForage(d.forage),
     mail: sanitizeMail(d.mail),
     bundles: sanitizeBundles(d.bundles),
-    buffs: sanitizeBuffs(d.buffs)
+    buffs: sanitizeBuffs(d.buffs),
+    mineRun: sanitizeMineRun(d.mineRun),
+    shipping: sanitizeShipping(d.shipping),
+    family: sanitizeFamily(d.family),
+    house: sanitizeHouse(d.house),
+    museum: sanitizeMuseum(d.museum),
+    pet: sanitizePet(d.pet),
+    horseOwned: toBool(d.horseOwned, false),
+    festivalGame: sanitizeFestivalGame(d.festivalGame)
   };
 
   return save;

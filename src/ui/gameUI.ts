@@ -19,6 +19,11 @@ import { renderSettings } from './panels/settings';
 import { renderFestival } from './panels/festival';
 import { renderPeople } from './panels/people';
 import { renderCommunity } from './panels/community';
+import { renderTown } from './panels/town';
+import { renderMine } from './panels/mine';
+import { renderShipping } from './panels/shipping';
+import { renderMuseum } from './panels/museum';
+import { renderHomestead } from './panels/homestead';
 import { npcLine } from '../systems/npcs';
 import type Phaser from 'phaser';
 
@@ -50,6 +55,11 @@ const PANEL_META: Record<string, { title: string; subtitle: string }> = {
   festival: { title: 'Festival Day', subtitle: 'Show the judges your finest goods. One entry per year.' },
   people: { title: 'People', subtitle: 'Talk, fulfill requests, and build friendships with farm visitors.' },
   community: { title: 'Community', subtitle: 'Manage your energy, professions, community bundles, and mail.' },
+  town: { title: 'Valley Town', subtitle: 'Shops, the clinic, the museum, the old mine, and the saloon.' },
+  mine: { title: 'Old Mine', subtitle: 'Descend the shaft, mine ore, fight monsters, and unlock the elevator.' },
+  shipping: { title: 'Shipping Bin', subtitle: 'Leave goods overnight and the trader sells them by morning.' },
+  museum: { title: 'Town Museum', subtitle: 'Donate artifacts and claim the curator rewards.' },
+  home: { title: 'Homestead', subtitle: 'Family, pets, the stable, and furniture for the farmhouse.' },
   settings: { title: 'Settings', subtitle: 'Adjust sound and manage your local save.' }
 };
 
@@ -112,6 +122,11 @@ export class GameUI {
     festival: renderFestival,
     people: renderPeople,
     community: renderCommunity,
+    town: renderTown,
+    mine: renderMine,
+    shipping: renderShipping,
+    museum: renderMuseum,
+    home: renderHomestead,
     settings: renderSettings
   };
 
@@ -232,6 +247,10 @@ export class GameUI {
     moreItem('Workshop', 'craft', 'C');
     moreItem('Almanac', 'almanac', 'L');
     moreItem('People', 'people', 'T');
+    moreItem('Town', 'town', 'Y');
+    moreItem('Old Mine', 'mine', 'N');
+    moreItem('Shipping', 'shipping', 'V');
+    moreItem('Homestead', 'home', 'O');
     moreItem('Statistics', 'stats');
     this.navMoreMenu.appendChild(el('div', 'nav-more-sep'));
     const bedItem = el('button', 'nav-more-item');
@@ -1227,7 +1246,7 @@ export class GameUI {
       return;
     }
     if (e.key === '?') {
-      this.notify('Controls: WASD or arrows move. Click or drag with a tool. G harvest, F feed, E collect. Mouse wheel zooms. 1-0 pick items. H shop, M market, I inventory, B build, Q quests, L almanac, T people, C craft. Esc menu.', 'info');
+      this.notify('Controls: WASD or arrows move. Click or drag with a tool. G harvest, F feed, E collect. Mouse wheel zooms. 1-0 pick items. H shop, M market, I inventory, B build, Q quests, L almanac, T people, C craft, Y town, N mine, V shipping, O homestead. Esc menu.', 'info');
       return;
     }
     if (e.key >= '0' && e.key <= '9') {
@@ -1248,7 +1267,12 @@ export class GameUI {
       l: 'almanac',
       t: 'people',
       c: 'craft',
-      u: 'community'
+      u: 'community',
+      y: 'town',
+      n: 'mine',
+      v: 'shipping',
+      o: 'home',
+      x: 'museum'
     };
     const panel = keys[e.key.toLowerCase()];
     if (panel && !e.ctrlKey && !e.metaKey) {

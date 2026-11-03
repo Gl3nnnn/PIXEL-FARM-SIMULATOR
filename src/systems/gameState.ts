@@ -14,10 +14,15 @@ import {
   FESTIVALS,
   FISH,
   FORAGE,
+  FURNITURE,
   ITEMS,
   LETTERS,
   MAIN_QUESTS,
+  MINE_FLOOR_H,
+  MINE_FLOOR_W,
+  MINE_MAX_FLOOR,
   MINUTES_PER_REAL_SECOND,
+  MUSEUM_REWARDS,
   NPCS,
   PLOTS,
   PROFESSIONS,
@@ -31,6 +36,7 @@ import {
   TILE,
   TOOLS,
   UPGRADES,
+  WEAPONS,
   WORLD_H,
   WORLD_W,
   cropForSeed,
@@ -41,6 +47,7 @@ import type {
   ActionResult,
   AnimalSave,
   BuildingSave,
+  ChildSave,
   FestivalTier,
   MineNodeSave,
   NpcSave,
@@ -89,6 +96,31 @@ import { collectionSetState, collectionTotal, recordCollection } from './collect
 import { eligibleFish, selectFish } from './fishing';
 import { MINE_NODE_MAX_HP, mineNodeById, miningLoot, nodeHp } from './mining';
 import {
+  createMineRun,
+  equippedWeapon,
+  generateMineFloor,
+  maxMineHp,
+  monsterAt,
+  monsterDamage,
+  rockAt,
+  rockLoot,
+  weaponById
+} from './adventure';
+import type { MineFloorState } from './adventure';
+import {
+  canAdopt,
+  childStageLabel,
+  furnitureById,
+  growChildren,
+  houseBonus,
+  museumMilestones,
+  nextMuseumMilestone,
+  ownedFurniture,
+  petBonus,
+  petMood,
+  randomChildName
+} from './homestead';
+import {
   birthdayLabel,
   ensureNpcSave,
   friendshipHearts,
@@ -124,7 +156,10 @@ const EMPTY_STATS: Stats = {
   rocksMined: 0,
   oresMined: 0,
   foragePicked: 0,
-  cropsLost: 0
+  cropsLost: 0,
+  monstersDefeated: 0,
+  artifactsFound: 0,
+  itemsShipped: 0
 };
 
 type Handler = (payload?: unknown) => void;
@@ -168,7 +203,10 @@ export function createNewSave(): SaveData {
     minute: START_MINUTE,
     weather: 'sunny',
     tiles: {},
-    buildings: [{ uid: uid('b'), id: 'farmhouse', x: 4, y: 3 }],
+    buildings: [
+      { uid: uid('b'), id: 'farmhouse', x: 4, y: 3 },
+      { uid: uid('b'), id: 'shipping_bin', x: 11, y: 6 }
+    ],
     animals: [],
     inventory,
     unlockedPlots: 1,
@@ -196,7 +234,15 @@ export function createNewSave(): SaveData {
     forage: [],
     mail: [],
     bundles: [],
-    buffs: []
+    buffs: [],
+    mineRun: createMineRun(),
+    shipping: { items: [] },
+    family: { children: [] },
+    house: { furniture: [] },
+    museum: { donated: [], claimed: [] },
+    pet: { type: null, name: '', affection: 0, lastPetDay: 0 },
+    horseOwned: false,
+    festivalGame: { season: 'spring', year: 1, played: false, score: 0 }
   };
 }
 
@@ -206,6 +252,8 @@ export class GameState {
   /** True while a menu is open; the world simulation is paused. */
   paused = false;
   rng: () => number;
+  /** The mine floor currently being explored, if any. */
+  mineFloor: MineFloorState | null = null;
   private checkingAchievements = false;
   private lastLevel = 1;
 
@@ -220,6 +268,7 @@ export class GameState {
     this.ensureSeasonalBoard();
     this.ensureFestivalDay();
     this.ensureNpcs();
+    this.ensureLifeState();
     this.ensureDailyLife();
     this.syncCollectionFromInventory();
   }
@@ -233,7 +282,8 @@ export class GameState {
           talkedDay: 0,
           giftedDay: 0,
           met: false,
-          requestWeek: 0
+          requestWeek: 0,
+          heartEvents: []
         };
       }
     }
@@ -241,9 +291,13 @@ export class GameState {
 
   // ----------------------------------------------------------------- energy
 
-  /** Total energy a full day holds. Professions can raise it. */
+  /** Total energy a full day holds. Professions and furniture can raise it. */
   maxEnergy(): number {
-    return BASE_MAX_ENERGY + this.professionSum('maxEnergy');
+    return (
+      BASE_MAX_ENERGY +
+      this.professionSum('maxEnergy') +
+      houseBonus(this.data.house ?? { furniture: [] }, 'energy')
+    );
   }
 
   energy(): number {
@@ -660,7 +714,8 @@ export class GameState {
       (this.data.upgrades.backpack ?? 0) * 6 +
       sheds +
       this.toolBonus('bag') +
-      (this.data.farmhouseLevel - 1) * 4
+      (this.data.farmhouseLevel - 1) * 4 +
+      houseBonus(this.data.house ?? { furniture: [] }, 'capacity')
     );
   }
 
@@ -967,7 +1022,12 @@ export class GameState {
   private rollQuality(tile: TileSave): Quality {
     const level = levelFromXp(this.data.xp.farming);
     const fert = tile.fertilized ? 0.16 : 0;
-    const luck = this.toolBonus('luck') + this.professionSum('luck') + this.buffSum('luck');
+    const luck =
+      this.toolBonus('luck') +
+      this.professionSum('luck') +
+      this.buffSum('luck') +
+      houseBonus(this.data.house ?? { furniture: [] }, 'luck') +
+      petBonus(this.data.pet ?? { type: null, name: '', affection: 0, lastPetDay: 0 });
     const goldChance = 0.02 + fert + level * 0.008 + luck;
     const silverChance = 0.2 + fert * 1.4 + level * 0.015 + luck;
     const roll = this.rng();
@@ -1730,6 +1790,586 @@ export class GameState {
     };
   }
 
+  // ----------------------------------------------------------- old mine / town
+
+  private ensureLifeState(): void {
+    const d = this.data;
+    if (!d.mineRun) d.mineRun = createMineRun();
+    if (!d.shipping) d.shipping = { items: [] };
+    if (!d.family) d.family = { children: [] };
+    if (!d.house) d.house = { furniture: [] };
+    if (!d.museum) d.museum = { donated: [], claimed: [] };
+    if (!d.pet) d.pet = { type: null, name: '', affection: 0, lastPetDay: 0 };
+    if (typeof d.horseOwned !== 'boolean') d.horseOwned = false;
+    if (!d.festivalGame) {
+      d.festivalGame = { season: d.season, year: d.year, played: false, score: 0 };
+    }
+    for (const npc of Object.values(d.npcs ?? {})) {
+      if (!Array.isArray(npc.heartEvents)) npc.heartEvents = [];
+    }
+    this.syncMineStats();
+  }
+
+  private syncMineStats(): void {
+    const run = this.data.mineRun;
+    const max = maxMineHp(this.skillLevel('mining'), houseBonus(this.data.house, 'energy'));
+    run.maxHp = max;
+    if (!Number.isFinite(run.hp) || run.hp <= 0) run.hp = max;
+    run.hp = clamp(run.hp, 0, max);
+  }
+
+  /** Current mine status for the HUD and the mine panel. */
+  mineState() {
+    const run = this.data.mineRun;
+    return {
+      run,
+      weapon: equippedWeapon(run),
+      active: !!this.mineFloor,
+      floor: this.mineFloor
+        ? {
+            number: this.mineFloor.floor,
+            tiles: this.mineFloor.tiles,
+            rocks: this.mineFloor.rocks,
+            monsters: this.mineFloor.monsters,
+            ladder: this.mineFloor.ladder,
+            player: this.mineFloor.player,
+            steps: this.mineFloor.steps
+          }
+        : null
+    };
+  }
+
+  enterMine(floor = this.data.mineRun.floor): ActionResult {
+    if (!this.hasItem('pickaxe')) return { ok: false, message: 'You need a pickaxe to explore the old mine.' };
+    const target = clamp(Math.floor(floor), 1, MINE_MAX_FLOOR);
+    this.syncMineStats();
+    this.data.mineRun.floor = target;
+    this.data.mineRun.maxFloor = Math.max(this.data.mineRun.maxFloor, target);
+    this.data.mineRun.hp = this.data.mineRun.maxHp;
+    this.mineFloor = generateMineFloor(target, this.data, this.rng);
+    this.emitChange();
+    return { ok: true, message: `You climb down to mine floor ${target}.` };
+  }
+
+  private mineRescue(reason: string): string {
+    const run = this.data.mineRun;
+    const lost = Math.floor(this.data.coins * 0.1);
+    this.data.coins = Math.max(0, this.data.coins - lost);
+    run.floor = 1;
+    run.hp = run.maxHp;
+    this.mineFloor = null;
+    this.emitChange();
+    return `${reason} You wake at the mine entrance${lost > 0 ? `, ${lost} coins lighter` : ''}.`;
+  }
+
+  private grantMineLoot(
+    loot: Array<{ itemId: string; qty: number }>
+  ): { ok: boolean; message?: string } {
+    for (const entry of loot) {
+      if (this.freeSpaceFor(entry.itemId) < entry.qty) {
+        return { ok: false, message: 'Your backpack is full — leave some room before mining.' };
+      }
+    }
+    for (const entry of loot) {
+      this.addItem(entry.itemId, entry.qty);
+      if (ITEMS[entry.itemId]?.type === 'artifact') {
+        this.data.stats.artifactsFound += entry.qty;
+      }
+    }
+    return { ok: true };
+  }
+
+  mineStep(dx: number, dy: number): ActionResult {
+    if (!this.mineFloor) return this.enterMine();
+    const floor = this.mineFloor;
+    const run = this.data.mineRun;
+    const nx = floor.player.x + dx;
+    const ny = floor.player.y + dy;
+    if (nx <= 0 || ny <= 0 || nx >= MINE_FLOOR_W - 1 || ny >= MINE_FLOOR_H - 1) {
+      return { ok: false, message: 'A rock wall blocks the way.' };
+    }
+
+    const rock = rockAt(floor, nx, ny);
+    if (rock) {
+      const cost = this.energyCost('mine');
+      if (!this.hasEnergy(cost)) return this.outOfEnergy(cost);
+      const damage = 1 + this.toolBonus('mine');
+      rock.hp -= damage;
+      this.spendEnergy(cost);
+      this.addXp('mining', 1, false);
+      if (rock.hp > 0) {
+        this.emitChange();
+        return { ok: true, message: `The ${rock.kind} rock cracks (${rock.hp}/${rock.maxHp}).` };
+      }
+      const loot = rockLoot(rock.kind, this.rng);
+      const granted = this.grantMineLoot(loot);
+      if (!granted.ok) {
+        rock.hp = 1;
+        this.emitChange();
+        return { ok: false, message: granted.message };
+      }
+      floor.rocks = floor.rocks.filter((entry) => entry.id !== rock.id);
+      floor.tiles[ny][nx] = 'floor';
+      this.data.stats.rocksMined += 1;
+      this.data.stats.oresMined += loot.filter((entry) => ITEMS[entry.itemId]?.type === 'ore').length;
+      this.addXp('mining', 5, false);
+      this.emitChange();
+      return {
+        ok: true,
+        message: `You break the ${rock.kind === 'stone' ? 'rock' : `${rock.kind} vein`}!`
+      };
+    }
+
+    const monster = monsterAt(floor, nx, ny);
+    if (monster) {
+      const cost = 2;
+      if (!this.hasEnergy(cost)) return this.outOfEnergy(cost);
+      this.spendEnergy(cost);
+      const weapon = equippedWeapon(run);
+      const damage =
+        weapon.damage + Math.floor(this.skillLevel('mining') / 2) + randomInt(0, 2, this.rng);
+      monster.hp -= damage;
+      this.addXp('mining', 1, false);
+      if (monster.hp > 0) {
+        const hurt = monsterDamage(monster.def, floor.floor);
+        run.hp = Math.max(0, run.hp - hurt);
+        this.emitChange();
+        if (run.hp <= 0) {
+          return { ok: false, message: this.mineRescue(`A ${monster.def.name} knocks you out.`) };
+        }
+        return {
+          ok: true,
+          message: `You hit the ${monster.def.name} for ${damage}. It strikes back for ${hurt}.`
+        };
+      }
+      const loot = monster.def.loot.map((itemId) => ({
+        itemId,
+        qty: 1 + (this.rng() < 0.35 ? 1 : 0)
+      }));
+      if (this.rng() < 0.12) {
+        const artifacts = ['artifact_coin', 'artifact_bone', 'artifact_doll', 'artifact_scroll'];
+        loot.push({ itemId: artifacts[Math.floor(this.rng() * artifacts.length)], qty: 1 });
+      }
+      this.grantMineLoot(loot);
+      floor.monsters = floor.monsters.filter((entry) => entry.uid !== monster.uid);
+      run.monstersDefeated += 1;
+      this.data.stats.monstersDefeated += 1;
+      this.addXp('mining', monster.def.xp, false);
+      this.emitChange();
+      return { ok: true, message: `You defeat the ${monster.def.name}!` };
+    }
+
+    floor.player = { x: nx, y: ny };
+    floor.steps += 1;
+    this.emitChange();
+    if (floor.tiles[ny][nx] === 'ladder') {
+      return { ok: true, message: 'A ladder leads deeper. Use Descend when you are ready.' };
+    }
+    return { ok: true };
+  }
+
+  descendMine(): ActionResult {
+    if (!this.mineFloor) return this.enterMine();
+    const floor = this.mineFloor;
+    if (floor.player.x !== floor.ladder.x || floor.player.y !== floor.ladder.y) {
+      return { ok: false, message: 'Stand on the ladder before descending.' };
+    }
+    if (floor.floor >= MINE_MAX_FLOOR) {
+      return { ok: false, message: 'You have reached the bottom of the old mine.' };
+    }
+    const cost = 3;
+    if (!this.hasEnergy(cost)) return this.outOfEnergy(cost);
+    this.spendEnergy(cost);
+    const next = floor.floor + 1;
+    const run = this.data.mineRun;
+    run.floor = next;
+    run.maxFloor = Math.max(run.maxFloor, next);
+    run.hp = Math.min(run.maxHp, run.hp + 6);
+    if ((next - 1) % 5 === 0 && !run.elevator.includes(next)) run.elevator.push(next);
+    this.mineFloor = generateMineFloor(next, this.data, this.rng);
+    this.emitChange();
+    return { ok: true, message: `You climb down to floor ${next}.` };
+  }
+
+  useElevator(floor: number): ActionResult {
+    const run = this.data.mineRun;
+    const target = Math.floor(floor);
+    if (!run.elevator.includes(target)) return { ok: false, message: 'The elevator does not stop there yet.' };
+    if (target > run.maxFloor) return { ok: false, message: 'You have not reached that floor.' };
+    return this.enterMine(target);
+  }
+
+  returnToSurface(): ActionResult {
+    if (!this.mineFloor) return { ok: false, message: 'You are already on the surface.' };
+    this.data.mineRun.floor = this.mineFloor.floor;
+    this.mineFloor = null;
+    this.emitChange();
+    return { ok: true, message: 'You climb back into the daylight.' };
+  }
+
+  buyWeapon(weaponId: string): ActionResult {
+    const def = weaponById(weaponId);
+    if (!def) return { ok: false, message: 'Unknown weapon.' };
+    const run = this.data.mineRun;
+    if (run.weapons.includes(weaponId)) return { ok: false, message: 'You already own that weapon.' };
+    if (this.level < def.unlockLevel) {
+      return { ok: false, message: `Unlocks at farmer level ${def.unlockLevel}.` };
+    }
+    if (this.data.coins < def.price) return { ok: false, message: 'Not enough coins.' };
+    this.data.coins -= def.price;
+    run.weapons.push(weaponId);
+    run.weapon = weaponId;
+    this.emitChange();
+    return { ok: true, message: `${def.name} equipped. ${def.desc}` };
+  }
+
+  equipWeapon(weaponId: string): ActionResult {
+    const run = this.data.mineRun;
+    if (!run.weapons.includes(weaponId)) return { ok: false, message: 'You do not own that weapon.' };
+    run.weapon = weaponId;
+    this.emitChange();
+    return { ok: true, message: `${weaponById(weaponId)?.name ?? 'Weapon'} equipped.` };
+  }
+
+  // ------------------------------------------------------------- shipping bin
+
+  hasShippingBin(): boolean {
+    return this.data.buildings.some((building) => building.id === 'shipping_bin');
+  }
+
+  shippingValue(): number {
+    return this.data.shipping.items.reduce(
+      (sum, stack) => sum + this.sellPrice(stack.itemId, stack.quality) * stack.qty,
+      0
+    );
+  }
+
+  shippingState() {
+    return {
+      bin: this.hasShippingBin(),
+      items: this.data.shipping.items,
+      value: this.shippingValue(),
+      capacity: 24
+    };
+  }
+
+  queueForShipping(index: number, qty: number): ActionResult {
+    if (!this.hasShippingBin()) return { ok: false, message: 'Build a Shipping Bin first.' };
+    const stack = this.data.inventory[index];
+    if (!stack) return { ok: false, message: 'Nothing to ship.' };
+    const def = ITEMS[stack.itemId];
+    if (!def) return { ok: false, message: 'Unknown item.' };
+    if (def.type === 'tool') return { ok: false, message: 'You cannot ship your tools.' };
+    if (stack.locked) return { ok: false, message: 'This item is locked.' };
+    const amount = Math.max(1, Math.min(stack.qty, Math.floor(qty)));
+    stack.qty -= amount;
+    if (stack.qty <= 0) this.data.inventory[index] = null;
+    const existing = this.data.shipping.items.find(
+      (entry) => entry.itemId === stack.itemId && entry.quality === stack.quality
+    );
+    if (existing) existing.qty += amount;
+    else
+      this.data.shipping.items.push({
+        itemId: stack.itemId,
+        qty: amount,
+        quality: stack.quality
+      });
+    this.emitChange();
+    return { ok: true, message: `${amount} × ${def.name} left in the shipping bin.` };
+  }
+
+  shipAll(): ActionResult {
+    if (!this.hasShippingBin()) return { ok: false, message: 'Build a Shipping Bin first.' };
+    let count = 0;
+    for (let i = 0; i < this.data.inventory.length; i++) {
+      const stack = this.data.inventory[i];
+      if (!stack || stack.locked) continue;
+      const def = ITEMS[stack.itemId];
+      if (!def || def.type === 'tool') continue;
+      const amount = stack.qty;
+      count += amount;
+      this.data.inventory[i] = null;
+      const existing = this.data.shipping.items.find(
+        (entry) => entry.itemId === stack.itemId && entry.quality === stack.quality
+      );
+      if (existing) existing.qty += amount;
+      else
+        this.data.shipping.items.push({
+          itemId: stack.itemId,
+          qty: amount,
+          quality: stack.quality
+        });
+    }
+    if (count === 0) return { ok: false, message: 'Nothing to ship.' };
+    this.emitChange();
+    return { ok: true, message: `Left ${count} goods in the shipping bin.` };
+  }
+
+  takeBackShipping(index: number): ActionResult {
+    const stack = this.data.shipping.items[index];
+    if (!stack) return { ok: false, message: 'Nothing there.' };
+    if (this.freeSpaceFor(stack.itemId, stack.quality) < 1) {
+      return { ok: false, message: 'Your backpack is full.' };
+    }
+    this.addItem(stack.itemId, 1, stack.quality);
+    stack.qty -= 1;
+    if (stack.qty <= 0) this.data.shipping.items.splice(index, 1);
+    this.emitChange();
+    return { ok: true, message: `Took one ${ITEMS[stack.itemId]?.name ?? 'item'} back.` };
+  }
+
+  private sellShipping(): { total: number; count: number } {
+    const items = this.data.shipping.items;
+    let total = 0;
+    let count = 0;
+    for (const stack of items) {
+      total += this.sellPrice(stack.itemId, stack.quality) * stack.qty;
+      count += stack.qty;
+    }
+    if (count > 0) {
+      this.data.coins += total;
+      this.data.stats.coinsEarned += total;
+      this.data.stats.cropsSold += count;
+      this.data.stats.itemsShipped += count;
+      this.addXp('business', Math.max(1, Math.round(count * 1.2)), false);
+    }
+    this.data.shipping.items = [];
+    return { total, count };
+  }
+
+  // ------------------------------------------------------------------ family
+
+  familyState() {
+    const child = canAdopt(this.data);
+    return {
+      spouse: this.spouseName,
+      children: this.data.family.children.map((entry) => ({
+        ...entry,
+        stage: childStageLabel(entry.ageDays)
+      })),
+      canAdopt: child.ok,
+      reason: child.reason,
+      farmhouseLevel: this.data.farmhouseLevel
+    };
+  }
+
+  adoptChild(): ActionResult {
+    const check = canAdopt(this.data);
+    if (!check.ok) return { ok: false, message: check.reason };
+    if (this.data.coins < 1200) return { ok: false, message: 'You need 1,200 coins for the adoption papers.' };
+    this.data.coins -= 1200;
+    const name = randomChildName(
+      this.data.family.children.map((entry) => entry.name),
+      this.rng
+    );
+    const child: ChildSave = { id: uid('child'), name, ageDays: 0 };
+    this.data.family.children.push(child);
+    this.emitChange();
+    return { ok: true, message: `${name} joins the family! The whole valley celebrates.` };
+  }
+
+  /** Pay the town clinic for a pick-me-up. */
+  clinicRestore(cost = 200, amount = 80): ActionResult {
+    if (this.energy() >= this.maxEnergy()) return { ok: false, message: 'You are already full of energy.' };
+    if (this.data.coins < cost) return { ok: false, message: `The clinic asks ${cost} coins.` };
+    this.data.coins -= cost;
+    this.restoreEnergy(amount);
+    this.emitChange();
+    return { ok: true, message: `The clinic patches you up (+${amount} energy).` };
+  }
+
+  /** A hot meal at the saloon: a little energy and a spring in your step. */
+  buySaloonMeal(cost = 220): ActionResult {
+    if (this.data.coins < cost) return { ok: false, message: `The meal costs ${cost} coins.` };
+    this.data.coins -= cost;
+    this.restoreEnergy(40);
+    this.data.buffs = [{ id: 'buff_speed', day: this.today }];
+    this.emitChange();
+    return { ok: true, message: 'A hearty saloon stew: +40 energy and faster feet today.' };
+  }
+
+  // -------------------------------------------------------------------- house
+
+  houseState() {
+    const owned = ownedFurniture(this.data.house).map((entry) => entry.id);
+    return {
+      owned,
+      items: FURNITURE.map((entry) => ({ def: entry, owned: owned.includes(entry.id) })),
+      bonuses: {
+        energy: houseBonus(this.data.house, 'energy'),
+        luck: houseBonus(this.data.house, 'luck'),
+        capacity: houseBonus(this.data.house, 'capacity'),
+        friendship: houseBonus(this.data.house, 'friendship')
+      }
+    };
+  }
+
+  buyFurniture(furnitureId: string): ActionResult {
+    const def = furnitureById(furnitureId);
+    if (!def) return { ok: false, message: 'Unknown furniture.' };
+    if (this.data.house.furniture.includes(furnitureId)) {
+      return { ok: false, message: 'You already own that piece.' };
+    }
+    if (this.data.coins < def.cost) return { ok: false, message: 'Not enough coins.' };
+    this.data.coins -= def.cost;
+    this.data.house.furniture.push(furnitureId);
+    this.ensureCapacity();
+    if (def.bonus === 'energy') this.data.energy += def.value;
+    this.emitChange();
+    return { ok: true, message: `${def.name} placed in the farmhouse. ${def.desc}` };
+  }
+
+  // -------------------------------------------------------------------- pet
+
+  petState() {
+    return {
+      ...this.data.pet,
+      mood: petMood(this.data.pet),
+      bonus: petBonus(this.data.pet)
+    };
+  }
+
+  adoptPet(type: 'dog' | 'cat', name?: string): ActionResult {
+    if (this.data.pet.type) return { ok: false, message: 'You already have a pet.' };
+    if (this.data.coins < 500) return { ok: false, message: 'The shelter asks for a 500 coin donation.' };
+    this.data.coins -= 500;
+    this.data.pet = {
+      type,
+      name: name?.trim() || (type === 'dog' ? 'Biscuit' : 'Mittens'),
+      affection: 25,
+      lastPetDay: 0
+    };
+    this.emitChange();
+    return { ok: true, message: `${this.data.pet.name} the ${type} moves in!` };
+  }
+
+  petPet(): ActionResult {
+    const pet = this.data.pet;
+    if (!pet.type) return { ok: false, message: 'You do not have a pet yet.' };
+    if (pet.lastPetDay === this.today) return { ok: false, message: `${pet.name} has had enough attention today.` };
+    pet.lastPetDay = this.today;
+    pet.affection = clamp(pet.affection + 14, 0, 100);
+    this.emitChange();
+    return { ok: true, message: `You pet ${pet.name}. ${petMood(pet)}.` };
+  }
+
+  buyHorse(): ActionResult {
+    if (this.data.horseOwned) return { ok: false, message: 'Your stable already has a horse.' };
+    if (!this.data.buildings.some((b) => BUILDINGS[b.id]?.houses === 'stable')) {
+      return { ok: false, message: 'Build a stable first.' };
+    }
+    if (this.data.coins < 1600) return { ok: false, message: 'A horse costs 1,600 coins.' };
+    this.data.coins -= 1600;
+    this.data.horseOwned = true;
+    this.emitChange();
+    return { ok: true, message: 'A horse now lives in your stable. You move much faster on the farm.' };
+  }
+
+  horseSpeedBonus(): number {
+    return this.data.horseOwned ? 0.35 : 0;
+  }
+
+  // ------------------------------------------------------------------ museum
+
+  museumState() {
+    const donated = this.data.museum.donated;
+    const artifacts = Object.values(ITEMS).filter((item) => item.type === 'artifact');
+    return {
+      donated,
+      artifacts: artifacts.map((item) => ({
+        item,
+        donated: donated.includes(item.id),
+        held: this.countItem(item.id)
+      })),
+      total: artifacts.length,
+      rewards: MUSEUM_REWARDS.map((reward) => ({
+        def: reward,
+        unlocked: donated.length >= reward.count,
+        claimed: this.data.museum.claimed.includes(reward.id)
+      })),
+      next: nextMuseumMilestone(donated.length)
+    };
+  }
+
+  donateArtifact(itemId: string): ActionResult {
+    const item = ITEMS[itemId];
+    if (!item || item.type !== 'artifact') return { ok: false, message: 'The museum only takes artifacts.' };
+    if (this.data.museum.donated.includes(itemId)) {
+      return { ok: false, message: 'That artifact is already on display.' };
+    }
+    if (!this.hasItem(itemId)) return { ok: false, message: 'You do not have that artifact.' };
+    this.removeItem(itemId, 1);
+    this.data.museum.donated.push(itemId);
+    this.addXp('mining', 12, false);
+    this.emitChange();
+    return { ok: true, message: `${item.name} donated to the museum.` };
+  }
+
+  claimMuseumReward(rewardId: string): ActionResult {
+    const reward = MUSEUM_REWARDS.find((entry) => entry.id === rewardId);
+    if (!reward) return { ok: false, message: 'Unknown museum reward.' };
+    if (this.data.museum.claimed.includes(rewardId)) {
+      return { ok: false, message: 'That reward is already claimed.' };
+    }
+    if (this.data.museum.donated.length < reward.count) {
+      return { ok: false, message: `Donate ${reward.count} artifacts first.` };
+    }
+    this.data.coins += reward.coins;
+    this.data.stats.coinsEarned += reward.coins;
+    if (reward.itemId) this.addItem(reward.itemId, reward.itemQty ?? 1);
+    this.grantXp(reward.xp);
+    this.data.museum.claimed.push(rewardId);
+    this.emitChange();
+    return { ok: true, message: `Museum reward claimed: ${reward.coins} coins and ${reward.xp} XP.` };
+  }
+
+  // --------------------------------------------------------- festival minigame
+
+  festivalGameState() {
+    const game = this.data.festivalGame;
+    const fresh = game.season === this.data.season && game.year === this.data.year;
+    return {
+      played: fresh && game.played,
+      score: fresh ? game.score : 0,
+      available: this.festivalAvailable(),
+      luck: this.toolBonus('luck') + this.professionSum('luck') + this.buffSum('luck')
+    };
+  }
+
+  /** Three festival crates hide one prize. Luck improves the odds of a good pick. */
+  playFestivalGame(pick: number): ActionResult & { score?: number } {
+    if (!this.festivalAvailable()) {
+      return { ok: false, message: 'The festival games only open on the last day of the season.' };
+    }
+    const game = this.data.festivalGame;
+    if (game.season !== this.data.season || game.year !== this.data.year) {
+      game.season = this.data.season;
+      game.year = this.data.year;
+      game.played = false;
+      game.score = 0;
+    }
+    if (game.played) return { ok: false, message: 'You already played today.' };
+    const luck = this.toolBonus('luck') + this.professionSum('luck') + this.buffSum('luck');
+    const prize = Math.floor(this.rng() * 3);
+    const choice = clamp(Math.floor(pick), 0, 2);
+    const hit = choice === prize || this.rng() < luck;
+    game.played = true;
+    game.score = hit ? 100 : 35;
+    const coins = hit ? 300 : 60;
+    const xp = hit ? 40 : 10;
+    this.data.coins += coins;
+    this.data.stats.coinsEarned += coins;
+    this.grantXp(xp);
+    this.emitChange();
+    return {
+      ok: true,
+      score: game.score,
+      message: hit
+        ? `You found the prize crate! +${coins} coins and +${xp} XP.`
+        : `No prize this time, but the crowd cheers. +${coins} coins and +${xp} XP.`
+    };
+  }
+
   // -------------------------------------------------------------------- npcs
 
   npcList() {
@@ -1762,13 +2402,25 @@ export class GameState {
     const before = record.friendship;
     record.talkedDay = this.today;
     record.met = true;
-    record.friendship = clamp(record.friendship + (isNpcBirthday(npc, this.data) ? 16 : 8), 0, 1000);
-    const event = heartEventLine(npc, before, record.friendship);
+    const warmth = 1 + houseBonus(this.data.house ?? { furniture: [] }, 'friendship');
+    const gain = Math.round((isNpcBirthday(npc, this.data) ? 16 : 8) * warmth);
+    record.friendship = clamp(record.friendship + gain, 0, 1000);
+    if (!Array.isArray(record.heartEvents)) record.heartEvents = [];
+    const thresholds = [200, 400, 600, 800, 1000];
+    const crossed = thresholds.findIndex(
+      (threshold) => before < threshold && record.friendship >= threshold
+    );
+    let message = `${npc.name}: ${npcLine(npc, this.data)}`;
+    if (crossed >= 0 && !record.heartEvents!.includes(thresholds[crossed])) {
+      record.heartEvents!.push(thresholds[crossed]);
+      message = heartEventLine(npc, before, record.friendship) ?? message;
+      const gift = 80 + thresholds[crossed] / 5;
+      this.data.coins += gift;
+      this.data.stats.coinsEarned += gift;
+      message += ` (+${gift} coins from the moment you shared.)`;
+    }
     this.emitChange();
-    return {
-      ok: true,
-      message: event ?? `${npc.name}: ${npcLine(npc, this.data)}`
-    };
+    return { ok: true, message };
   }
 
   completeNpcRequest(id: string): ActionResult {
@@ -1910,6 +2562,14 @@ export class GameState {
     let wilted = 0;
     let products = 0;
 
+    // 0) The shipping bin sells whatever was left in it during the night.
+    const shipped = this.sellShipping();
+    if (shipped.count > 0) {
+      messages.push(
+        `The trader collected ${shipped.count} goods from your shipping bin for ${shipped.total} coins.`
+      );
+    }
+
     // 1) Grow crops using the watering state from the day that just ended.
     for (const [key, tile] of Object.entries(d.tiles)) {
       if (!tile.crop) {
@@ -1978,6 +2638,7 @@ export class GameState {
     this.ensureSeasonalBoard();
     if (seasonChanged) {
       d.festival = null;
+      d.festivalGame = { season: d.season, year: d.year, played: false, score: 0 };
       messages.push(`${FESTIVALS[d.season].name} is now open on the festival board.`);
     }
     this.ensureFestivalDay();
@@ -2043,6 +2704,24 @@ export class GameState {
         d.stats.coinsEarned += 30;
         messages.push(`${spouse.name} left 30 coins and a warm breakfast by the door.`);
       }
+    }
+
+    // 7b) Children grow, and the farm pet misses you when you forget it.
+    for (const growth of growChildren(d.family.children)) messages.push(growth);
+    if (d.pet.type) {
+      if (d.pet.lastPetDay < this.today - 1) {
+        d.pet.affection = clamp(d.pet.affection - 5, 0, 100);
+      }
+      if (d.pet.affection >= 60 && this.rng() < 0.25) {
+        d.coins += 25;
+        d.stats.coinsEarned += 25;
+        messages.push(`${d.pet.name} found 25 coins under the porch.`);
+      }
+    }
+    if (d.family.children.length > 0 && this.rng() < 0.2) {
+      d.coins += 20;
+      d.stats.coinsEarned += 20;
+      messages.push(`Your child left a little hand-picked gift and 20 coins on the table.`);
     }
 
     // 8) Fresh daily quests, achievement check, festival reminder.

@@ -9,9 +9,12 @@ import type {
   FestivalDef,
   FishDef,
   ForageDef,
+  FurnitureDef,
   HousingId,
   ItemDef,
   MailDef,
+  MineMonsterDef,
+  MuseumRewardDef,
   NpcDef,
   PlantArchetype,
   ProfessionDef,
@@ -22,6 +25,7 @@ import type {
   SkillKey,
   ToolDef,
   UpgradeDef,
+  WeaponDef,
   Weather
 } from '../types';
 
@@ -31,7 +35,7 @@ export const WORLD_H = 48;
 export const DAYS_PER_SEASON = 28;
 export const START_MINUTE = 6 * 60;
 export const MINUTES_PER_REAL_SECOND = 3;
-export const CURRENT_SAVE_VERSION = 10;
+export const CURRENT_SAVE_VERSION = 11;
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
 export const SKILLS = ['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as const;
@@ -148,8 +152,60 @@ export const ITEMS: Record<string, ItemDef> = {
   grapes: { id: 'grapes', name: 'Wild Grapes', type: 'crop', price: 70, sell: 70, stack: 99, desc: 'A cluster of small sweet grapes.', color: 0x8a5ab8, color2: 0x5a3a7a },
   hazelnut: { id: 'hazelnut', name: 'Hazelnut', type: 'crop', price: 80, sell: 80, stack: 99, desc: 'A fallen autumn nut.', color: 0xb8905a, color2: 0x7a5a34 },
   winter_root: { id: 'winter_root', name: 'Winter Root', type: 'crop', price: 65, sell: 65, stack: 99, desc: 'A pale root that survives the frost.', color: 0xe8dcc0, color2: 0x9a8a6a },
-  snow_yam: { id: 'snow_yam', name: 'Snow Yam', type: 'crop', price: 95, sell: 95, stack: 99, desc: 'Sweet, rare and buried in snow.', color: 0xf0ece0, color2: 0xc0b89a }
+  snow_yam: { id: 'snow_yam', name: 'Snow Yam', type: 'crop', price: 95, sell: 95, stack: 99, desc: 'Sweet, rare and buried in snow.', color: 0xf0ece0, color2: 0xc0b89a },
+
+  artifact_pottery: { id: 'artifact_pottery', name: 'Ancient Pottery', type: 'artifact', price: 180, sell: 180, stack: 99, desc: 'A painted shard from a forgotten farmstead.', color: 0xc08a5a, color2: 0x8a5a34 },
+  artifact_coin: { id: 'artifact_coin', name: 'Old Coin', type: 'artifact', price: 260, sell: 260, stack: 99, desc: 'A coin stamped with a valley that no longer exists.', color: 0xe8c84a, color2: 0xa8862a },
+  artifact_bone: { id: 'artifact_bone', name: 'Fossil Bone', type: 'artifact', price: 340, sell: 340, stack: 99, desc: 'Something very old slept in the quarry.', color: 0xe8e0c8, color2: 0xb0a888 },
+  artifact_doll: { id: 'artifact_doll', name: 'Porcelain Doll', type: 'artifact', price: 440, sell: 440, stack: 99, desc: 'Its painted smile is still perfect.', color: 0xf0d8dc, color2: 0xc88a9a },
+  artifact_scroll: { id: 'artifact_scroll', name: 'Sealed Scroll', type: 'artifact', price: 560, sell: 560, stack: 99, desc: 'Words written in a hand nobody reads anymore.', color: 0xe8d8b0, color2: 0xa88a5a },
+  artifact_seed: { id: 'artifact_seed', name: 'Ancient Seed', type: 'artifact', price: 800, sell: 800, stack: 99, desc: 'A seed that waited centuries for a farmer.', color: 0x8a6a3a, color2: 0x5a9a3a }
 };
+
+// ----------------------------------------------------------------- weapons / mine
+/** Melee weapons used in the old mine. */
+export const WEAPONS: WeaponDef[] = [
+  { id: 'rusty_sword', name: 'Rusty Sword', damage: 3, price: 0, unlockLevel: 1, desc: 'A chipped blade from the tool shed.', color: 0x9a9a8a },
+  { id: 'iron_sword', name: 'Iron Sword', damage: 6, price: 1200, unlockLevel: 3, desc: 'A plain, dependable blade for the upper floors.', color: 0xb8c0c8 },
+  { id: 'steel_sword', name: 'Steel Sword', damage: 10, price: 3000, unlockLevel: 5, desc: 'Cuts through the dark like a lantern.', color: 0xd8e0e8 },
+  { id: 'crystal_sword', name: 'Crystal Sword', damage: 16, price: 7000, unlockLevel: 8, desc: 'A humming blade found deep beneath the valley.', color: 0x9ad8f0 }
+];
+
+/** Monsters that roam the lower mine floors. */
+export const MINE_MONSTERS: MineMonsterDef[] = [
+  { id: 'slime', name: 'Green Slime', minFloor: 1, hp: 10, damage: 4, xp: 4, loot: ['stone'], color: 0x6fae4f },
+  { id: 'bat', name: 'Cave Bat', minFloor: 5, hp: 14, damage: 6, xp: 6, loot: ['stone'], color: 0x7a6a8a },
+  { id: 'crab', name: 'Rock Crab', minFloor: 15, hp: 24, damage: 9, xp: 9, loot: ['stone', 'copper_ore'], color: 0x9a7a5a },
+  { id: 'shadow', name: 'Shadow Brute', minFloor: 35, hp: 40, damage: 13, xp: 14, loot: ['iron_ore', 'gem'], color: 0x3a2a4a },
+  { id: 'golem', name: 'Stone Golem', minFloor: 65, hp: 70, damage: 18, xp: 20, loot: ['gold_ore', 'gem'], color: 0x8a8a8a }
+];
+
+export const MINE_MAX_FLOOR = 120;
+export const MINE_FLOOR_W = 9;
+export const MINE_FLOOR_H = 7;
+
+// ------------------------------------------------------------ house furniture
+/** Furniture sold by the town carpenter. Each piece gives a small permanent perk. */
+export const FURNITURE: FurnitureDef[] = [
+  { id: 'cozy_rug', name: 'Cozy Rug', cost: 260, bonus: 'luck', value: 0.02, desc: 'Warm feet, better harvests.', color: 0xb85a4a },
+  { id: 'oak_bed', name: 'Oak Bed', cost: 420, bonus: 'energy', value: 10, desc: 'A deeper sleep: +10 max energy.', color: 0xa87a4a },
+  { id: 'kitchen_table', name: 'Kitchen Table', cost: 640, bonus: 'energy', value: 12, desc: 'Long breakfasts: +12 max energy.', color: 0xd8b878 },
+  { id: 'flower_vase', name: 'Flower Vase', cost: 380, bonus: 'friendship', value: 0.05, desc: 'Guests feel welcome: friendship grows faster.', color: 0xe87a9a },
+  { id: 'bookshelf', name: 'Bookshelf', cost: 720, bonus: 'luck', value: 0.03, desc: 'Good reading sharpens your eye.', color: 0x8a5a34 },
+  { id: 'pantry', name: 'Pantry Cupboard', cost: 900, bonus: 'capacity', value: 6, desc: '+6 backpack slots for the household.', color: 0xc8a878 },
+  { id: 'fireplace', name: 'Stone Fireplace', cost: 1200, bonus: 'energy', value: 18, desc: 'A crackling fire: +18 max energy.', color: 0x9a8a7a },
+  { id: 'piano', name: 'Old Piano', cost: 1800, bonus: 'friendship', value: 0.1, desc: 'Evenings become occasions: friendship grows faster.', color: 0x3a3a3a },
+  { id: 'aquarium', name: 'Home Aquarium', cost: 1500, bonus: 'luck', value: 0.04, desc: 'Watching the fish clears your mind.', color: 0x5a9aa8 },
+  { id: 'hearth_clock', name: 'Hearth Clock', cost: 2200, bonus: 'energy', value: 24, desc: 'You never waste a minute: +24 max energy.', color: 0xc89a4a }
+];
+
+// ------------------------------------------------------------- town museum
+/** Rewards for donating artifacts to the town museum. */
+export const MUSEUM_REWARDS: MuseumRewardDef[] = [
+  { id: 'museum_2', count: 2, coins: 400, xp: 30, desc: 'The curator frames your first finds.' },
+  { id: 'museum_4', count: 4, coins: 900, xp: 75, itemId: 'gem', itemQty: 1, desc: 'A small display case opens.' },
+  { id: 'museum_6', count: 6, coins: 2000, xp: 150, itemId: 'artifact_seed', itemQty: 1, desc: 'The whole collection is on display.' }
+];
 
 export const CROPS: Record<string, CropDef> = {
   wheat: { id: 'wheat', name: 'Wheat', seedId: 'wheat_seed', harvestId: 'wheat', seasons: ['spring', 'summer'], growthDays: 4, regrowDays: 0, yieldMin: 2, yieldMax: 3, shape: 'wheat', palette: [0x6f9b3a, 0x88b447, 0xe0c15a, 0xb8972f], desc: 'A reliable staple crop.' },
@@ -675,7 +731,8 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   sprinkler: { id: 'sprinkler', name: 'Sprinkler', w: 1, h: 1, cost: 450, unlockLevel: 6, kind: 'sprinkler', radius: 1, desc: 'Automatically waters a 3x3 area.' },
   helper_hut: { id: 'helper_hut', name: "Helper's Cottage", w: 2, h: 2, cost: 2500, unlockLevel: 6, kind: 'automation', desc: 'Unlocks farm helpers: auto-feed, auto-collect, auto-harvest and auto-replant.' },
   fence: { id: 'fence', name: 'Fence', w: 1, h: 1, cost: 18, unlockLevel: 1, kind: 'decor', desc: 'A cosy wooden fence.' },
-  path: { id: 'path', name: 'Stone Path', w: 1, h: 1, cost: 8, unlockLevel: 1, kind: 'decor', desc: 'Walk 25% faster on paths.' }
+  path: { id: 'path', name: 'Stone Path', w: 1, h: 1, cost: 8, unlockLevel: 1, kind: 'decor', desc: 'Walk 25% faster on paths.' },
+  shipping_bin: { id: 'shipping_bin', name: 'Shipping Bin', w: 1, h: 1, cost: 250, unlockLevel: 1, kind: 'shipping', colors: [0xb8996a, 0x8a6a44, 0x5a8a4a], desc: 'Leave goods overnight and the trader sells them by morning.' }
 };
 
 // --------------------------------------------------------- expanded buildings
