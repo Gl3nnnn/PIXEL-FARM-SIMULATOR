@@ -88,7 +88,7 @@ describe('content definitions', () => {
       for (const input of recipe.inputs) expect(ITEMS[input.itemId]).toBeDefined();
     }
     expect(UPGRADES).toHaveLength(4);
-    expect(PLOTS).toHaveLength(11);
+    expect(PLOTS).toHaveLength(12);
     expect(SEASONS).toHaveLength(4);
   });
 

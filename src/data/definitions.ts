@@ -59,20 +59,21 @@ export const QUALITY_LABEL = { normal: '', silver: 'Silver', gold: 'Gold' } as c
 export const DEFAULT_SETTINGS: Settings = { music: false, sfx: true, volume: 0.5 };
 
 export const PLOTS = [
-  { id: 0, x: 6, y: 9, w: 9, h: 6, cost: 0, name: 'Home Field' },
-  { id: 1, x: 17, y: 9, w: 9, h: 6, cost: 600, name: 'East Field' },
-  { id: 2, x: 28, y: 10, w: 8, h: 6, cost: 1800, name: 'River Field' },
-  { id: 3, x: 6, y: 19, w: 9, h: 6, cost: 4500, name: 'South Field' },
-  { id: 4, x: 18, y: 19, w: 9, h: 6, cost: 9000, name: 'Meadow Field' },
-  { id: 5, x: 30, y: 21, w: 8, h: 6, cost: 16000, name: 'Sunset Field' },
-  { id: 6, x: 14, y: 29, w: 9, h: 6, cost: 26000, name: 'Willow Field' },
-  { id: 7, x: 26, y: 29, w: 9, h: 6, cost: 38000, name: 'Terrace Field' },
-  { id: 8, x: 38, y: 31, w: 9, h: 6, cost: 52000, name: 'Lakeside Field' },
-  { id: 9, x: 14, y: 39, w: 9, h: 5, cost: 70000, name: 'Orchard Field' },
-  { id: 10, x: 26, y: 39, w: 9, h: 5, cost: 92000, name: 'Sunrise Field' }
+  { id: 0, x: 6, y: 10, w: 9, h: 6, cost: 0, name: 'Home Field' },
+  { id: 1, x: 18, y: 10, w: 7, h: 6, cost: 600, name: 'East Field' },
+  { id: 2, x: 28, y: 10, w: 7, h: 6, cost: 1800, name: 'River Field' },
+  { id: 3, x: 38, y: 10, w: 9, h: 6, cost: 3200, name: 'Plum Field' },
+  { id: 4, x: 6, y: 19, w: 9, h: 6, cost: 4500, name: 'South Field' },
+  { id: 5, x: 18, y: 19, w: 7, h: 6, cost: 7000, name: 'Meadow Field' },
+  { id: 6, x: 28, y: 19, w: 7, h: 6, cost: 9000, name: 'Sunset Field' },
+  { id: 7, x: 38, y: 19, w: 9, h: 6, cost: 12000, name: 'Clover Field' },
+  { id: 8, x: 6, y: 28, w: 9, h: 7, cost: 16000, name: 'Willow Field' },
+  { id: 9, x: 18, y: 28, w: 7, h: 7, cost: 21000, name: 'Terrace Field' },
+  { id: 10, x: 28, y: 28, w: 7, h: 7, cost: 26000, name: 'Lakeside Field' },
+  { id: 11, x: 38, y: 28, w: 9, h: 7, cost: 32000, name: 'Hollow Field' }
 ] as const;
 
-export const FARMHOUSE = { x: 4, y: 3, w: 4, h: 3 };
+export const FARMHOUSE = { x: 5, y: 2, w: 5, h: 5 };
 
 export const ITEMS: Record<string, ItemDef> = {
   hoe: { id: 'hoe', name: 'Hoe', type: 'tool', price: 0, sell: 0, stack: 1, desc: 'Tills grass into soil. Click a field tile.' },
@@ -1131,11 +1132,11 @@ export const NPCS: Record<string, NpcDef> = {
 };
 
 export const NPC_SPOTS: Record<string, { x: number; y: number }> = {
-  mira: { x: 9, y: 8 },
-  rowan: { x: 15, y: 8 },
-  tessa: { x: 24, y: 8 },
-  orin: { x: 32, y: 16 },
-  june: { x: 20, y: 12 }
+  mira: { x: 11, y: 17 },
+  rowan: { x: 22, y: 8 },
+  tessa: { x: 33, y: 17 },
+  june: { x: 44, y: 8 },
+  orin: { x: 33, y: 26 }
 };
 
 export const SEED_IDS = Object.values(ITEMS)

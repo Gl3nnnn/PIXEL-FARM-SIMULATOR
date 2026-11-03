@@ -108,7 +108,7 @@ describe('mining', () => {
   it('breaks a quarry node, yields loot and respawns after two days', () => {
     const state = makeState(() => 0.5);
     state.addItem('pickaxe', 1);
-    state.setPlayer(37 * TILE, 27 * TILE, 'down');
+    state.setPlayer(5 * TILE, 40 * TILE, 'down');
 
     expect(state.mineNode('q1').ok).toBe(true);
     expect(state.mineNode('q1').ok).toBe(true);

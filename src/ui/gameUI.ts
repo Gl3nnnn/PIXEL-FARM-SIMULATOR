@@ -28,6 +28,7 @@ export interface GameUIHandlers {
   exitToMenu(): void;
   beginBuild(buildingId: string | null): void;
   actionButton(): void;
+  panelClosed?(): void;
 }
 
 interface TutorialStep {
@@ -892,6 +893,7 @@ export class GameUI {
     this.panelRefresh = null;
     this.currentPanel = null;
     if (!this.pauseOpen) this.setPaused(false);
+    this.handlers.panelClosed?.();
   }
 
   private toggleMoreMenu(): void {

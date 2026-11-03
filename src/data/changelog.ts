@@ -1,4 +1,4 @@
-export const GAME_VERSION = '2.8.0';
+export const GAME_VERSION = '3.0.1';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,44 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '3.0.1',
+    date: '2026-11-13',
+    title: 'Fences that look right, and open gates',
+    changes: [
+      'Side fences now stand upright, so the left and right edges of every field read as proper rails instead of lying flat.',
+      'The gap along the top of each field is gone: rails are never drawn on a lane, so every opening you can see is an opening you can walk through.',
+      'Each field keeps one real gate, on the front edge facing the lane, framed by two matching gate posts with their rails level with the fence.',
+      'Villagers stroll further and faster around the yard and the lanes, and they carry on walking a moment after you finish talking to them.',
+      'The festival stall no longer stands on top of a field, and the flower beds by the house actually bloom.'
+    ]
+  },
+  {
+    version: '3.0.0',
+    date: '2026-11-12',
+    title: 'Gated fields and lively visitors',
+    changes: [
+      'Fences are solid now - you can no longer walk through a field fence, and every field has an open gate to walk in by.',
+      'The fences are rebuilt as proper timber rails with tall gate posts and a clipped hedge line along each field.',
+      'Fields are laid out in a clean grid with wide lanes: four fields in the top row and four in the middle row.',
+      'Villagers now stroll around the yard and the lanes near their patch instead of standing still.',
+      'Click a villager and they stop walking, turn to face you and chat - no more talking to someone walking away.',
+      'The house yard is tidied into a proper front garden, with the path from the door leading down to the main road.'
+    ]
+  },
+  {
+    version: '2.9.0',
+    date: '2026-11-05',
+    title: 'A farm that looks like a farm',
+    changes: [
+      'The whole farmstead is rebuilt: a proper road grid with a door path from the house and wide lanes between the fields.',
+      'Fields now sit in three tidy rows of three, each one fenced with a gate at the front so you can walk straight in.',
+      'Your starting field is fenced too - the farm looks finished from day one instead of only fencing land you have not bought.',
+      'A garden of flowers around the house, a pond beside the yard, and a large lake east of the fields.',
+      'The forest now gathers toward the wild edges and leaves the middle of the farm open, so the walk from field to house is clear.',
+      'Two quarries built into the south meadow, one on each side, with the rock nodes cleared and reachable.'
+    ]
+  },
   {
     version: '2.8.0',
     date: '2026-11-04',

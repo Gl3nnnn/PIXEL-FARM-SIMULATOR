@@ -25,7 +25,7 @@ Once GitHub Pages is enabled, the game is available at:
 - Farm Almanac with crop economics, livestock returns, fish records, and a collection album
 - Helper's Cottage automation: auto-feed, auto-collect, auto-harvest, and auto-replant
 - Eight seasonal fish, bait, a fishing minigame, and three fish recipes
-- A 64 × 48 tile farm: 11 fields to unlock, six ponds to fish, and two quarries with 22 rock nodes
+- A 64 × 48 tile farm laid out like a farmstead: a road grid, three fenced rows of fields (12 to unlock, every one with an upright rail fence and one gate facing its lane), two ponds to fish, and two quarries with 22 rock nodes
 - Five visitors with weekly schedules, requests, gifts, birthdays, hearts, romance, and marriage
 - Three local save slots backed by IndexedDB, with autosave, v1-v10 migration, and JSON backup/restore
 - Desktop keyboard/mouse controls plus touch joystick and USE button

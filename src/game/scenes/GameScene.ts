@@ -20,8 +20,13 @@ import { clamp, formatTime, tileKey } from '../../systems/util';
 import {
   FLOWERS,
   MINE_NODES,
+  fenceRing,
+  isBlockedBase,
+  isFenceTile,
+  isMineNodeTile,
   isObstacleTile,
   isPathTile,
+  isPlotInterior,
   isWaterTile,
   mineNodeAt,
   plotIndexAt,
@@ -49,6 +54,13 @@ interface NpcView {
   sprite: Phaser.GameObjects.Image;
   shadow: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
+  homeX: number;
+  homeY: number;
+  tx: number;
+  ty: number;
+  waitUntil: number;
+  greeted: boolean;
+  facing: 'left' | 'right';
 }
 
 interface LightSource {
@@ -228,7 +240,8 @@ export class GameScene extends Phaser.Scene {
       sleep: () => this.sleep(),
       exitToMenu: () => this.exitToMenu(),
       beginBuild: (id) => this.setBuildMode(id),
-      actionButton: () => this.useNearby()
+      actionButton: () => this.useNearby(),
+      panelClosed: () => this.resumeNpcWalks()
     });
     this.ui.mount();
     this.ui.setSaveStatus(`Saved locally · slot ${this.slot}`);
@@ -846,24 +859,47 @@ export class GameScene extends Phaser.Scene {
     this.plotDecor = [];
     const state = this.state.data;
     for (const plot of PLOTS) {
-      if (plot.id < state.unlockedPlots) continue;
-      const perimeter: Array<[number, number]> = [];
-      for (let x = plot.x; x < plot.x + plot.w; x++) {
-        perimeter.push([x, plot.y - 1], [x, plot.y + plot.h]);
+      const locked = plot.id >= state.unlockedPlots;
+      const { ring, gate } = fenceRing(plot);
+      // A soft hedge strip hugs the outer edge so the field reads as a garden bed.
+      for (let x = plot.x - 1; x <= plot.x + plot.w; x++) {
+        for (const y of [plot.y - 1, plot.y + plot.h]) {
+          if (isWaterTile(x, y) || isPathTile(x, y)) continue;
+          const hedge = this.add
+            .image(x * TILE, y * TILE + 6, 'hedge_strip')
+            .setOrigin(0)
+            .setScale(2)
+            .setAlpha(0.45)
+            .setDepth(y * TILE + 1);
+          this.plotDecor.push(hedge);
+        }
       }
-      for (let y = plot.y; y < plot.y + plot.h; y++) {
-        perimeter.push([plot.x - 1, y], [plot.x + plot.w, y]);
-      }
-      for (const [x, y] of perimeter) {
-        if (isWaterTile(x, y) || isObstacleTile(x, y) || isPathTile(x, y)) continue;
+      // Timber rails: horizontal along the top and bottom, upright down the sides.
+      for (const tile of ring) {
+        if (isWaterTile(tile.x, tile.y) || isPathTile(tile.x, tile.y)) continue;
         const fence = this.add
-          .image(x * TILE, y * TILE, 'b_fence')
+          .image(tile.x * TILE, tile.y * TILE, tile.vertical ? 'b_fence_v' : 'b_fence')
           .setOrigin(0)
           .setScale(2)
-          .setAlpha(0.9)
-          .setDepth(y * TILE + 2);
+          .setAlpha(locked ? 0.94 : 1)
+          .setDepth(tile.y * TILE + TILE);
         this.plotDecor.push(fence);
       }
+      // Gate posts stand on either side of the opening, on rails that really exist.
+      const gateXs = gate.map((t) => t.x).sort((a, b) => a - b);
+      const gateY = gate[0].y;
+      for (const gx of [gateXs[0] - 1, gateXs[gateXs.length - 1] + 1]) {
+        const key = tileKey(gx, gateY);
+        if (isWaterTile(gx, gateY) || isPathTile(gx, gateY)) continue;
+        if (!ring.some((t) => tileKey(t.x, t.y) === key)) continue;
+        const post = this.add
+          .image(gx * TILE + TILE / 2, gateY * TILE + TILE, 'fence_gate_post')
+          .setOrigin(0.5, 1)
+          .setScale(2)
+          .setDepth(gateY * TILE + TILE + 2);
+        this.plotDecor.push(post);
+      }
+      if (!locked) continue;
       const label = this.add
         .text(plot.x * TILE + (plot.w * TILE) / 2, plot.y * TILE + (plot.h * TILE) / 2, `${plot.name}\n${plot.cost} coins`, {
           fontFamily: '"Courier New", monospace',
@@ -955,15 +991,6 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5, 1)
         .setScale(2)
         .setDepth(py + 2);
-      this.tweens.add({
-        targets: sprite,
-        scaleY: 2.05,
-        duration: 1300 + (entry.npc.id.length * 97) % 900,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.inOut',
-        delay: (entry.npc.id.length * 173) % 1100
-      });
       const label = this.add
         .text(px, py - 34, entry.npc.name, {
           fontFamily: '"Courier New", monospace',
@@ -974,7 +1001,19 @@ export class GameScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 1)
         .setDepth(py + 3);
-      this.npcViews.set(entry.npc.id, { sprite, shadow, label });
+      this.npcViews.set(entry.npc.id, {
+        sprite,
+        shadow,
+        label,
+        homeX: px,
+        homeY: py,
+        tx: px,
+        ty: py,
+        // Greet the morning already on the move, instead of standing still.
+        waitUntil: 0,
+        greeted: false,
+        facing: 'right'
+      });
     }
     this.updateNpcVisibility();
   }
@@ -994,25 +1033,70 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Villagers stroll the yard and the lanes in front of the fields. They stop
+   * the moment you greet them, and stay put to chat.
+   */
+  private updateNpcWander(delta: number): void {
+    if (this.state.paused || this.sleeping) return;
+    const dt = Math.min(delta, 80) / 1000;
+    const now = this.time.now;
+    this.npcViews.forEach((view) => {
+      if (!view.sprite.visible) return;
+      if (!view.greeted) {
+        const dx = view.tx - view.sprite.x;
+        const dy = view.ty - view.sprite.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 2) {
+          const step = Math.min(dist, 64 * dt);
+          view.sprite.x += (dx / dist) * step;
+          view.sprite.y += (dy / dist) * step;
+          if (Math.abs(dx) > 0.5) view.facing = dx < 0 ? 'left' : 'right';
+          view.sprite.setFlipX(view.facing === 'left');
+        } else if (now >= view.waitUntil) {
+          // Pick a fresh spot on open ground around this villager's patch.
+          for (let tries = 0; tries < 12; tries++) {
+            const gx = view.homeX + Phaser.Math.Between(-4, 4) * TILE;
+            const gy = view.homeY + Phaser.Math.Between(-3, 3) * TILE;
+            const tile = worldToTile(gx, gy);
+            if (isBlockedBase(tile.x, tile.y) || isMineNodeTile(tile.x, tile.y)) continue;
+            if (isPlotInterior(tile.x, tile.y)) continue;
+            view.tx = gx;
+            view.ty = gy;
+            break;
+          }
+          view.waitUntil = now + Phaser.Math.Between(1100, 3200);
+        }
+      }
+      // A gentle bob, drawn cheaply, replaces the old wobbling tween.
+      const bob = view.greeted ? 0 : Math.sin(now / 210 + view.homeX) * 1.5;
+      view.sprite.setDepth(view.sprite.y + 2);
+      view.shadow.setPosition(view.sprite.x, view.sprite.y - 2);
+      view.shadow.setDepth(view.sprite.y - 1);
+      view.label.setPosition(view.sprite.x, view.sprite.y - 34 + bob);
+      view.label.setDepth(view.sprite.y + 3);
+    });
+  }
+
   private buildFestivalDecor(): void {
     this.festivalDecor.forEach((obj) => obj.destroy());
     this.festivalDecor = [];
     if (!this.state.festivalAvailable()) return;
     const stall = this.add
-      .image(28 * TILE, 10 * TILE, 'festival_stall')
+      .image(49 * TILE, 9 * TILE, 'festival_stall')
       .setOrigin(0)
       .setScale(2)
-      .setDepth(11 * TILE);
+      .setDepth(10 * TILE);
     const banner = this.add
-      .image(21 * TILE + TILE / 2, 10 * TILE, 'festival_banner')
+      .image(19 * TILE + TILE / 2, 8 * TILE, 'festival_banner')
       .setOrigin(0.5, 1)
       .setScale(2)
-      .setDepth(11 * TILE);
+      .setDepth(9 * TILE);
     const banner2 = this.add
-      .image(25 * TILE + TILE / 2, 10 * TILE, 'festival_banner')
+      .image(25 * TILE + TILE / 2, 8 * TILE, 'festival_banner')
       .setOrigin(0.5, 1)
       .setScale(2)
-      .setDepth(11 * TILE);
+      .setDepth(9 * TILE);
     this.festivalDecor.push(stall, banner, banner2);
   }
 
@@ -1027,13 +1111,13 @@ export class GameScene extends Phaser.Scene {
   private interactNpc(id: string): void {
     const entry = this.state.npcList().find((item) => item.npc.id === id);
     if (!entry) return;
-    const spot = NPC_SPOTS[id];
-    if (!spot) return;
+    const view = this.npcViews.get(id);
+    if (!view) return;
     const dist = Phaser.Math.Distance.Between(
       this.player.x,
       this.player.y,
-      spot.x * TILE + TILE / 2,
-      spot.y * TILE + TILE
+      view.sprite.x,
+      view.sprite.y
     );
     if (dist > TILE * 3.2) {
       this.ui.notify(`Move closer to talk to ${entry.npc.name}.`, 'error');
@@ -1044,7 +1128,26 @@ export class GameScene extends Phaser.Scene {
       this.ui.notify(`${entry.npc.name} is not here right now.`, 'info');
       return;
     }
+    // They stop walking and turn to face you while you talk.
+    view.greeted = true;
+    view.tx = view.sprite.x;
+    view.ty = view.sprite.y;
+    view.facing = this.player.x < view.sprite.x ? 'left' : 'right';
+    view.sprite.setFlipX(view.facing === 'left');
     this.ui.openNpcDialogue(id);
+  }
+
+  /**
+   * Called when a panel closes: whoever you greeted carries on with their walk
+   * a moment later, so the farm never freezes after a chat.
+   */
+  resumeNpcWalks(): void {
+    const now = this.time.now;
+    this.npcViews.forEach((view) => {
+      if (!view.greeted) return;
+      view.greeted = false;
+      view.waitUntil = now + 1400;
+    });
   }
 
   // ----------------------------------------------------------------- player
@@ -1157,7 +1260,13 @@ export class GameScene extends Phaser.Scene {
       const ty = Math.floor(py / TILE);
       if (tx < 0 || ty < 0 || tx >= WORLD_W || ty >= WORLD_H) return true;
       const key = tileKey(tx, ty);
-      if (isWaterTile(tx, ty) || isObstacleTile(tx, ty) || this.blockedBuildings.has(key)) return true;
+      if (
+        isWaterTile(tx, ty) ||
+        isObstacleTile(tx, ty) ||
+        isFenceTile(tx, ty) ||
+        this.blockedBuildings.has(key)
+      )
+        return true;
     }
     return false;
   }
@@ -2224,6 +2333,7 @@ export class GameScene extends Phaser.Scene {
       this.lastNpcCheck = _time;
       this.updateNpcVisibility();
     }
+    this.updateNpcWander(delta);
     if (!this.state.paused && !this.sleeping && this.state.data.minute >= 22 * 60 && this.nightWarnedDay !== this.state.data.day) {
       this.nightWarnedDay = this.state.data.day;
       this.ui.notify('It is getting late. Remember to sleep soon.', 'info');

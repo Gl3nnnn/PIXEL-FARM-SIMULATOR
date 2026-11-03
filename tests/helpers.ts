@@ -2,7 +2,7 @@ import { GameState, createNewSave } from '../src/systems/gameState';
 import type { SaveData } from '../src/types';
 
 export const FIELD_X = 8;
-export const FIELD_Y = 9;
+export const FIELD_Y = 10;
 
 export function makeState(rng: () => number = () => 0): GameState {
   return new GameState(createNewSave(), rng);

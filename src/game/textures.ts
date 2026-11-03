@@ -1165,6 +1165,22 @@ function drawBuilding(ctx: Ctx, id: string, w: number, h: number): void {
       px(ctx, 13, 5, 2, 1, '#a87a4a');
       break;
     }
+    case 'fence_gate_post': {
+      px(ctx, 1, 0, 2, 16, woodDark);
+      px(ctx, 5, 0, 2, 16, woodDark);
+      px(ctx, 0, 0, 8, 2, '#c98a4a');
+      px(ctx, 0, 5, 8, 2, wood);
+      px(ctx, 0, 10, 8, 2, wood);
+      px(ctx, 0, 15, 8, 1, 'rgba(0,0,0,0.2)');
+      break;
+    }
+    case 'hedge_strip': {
+      px(ctx, 0, 1, 16, 6, '#3f7a38');
+      px(ctx, 0, 1, 16, 2, '#5c9c48');
+      px(ctx, 0, 6, 16, 1, '#2e5e2a');
+      for (let i = 0; i < 16; i += 3) px(ctx, i, 0, 2, 1, '#6cb054');
+      break;
+    }
     case 'path': {
       drawPath(ctx);
       break;
@@ -1479,13 +1495,61 @@ function drawButterfly(ctx: Ctx, frame: number, variant: number): void {
 
 function drawFence(ctx: Ctx): void {
   px(ctx, 0, 0, 16, 14, 'rgba(0,0,0,0)');
-  px(ctx, 0, 3, 16, 2, '#c8a06a');
-  px(ctx, 0, 8, 16, 2, '#b08854');
-  px(ctx, 2, 1, 2, 12, '#8a5a34');
-  px(ctx, 2, 1, 1, 12, '#a87446');
-  px(ctx, 11, 1, 2, 12, '#8a5a34');
-  px(ctx, 11, 1, 1, 12, '#a87446');
-  px(ctx, 2, 12, 11, 1, 'rgba(0,0,0,0.16)');
+  px(ctx, 0, 8, 16, 2, 'rgba(0,0,0,0.14)');
+  px(ctx, 0, 4, 16, 3, '#d8b07a');
+  px(ctx, 0, 6, 16, 1, '#a87844');
+  px(ctx, 0, 10, 16, 3, '#c49a66');
+  px(ctx, 0, 12, 16, 1, '#96703c');
+  px(ctx, 1, 1, 3, 13, '#8a5a34');
+  px(ctx, 1, 1, 1, 13, '#b98a56');
+  px(ctx, 1, 1, 3, 1, '#e0c094');
+  px(ctx, 12, 1, 3, 13, '#8a5a34');
+  px(ctx, 12, 1, 1, 13, '#b98a56');
+  px(ctx, 12, 1, 3, 1, '#e0c094');
+  px(ctx, 1, 14, 14, 1, 'rgba(0,0,0,0.18)');
+}
+
+/** An upright rail piece, used for the left and right edges of a field fence. */
+function drawFenceVertical(ctx: Ctx): void {
+  px(ctx, 0, 0, 16, 16, 'rgba(0,0,0,0)');
+  px(ctx, 5, 0, 2, 16, '#d8b07a');
+  px(ctx, 9, 0, 2, 16, '#c49a66');
+  px(ctx, 4, 0, 1, 16, '#e6c79b');
+  px(ctx, 8, 0, 1, 16, '#a87844');
+  px(ctx, 11, 0, 1, 16, '#96703c');
+  px(ctx, 2, 1, 12, 3, '#8a5a34');
+  px(ctx, 2, 1, 1, 3, '#b98a56');
+  px(ctx, 2, 1, 12, 1, '#e0c094');
+  px(ctx, 2, 12, 12, 3, '#8a5a34');
+  px(ctx, 2, 12, 1, 3, '#b98a56');
+  px(ctx, 2, 12, 12, 1, '#e0c094');
+  px(ctx, 3, 15, 11, 1, 'rgba(0,0,0,0.18)');
+}
+
+/**
+ * A taller gate post with a small cap. Drawn so its resting rails sit level with
+ * the top rail of the neighbouring fence, leaving a clean walk-through gap.
+ */
+function drawGatePost(ctx: Ctx): void {
+  px(ctx, 0, 0, 12, 20, 'rgba(0,0,0,0)');
+  px(ctx, 4, 4, 4, 15, '#8a5a34');
+  px(ctx, 4, 4, 1, 15, '#bb8c58');
+  px(ctx, 1, 0, 10, 3, '#c97f4a');
+  px(ctx, 1, 0, 10, 1, '#e8a86a');
+  px(ctx, 1, 2, 10, 1, '#8a5a34');
+  px(ctx, 4, 19, 4, 1, 'rgba(0,0,0,0.22)');
+}
+
+/** A clipped hedge strip that runs along a field's outer edge. */
+function drawHedgeStrip(ctx: Ctx): void {
+  px(ctx, 0, 0, 16, 8, 'rgba(0,0,0,0)');
+  px(ctx, 0, 3, 16, 4, '#3f7a38');
+  px(ctx, 0, 3, 16, 1, '#5c9c48');
+  px(ctx, 0, 6, 16, 1, '#2e5e2a');
+  for (let i = 0; i < 16; i += 3) {
+    px(ctx, i, 2, 2, 1, '#6cb054');
+    px(ctx, i + 1, 7, 2, 1, '#264f24');
+  }
 }
 
 function drawLilypad(ctx: Ctx): void {
@@ -1794,7 +1858,11 @@ export function generateTextures(scene: Phaser.Scene): void {
     px(ctx, 5, 3, 1, 5, '#5b9b3a');
   });
   makeTexture(scene, 'bush', 20, 14, drawBush);
+  makeTexture(scene, 'b_fence', 16, 16, drawFence);
+  makeTexture(scene, 'b_fence_v', 16, 16, drawFenceVertical);
   makeTexture(scene, 'fence', 16, 14, drawFence);
+  makeTexture(scene, 'fence_gate_post', 12, 20, drawGatePost);
+  makeTexture(scene, 'hedge_strip', 16, 8, drawHedgeStrip);
   makeTexture(scene, 'lilypad', 12, 8, drawLilypad);
   makeTexture(scene, 'reed', 8, 16, drawReed);
   for (let f = 0; f < 2; f++) {

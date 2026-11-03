@@ -74,6 +74,7 @@ import {
 import { marketMultiplier } from './market';
 import {
   inBounds,
+  isFenceTile,
   isMineNodeTile,
   isObstacleTile,
   isPathTile,
@@ -159,7 +160,7 @@ export function createNewSave(): SaveData {
     version: CURRENT_SAVE_VERSION,
     createdAt: Date.now(),
     savedAt: Date.now(),
-    player: { x: 6 * TILE, y: 7 * TILE, facing: 'down' },
+    player: { x: 7 * TILE + TILE / 2, y: 8 * TILE, facing: 'down' },
     coins: 400,
     day: 1,
     season: 'spring',
@@ -408,7 +409,7 @@ export class GameState {
   isForageSpot(x: number, y: number): boolean {
     if (!inBounds(x, y)) return false;
     if (isWaterTile(x, y) || isObstacleTile(x, y) || isPathTile(x, y)) return false;
-    if (isMineNodeTile(x, y)) return false;
+    if (isMineNodeTile(x, y) || isFenceTile(x, y)) return false;
     if (plotIndexAt(x, y) >= 0) return false;
     if (this.buildingAt(x, y)) return false;
     return true;
