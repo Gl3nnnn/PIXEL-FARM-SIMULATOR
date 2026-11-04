@@ -1,7 +1,7 @@
 ﻿/** Core shared types for Pixel Farm Simulator. */
 
 export type Season = 'spring' | 'summer' | 'fall' | 'winter';
-export type Weather = 'sunny' | 'cloudy' | 'rain' | 'storm';
+export type Weather = 'sunny' | 'cloudy' | 'rain' | 'storm' | 'snow' | 'wind' | 'fog';
 export type Quality = 'normal' | 'silver' | 'gold';
 export type Facing = 'down' | 'up' | 'left' | 'right';
 export type SkillKey = 'farming' | 'animal' | 'crafting' | 'business' | 'fishing' | 'mining';
@@ -65,7 +65,7 @@ export type PlantArchetype =
 export type HousingId = 'coop' | 'barn' | 'pond' | 'stable' | 'apiary' | 'hutch' | 'kennel' | 'aviary' | 'pasture';
 
 /** What a tool improves. */
-export type ToolEffect = 'till' | 'water' | 'speed' | 'bag' | 'luck' | 'rod' | 'mine';
+export type ToolEffect = 'till' | 'water' | 'plant' | 'speed' | 'bag' | 'luck' | 'rod' | 'mine';
 
 export interface CropDef {
   id: string;

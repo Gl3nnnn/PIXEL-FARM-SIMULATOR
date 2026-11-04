@@ -24,7 +24,7 @@ Once GitHub Pages is enabled, the game is available at:
 - Seasonal festival board with three themed contracts, plus Day 28 judging contests and ribbons
 - Farm Almanac with crop economics, livestock returns, fish records, and a collection album
 - Helper's Cottage automation: auto-feed, auto-collect, auto-harvest, and auto-replant
-- Eight seasonal fish, bait, a fishing minigame, and three fish recipes
+- Eight seasonal fish, bait, a fishing minigame with a relaxed pace option, and three fish recipes
 - A 64 × 48 tile farm laid out like a farmstead: a road grid, three fenced rows of fields (12 to unlock, every one with an upright rail fence and one gate facing its lane), two ponds to fish, and two quarries with 22 rock nodes
 - Five visitors with weekly schedules, requests, gifts, birthdays, hearts, romance, and marriage
 - **Old Mine**: 120 floors of procedural rock, ore, monsters, four weapons, a blacksmith, and an elevator every five floors
@@ -51,6 +51,8 @@ Once GitHub Pages is enabled, the game is available at:
 | Town / Old Mine / Shipping / Homestead | `Y` / `N` / `V` / `O` |
 | Museum | `X` or from the Town panel |
 | Fish / mine | Select the fishing rod or pickaxe, then click water or a quarry rock |
+| Map / home | Press **M** for the minimap, then click a spot to walk there · press **H** to return to the farmhouse |
+| Field harvest | Stand by a field gate and press **R** to harvest every ripe crop on that field |
 | Enter the shipping bin or farmhouse | Click the building on the farm |
 | Pause | `Esc` |
 | Sleep and advance the day | Sleep button in the HUD |

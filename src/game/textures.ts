@@ -1888,7 +1888,7 @@ export function createPlayerAnimations(scene: Phaser.Scene): void {
         { key: `player_${dir}_2` },
         { key: `player_${dir}_0` }
       ],
-      frameRate: 7,
+      frameRate: 9,
       repeat: -1
     });
   }

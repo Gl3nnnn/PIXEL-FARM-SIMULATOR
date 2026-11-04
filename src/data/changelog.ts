@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '3.1.0',
+    date: '2026-11-14',
+    title: 'Fishing, managing buildings, and a map',
+    changes: [
+      'Fishing is now a real minigame: hold the reel to keep your hook on a drifting fish until the catch meter fills. A Relaxed pace toggle makes it gentler, and the choice is remembered.',
+      'The Build panel has a Manage Buildings section: move anything you placed to a new spot, or remove it for half its cost back. Your farmhouse and any building with an animal inside are protected.',
+      'Seeds now sow every empty tilled tile within reach in one click, and three new planting tools widen that patch. Press R by a field gate to harvest the whole field at once.',
+      'Winter finally looks like winter: Snow, plus Windy and Fog days, each with its own sky, particles and light. Snow melts into the soil so nothing dries overnight.',
+      'Press M for a minimap of the whole farm, then click anywhere on it and your farmer walks the whole way there - round ponds, through gates, around trees - with the route dotted on the ground. Press H, or the HOME button, to jump back to your farmhouse.',
+      'Three new tools for sowing: Seed Pouch, Seeder Gloves and Master Broadcaster.'
+    ]
+  },
+  {
     version: '3.0.1',
     date: '2026-11-13',
     title: 'Fences that look right, and open gates',

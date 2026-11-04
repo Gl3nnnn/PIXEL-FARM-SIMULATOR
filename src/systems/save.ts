@@ -548,7 +548,7 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
       })
     : [];
 
-  const weathers = ['sunny', 'cloudy', 'rain', 'storm'] as const;
+  const weathers = ['sunny', 'cloudy', 'rain', 'storm', 'snow', 'wind', 'fog'] as const;
   const facings = ['down', 'up', 'left', 'right'] as const;
   const playerRecord: Record<string, unknown> = isRecord(d.player) ? d.player : {};
   const facingValue = playerRecord.facing;

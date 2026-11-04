@@ -3,6 +3,7 @@ import {
   ANIMALS,
   BUILDINGS,
   CROPS,
+  FARMHOUSE,
   ITEMS,
   NPC_SPOTS,
   PLOTS,
@@ -100,6 +101,15 @@ export class GameScene extends Phaser.Scene {
   private groundImages: Phaser.GameObjects.GameObject[] = [];
   private waterImages: Array<{ image: Phaser.GameObjects.Image; frame: number }> = [];
   private weatherPuddles: Phaser.GameObjects.Image[] = [];
+  private fogLayer!: Phaser.GameObjects.Graphics;
+  private windStreaks!: Phaser.GameObjects.Graphics;
+  private miniMap!: Phaser.GameObjects.Graphics;
+  private miniDot!: Phaser.GameObjects.Graphics;
+  private miniOpen = false;
+  private miniOrigin = { x: 0, y: 0 };
+  private walkPath: Array<{ x: number; y: number }> = [];
+  private walkTile: { x: number; y: number } | null = null;
+  private walkGfx?: Phaser.GameObjects.Graphics;
   private plotDecor: Array<Phaser.GameObjects.GameObject> = [];
   private festivalDecor: Phaser.GameObjects.GameObject[] = [];
   private tileVisuals = new Map<string, TileVisual>();
@@ -135,6 +145,7 @@ export class GameScene extends Phaser.Scene {
   private nightWarnedDay = -1;
   private cropLabel?: Phaser.GameObjects.Text;
   private buildMode: string | null = null;
+  private manageUid: string | null = null;
   private pendingBuild: { x: number; y: number } | null = null;
   private sleeping = false;
   private forageViews: Phaser.GameObjects.Image[] = [];
@@ -210,6 +221,7 @@ export class GameScene extends Phaser.Scene {
     this.setupInput();
     this.createLighting();
     this.createWeather();
+    this.createMinimap();
     this.createAmbientWildlife();
     this.hoverGfx = this.add.graphics().setDepth(850);
     this.ghostGfx = this.add.graphics().setDepth(851);
@@ -240,6 +252,9 @@ export class GameScene extends Phaser.Scene {
       sleep: () => this.sleep(),
       exitToMenu: () => this.exitToMenu(),
       beginBuild: (id) => this.setBuildMode(id),
+      beginManage: (uid) => this.setManageMode(uid),
+      toggleMap: () => this.toggleMinimap(),
+      warpHome: () => this.warpHome(),
       actionButton: () => this.useNearby(),
       panelClosed: () => this.resumeNpcWalks()
     });
@@ -1209,6 +1224,8 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-G', () => this.harvestNearby());
     this.input.keyboard!.on('keydown-F', () => this.feedAllAnimals());
     this.input.keyboard!.on('keydown-E', () => this.collectNearbyProducts());
+    this.input.keyboard!.on('keydown-R', () => this.harvestCurrentField());
+    this.input.keyboard!.on('keydown-H', () => this.warpHome());
 
     // Mouse wheel zooms the camera: from the normal view up to 2.5x closer.
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _over: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
@@ -1219,13 +1236,25 @@ export class GameScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.state.paused || this.sleeping) return;
+      // A click on the open map walks there instead of acting on the farm.
+      if (this.miniOpen && this.minimapTileAt(pointer.x, pointer.y)) return;
       const wp = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       if (pointer.rightButtonDown()) {
+        if (this.manageUid) {
+          this.setManageMode(null);
+          this.ui.buildPlaced();
+          this.ui.notify('Manage mode closed.', 'info');
+          return;
+        }
         if (this.buildMode) {
           this.setBuildMode(null);
           this.ui.buildPlaced();
           this.ui.notify('Placement cancelled.', 'info');
         }
+        return;
+      }
+      if (this.manageUid) {
+        this.tryMoveManaged(wp.x, wp.y);
         return;
       }
       if (this.buildMode) {
@@ -1240,6 +1269,21 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (this.state.paused) return;
       const wp = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      if (this.manageUid) {
+        const b = this.state.data.buildings.find((entry) => entry.uid === this.manageUid);
+        const def = b ? BUILDINGS[b.id] : undefined;
+        if (b && def) {
+          const tile = worldToTile(wp.x, wp.y);
+          const gx = clamp(tile.x - Math.floor(def.w / 2), 0, WORLD_W - def.w);
+          const gy = clamp(tile.y - Math.floor(def.h / 2), 0, WORLD_H - def.h);
+          this.ghost.setVisible(true);
+          this.ghost.setPosition(gx * TILE, gy * TILE);
+          const ok = this.state.canMoveBuilding(this.manageUid, gx, gy).ok;
+          this.ghost.setTint(ok ? 0x9dffb0 : 0xff9a9a);
+          this.ghost.setAlpha(0.7);
+        }
+        return;
+      }
       if (this.buildMode) this.updateGhost(wp.x, wp.y);
       else {
         this.updateHover(wp.x, wp.y);
@@ -1274,6 +1318,11 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- actions
 
   private handleWorldClick(wx: number, wy: number): void {
+    // Clicking the farm takes the wheel back from a map walk.
+    if (this.walkTile) {
+      this.stopWalk();
+      return;
+    }
     const stall = this.festivalDecor[0];
     if (
       stall instanceof Phaser.GameObjects.Image &&
@@ -1441,7 +1490,7 @@ export class GameScene extends Phaser.Scene {
       sfx = 'till';
       particle = 'soil';
     } else if (item.endsWith('_seed')) {
-      result = this.state.plantAt(x, y, item);
+      result = this.state.plantSweep(x, y, item);
       sfx = 'plant';
       particle = 'sparkle';
     } else {
@@ -1463,6 +1512,8 @@ export class GameScene extends Phaser.Scene {
         this.floatText(`${result.tiles} tilled`, 0xd8c08a, wx, wy - 20);
       } else if (item === 'watering_can' && (result.tiles ?? 0) > 1) {
         this.floatText(`${result.tiles} watered`, 0x9ad8f8, wx, wy - 20);
+      } else if (item.endsWith('_seed') && (result.tiles ?? 0) > 1) {
+        this.floatText(`${result.tiles} planted`, 0xbfe08a, wx, wy - 20);
       }
       this.refreshTileAndNeighbours(x, y);
       this.syncAnimalBubbles();
@@ -1537,7 +1588,65 @@ export class GameScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------ build
 
+  private harvestCurrentField(): void {
+    if (this.state.paused || this.sleeping) return;
+    const tx = Math.floor(this.player.x / TILE);
+    const ty = Math.floor(this.player.y / TILE);
+    let plot = plotIndexAt(tx, ty);
+    if (plot < 0) {
+      for (let dy = -2; dy <= 2 && plot < 0; dy++) {
+        for (let dx = -2; dx <= 2 && plot < 0; dx++) plot = plotIndexAt(tx + dx, ty + dy);
+      }
+    }
+    if (plot < 0) {
+      this.ui.notify('Stand next to a field gate to harvest the whole field.', 'info');
+      return;
+    }
+    const result = this.state.harvestField(plot);
+    this.ui.notify(result.message ?? '', result.ok ? 'success' : 'error');
+    if (result.ok) {
+      audio.play('harvest');
+      this.spawnImpactRing(this.player.x, this.player.y, 0xffedaa);
+      this.buildFarmVisuals();
+      void this.saveGame();
+    } else {
+      audio.play('error');
+    }
+  }
+
+  private setManageMode(uid: string | null): void {
+    this.manageUid = uid;
+    if (!uid) {
+      this.setBuildMode(null);
+      return;
+    }
+    const b = this.state.data.buildings.find((entry) => entry.uid === uid);
+    if (!b) return;
+    this.buildMode = null;
+    this.pendingBuild = null;
+    this.ghost.setTexture(`b_${b.id}`);
+    this.ghost.setVisible(true);
+    this.hoverGfx.clear();
+  }
+
+  removeManagedBuilding(): void {
+    if (!this.manageUid) return;
+    const result = this.state.removeBuilding(this.manageUid);
+    this.ui.notify(result.message ?? '', result.ok ? 'success' : 'error');
+    if (result.ok) {
+      audio.play('craft');
+      this.setManageMode(null);
+      this.ui.buildPlaced();
+      this.buildBuildings();
+      this.buildFarmVisuals();
+      void this.saveGame();
+    } else {
+      audio.play('error');
+    }
+  }
+
   private setBuildMode(buildingId: string | null): void {
+    if (buildingId) this.manageUid = null;
     this.buildMode = buildingId;
     this.pendingBuild = null;
     if (!buildingId) {
@@ -1590,6 +1699,34 @@ export class GameScene extends Phaser.Scene {
         this.ghostGfx.lineStyle(1, check.ok ? 0x8fffa8 : 0xff8080, 0.8);
         this.ghostGfx.strokeRect(tx * TILE, ty * TILE, TILE, TILE);
       }
+    }
+  }
+
+  private tryMoveManaged(wx: number, wy: number): void {
+    if (!this.manageUid) return;
+    const b = this.state.data.buildings.find((entry) => entry.uid === this.manageUid);
+    const def = b ? BUILDINGS[b.id] : undefined;
+    if (!b || !def) return;
+    const tile = worldToTile(wx, wy);
+    const gx = clamp(tile.x - Math.floor(def.w / 2), 0, WORLD_W - def.w);
+    const gy = clamp(tile.y - Math.floor(def.h / 2), 0, WORLD_H - def.h);
+    const check = this.state.canMoveBuilding(this.manageUid, gx, gy);
+    if (!check.ok) {
+      this.ui.notify(check.message ?? 'Cannot move it there.', 'error');
+      audio.play('error');
+      return;
+    }
+    const result = this.state.moveBuilding(this.manageUid, gx, gy);
+    this.ui.notify(result.message ?? '', result.ok ? 'success' : 'error');
+    if (result.ok) {
+      audio.play('craft');
+      this.setManageMode(null);
+      this.ui.buildPlaced();
+      this.buildBuildings();
+      this.buildFarmVisuals();
+      void this.saveGame();
+    } else {
+      audio.play('error');
     }
   }
 
@@ -1927,6 +2064,7 @@ export class GameScene extends Phaser.Scene {
   private sleep(): void {
     if (this.sleeping) return;
     this.sleeping = true;
+    this.stopWalk();
     this.player.setPosition(this.player.x, this.player.y);
     audio.play('sleep');
     this.cameras.main.fadeOut(480, 6, 12, 24);
@@ -2018,7 +2156,7 @@ export class GameScene extends Phaser.Scene {
     else night = Math.min(1, 0.75 + (minute - 1140) / 120);
 
     const weather = this.state.data.weather;
-    const weatherDark = weather === 'storm' ? 0.2 : weather === 'rain' ? 0.13 : weather === 'cloudy' ? 0.07 : 0;
+    const weatherDark = weather === 'storm' ? 0.2 : weather === 'rain' ? 0.13 : weather === 'fog' ? 0.12 : weather === 'snow' ? 0.06 : weather === 'wind' ? 0.04 : weather === 'cloudy' ? 0.07 : 0;
     let overlayColor = 0x08142e;
     let overlayAlpha = Math.max(night * 0.48, weatherDark);
     if (minute >= 990 && minute < 1150) {
@@ -2132,6 +2270,337 @@ export class GameScene extends Phaser.Scene {
     this.leafEmitter.stop();
 
     this.createWeatherPuddles();
+    this.createFogAndWind();
+    this.applyWeather();
+  }
+
+  private createMinimap(): void {
+    this.miniMap = this.add.graphics().setScrollFactor(0).setDepth(930).setVisible(false);
+    this.miniDot = this.add.graphics().setScrollFactor(0).setDepth(931).setVisible(false);
+    this.input.keyboard!.on('keydown-M', () => this.toggleMinimap());
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.miniOpen || this.state.paused) return;
+      const spot = this.minimapTileAt(pointer.x, pointer.y);
+      if (!spot) return;
+      this.startWalkTo(spot.x, spot.y);
+    });
+  }
+
+  private minimapMetrics(): { size: number; scale: number; x: number; y: number } {
+    const size = Math.min(180, this.scale.width * 0.34);
+    const scale = size / Math.max(WORLD_W, WORLD_H);
+    const x = this.scale.width - size - 14;
+    const y = 14;
+    return { size, scale, x, y };
+  }
+
+  private minimapTileAt(px: number, py: number): { x: number; y: number } | null {
+    const m = this.minimapMetrics();
+    const w = WORLD_W * m.scale;
+    const h = WORLD_H * m.scale;
+    if (px < m.x || py < m.y || px > m.x + w || py > m.y + h) return null;
+    const tx = clamp(Math.floor((px - m.x) / m.scale), 0, WORLD_W - 1);
+    const ty = clamp(Math.floor((py - m.y) / m.scale), 0, WORLD_H - 1);
+    return { x: tx, y: ty };
+  }
+
+  private toggleMinimap(): void {
+    this.miniOpen = !this.miniOpen;
+    this.miniMap.setVisible(this.miniOpen);
+    this.miniDot.setVisible(this.miniOpen);
+    if (this.miniOpen) {
+      this.drawMinimap();
+      this.ui.notify('Minimap open. Click a spot to walk there, or press M to close.', 'info');
+    }
+  }
+
+  private drawMinimap(): void {
+    const m = this.minimapMetrics();
+    this.miniOrigin = { x: m.x, y: m.y };
+    const g = this.miniMap;
+    g.clear();
+    g.fillStyle(0x0d1b12, 0.92);
+    g.fillRoundedRect(m.x - 6, m.y - 6, WORLD_W * m.scale + 12, WORLD_H * m.scale + 12, 6);
+    g.lineStyle(2, 0xc8d8b8, 0.75);
+    g.strokeRoundedRect(m.x - 6, m.y - 6, WORLD_W * m.scale + 12, WORLD_H * m.scale + 12, 6);
+
+    const cell = Math.max(1, Math.ceil(m.scale));
+    const step = Math.max(1, Math.floor(1 / m.scale));
+    for (let y = 0; y < WORLD_H; y += step) {
+      for (let x = 0; x < WORLD_W; x += step) {
+        let color = 0x4e7a3a;
+        if (isWaterTile(x, y)) color = 0x3f7fa8;
+        else if (isPathTile(x, y)) color = 0xb09a6a;
+        else if (isFenceTile(x, y)) color = 0x8a6a3a;
+        else if (isMineNodeTile(x, y)) color = 0x6a6a72;
+        else if (isObstacleTile(x, y)) color = 0x2f5228;
+        else {
+          const plot = plotIndexAt(x, y);
+          if (plot >= 0) color = plot < this.state.data.unlockedPlots ? 0x8a6a3a : 0x5a4a34;
+        }
+        g.fillStyle(color, 1);
+        g.fillRect(m.x + x * m.scale, m.y + y * m.scale, cell, cell);
+      }
+    }
+    for (const b of this.state.data.buildings) {
+      const def = BUILDINGS[b.id];
+      if (!def) continue;
+      g.fillStyle(b.id === 'farmhouse' ? 0xe8c46a : 0xc8b088, 1);
+      g.fillRect(m.x + b.x * m.scale, m.y + b.y * m.scale, def.w * m.scale, def.h * m.scale);
+    }
+  }
+
+  private updateMinimapCursor(): void {
+    if (!this.miniOpen) return;
+    const m = this.minimapMetrics();
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    const d = this.miniDot;
+    d.clear();
+    d.lineStyle(1.5, 0xf4e9c8, 0.85);
+    d.strokeRect(
+      m.x + (view.x / TILE) * m.scale,
+      m.y + (view.y / TILE) * m.scale,
+      (view.width / TILE) * m.scale,
+      (view.height / TILE) * m.scale
+    );
+    d.fillStyle(0xff5a4a, 1);
+    d.fillCircle(m.x + (this.player.x / TILE) * m.scale, m.y + (this.player.y / TILE) * m.scale, 3);
+    // The chosen route, drawn on the map while a walk is under way.
+    if (this.walkTile && this.walkPath.length > 0) {
+      d.lineStyle(1.5, 0xffe9a8, 0.9);
+      d.beginPath();
+      d.moveTo(m.x + (this.player.x / TILE) * m.scale, m.y + (this.player.y / TILE) * m.scale);
+      for (const step of this.walkPath) {
+        d.lineTo(m.x + (step.x + 0.5) * m.scale, m.y + (step.y + 0.5) * m.scale);
+      }
+      d.strokePath();
+    }
+  }
+
+  // ------------------------------------------------------- walk where you click
+
+  /** Same rules as the feet: water, trees, rocks, fences and buildings all block a walk. */
+  private walkable(x: number, y: number): boolean {
+    if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return false;
+    if (isWaterTile(x, y) || isFenceTile(x, y) || isObstacleTile(x, y)) return false;
+    return !this.blockedBuildings.has(tileKey(x, y));
+  }
+
+  /** Best walkable tile near a clicked spot, so a click on a field or a tree still walks. */
+  private nearestWalkable(x: number, y: number): { x: number; y: number } | null {
+    if (this.walkable(x, y)) return { x, y };
+    for (let r = 1; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          if (this.walkable(x + dx, y + dy)) return { x: x + dx, y: y + dy };
+        }
+      }
+    }
+    return null;
+  }
+
+  /** A* over the farm, eight ways, with the search capped so a long walk stays fast. */
+  private findWalkPath(start: { x: number; y: number }, goal: { x: number; y: number }): Array<{ x: number; y: number }> {
+    if (start.x === goal.x && start.y === goal.y) return [];
+    const key = (x: number, y: number): number => y * WORLD_W + x;
+    const open = new Map<number, number>([[key(start.x, start.y), 0]]);
+    const cameFrom = new Map<number, number>();
+    const costSoFar = new Map<number, number>([[key(start.x, start.y), 0]]);
+    const startKey = key(start.x, start.y);
+    const goalKey = key(goal.x, goal.y);
+    let guard = 0;
+
+    while (open.size > 0 && guard++ < 30000) {
+      let bestK = -1;
+      let bestF = Infinity;
+      for (const [k, f] of open) {
+        if (f < bestF) {
+          bestF = f;
+          bestK = k;
+        }
+      }
+      if (bestK < 0) break;
+      open.delete(bestK);
+      if (bestK === goalKey) break;
+
+      const bx = bestK % WORLD_W;
+      const by = Math.floor(bestK / WORLD_W);
+      const base = costSoFar.get(bestK) ?? 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = bx + dx;
+          const ny = by + dy;
+          if (!this.walkable(nx, ny)) continue;
+          // Never cut a corner between two blocked tiles.
+          if (dx && dy && (!this.walkable(bx + dx, by) || !this.walkable(bx, by + dy))) continue;
+          const step = dx && dy ? 1.4142 : 1;
+          const next = base + step;
+          const nk = key(nx, ny);
+          if (next >= (costSoFar.get(nk) ?? Infinity)) continue;
+          costSoFar.set(nk, next);
+          cameFrom.set(nk, bestK);
+          const h = Math.max(Math.abs(nx - goal.x), Math.abs(ny - goal.y)) +
+            0.4142 * Math.min(Math.abs(nx - goal.x), Math.abs(ny - goal.y));
+          open.set(nk, next + h);
+        }
+      }
+    }
+
+    if (!cameFrom.has(goalKey)) return [];
+    const path: Array<{ x: number; y: number }> = [];
+    let k = goalKey;
+    while (k !== startKey) {
+      path.push({ x: k % WORLD_W, y: Math.floor(k / WORLD_W) });
+      const prev = cameFrom.get(k);
+      if (prev === undefined) return [];
+      k = prev;
+    }
+    path.reverse();
+    return path;
+  }
+
+  private startWalkTo(tx: number, ty: number): void {
+    const goal = this.nearestWalkable(tx, ty);
+    if (!goal) {
+      this.ui.notify('There is no way to walk there.', 'error');
+      return;
+    }
+    const start = worldToTile(this.player.x, this.player.y);
+    const origin = this.walkable(start.x, start.y) ? start : (this.nearestWalkable(start.x, start.y) ?? start);
+    const path = this.findWalkPath(origin, goal);
+    if (path.length === 0) {
+      if (goal.x === origin.x && goal.y === origin.y) {
+        this.ui.notify('You are already standing there.', 'info');
+      } else {
+        this.ui.notify('There is no way to walk there.', 'error');
+      }
+      return;
+    }
+    this.walkPath = path;
+    this.walkTile = path[0];
+    audio.play('click');
+    this.drawWalkTrail();
+  }
+
+  private stopWalk(): void {
+    this.walkPath = [];
+    this.walkTile = null;
+    this.walkGfx?.clear();
+  }
+
+  /** One step of the click-to-walk follow. Returns true while it is steering the player. */
+  private updateWalk(dt: number): boolean {
+    if (!this.walkTile) return false;
+    const tx = this.walkTile.x * TILE + TILE / 2;
+    const ty = this.walkTile.y * TILE + TILE / 2;
+    const dx = tx - this.player.x;
+    const dy = ty - this.player.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 4) {
+      this.walkPath.shift();
+      this.walkTile = this.walkPath[0] ?? null;
+      if (!this.walkTile) {
+        this.walkGfx?.clear();
+        this.ui.notify('You have arrived.', 'info');
+        return false;
+      }
+      this.drawWalkTrail();
+      return true;
+    }
+
+    const boots = this.state.data.upgrades.boots ?? 0;
+    let speed =
+      150 *
+      (1 +
+        boots * 0.12 +
+        this.state.toolBonus('speed') +
+        this.state.buffSum('speed') +
+        this.state.horseSpeedBonus());
+    const feet = worldToTile(this.player.x, this.player.y);
+    if (isPathTile(feet.x, feet.y)) speed *= 1.25;
+
+    const ix = dx / dist;
+    const iy = dy / dist;
+    const step = Math.min(speed * dt, dist);
+    const before = { x: this.player.x, y: this.player.y };
+    const nx = this.player.x + ix * step;
+    const ny = this.player.y + iy * step;
+    if (!this.isFootBlocked(nx, this.player.y)) this.player.x = nx;
+    if (!this.isFootBlocked(this.player.x, ny)) this.player.y = ny;
+    this.player.x = clamp(this.player.x, TILE, (WORLD_W - 1) * TILE);
+    this.player.y = clamp(this.player.y, TILE * 1.5, (WORLD_H - 1) * TILE);
+
+    if (Math.abs(ix) > Math.abs(iy)) this.facing = ix > 0 ? 'right' : 'left';
+    else this.facing = iy > 0 ? 'down' : 'up';
+    this.player.anims.play(`walk_${this.facing}`, true);
+    if (this.ui) this.ui.noteMovement(Math.hypot(this.player.x - before.x, this.player.y - before.y));
+
+    // Something solid stopped us: wait a moment, then give up on the walk.
+    const moved = Math.hypot(this.player.x - before.x, this.player.y - before.y);
+    if (moved < 0.4) {
+      this.stopWalk();
+      this.ui.notify('Something is in the way.', 'error');
+      return false;
+    }
+    return true;
+  }
+
+  /** The dotted trail on the farm ground, so the route is visible while walking. */
+  private drawWalkTrail(): void {
+    if (!this.walkGfx) {
+      this.walkGfx = this.add.graphics().setDepth(6);
+    }
+    const g = this.walkGfx;
+    g.clear();
+    if (!this.walkTile) return;
+    g.fillStyle(0xffe9a8, 0.75);
+    for (const step of this.walkPath) {
+      g.fillCircle(step.x * TILE + TILE / 2, step.y * TILE + TILE / 2, 3.5);
+    }
+  }
+
+  warpHome(): void {
+    if (this.state.paused || this.sleeping) return;
+    // Stand on the path just below the farmhouse door, never inside the walls.
+    const doorX = FARMHOUSE.x + Math.floor(FARMHOUSE.w / 2);
+    const doorY = FARMHOUSE.y + FARMHOUSE.h + 1;
+    this.warpToTile(doorX, doorY);
+  }
+
+  private warpToTile(tx: number, ty: number): void {
+    this.stopWalk();
+    this.player.setPosition(tx * TILE + TILE / 2, ty * TILE + TILE / 2);
+    this.playerShadow.setPosition(this.player.x, this.player.y);
+    this.state.data.player = { x: this.player.x, y: this.player.y, facing: this.facing };
+    this.cameras.main.centerOn(this.player.x, this.player.y);
+    audio.play('click');
+    if (this.miniOpen) this.updateMinimapCursor();
+  }
+
+  private createFogAndWind(): void {
+    this.fogLayer?.destroy();
+    this.windStreaks?.destroy();
+    this.fogLayer = this.add.graphics().setScrollFactor(0).setDepth(895).setVisible(false);
+    for (let i = 0; i < 9; i++) {
+      const y = (i / 9) * this.scale.height + 20;
+      this.fogLayer.fillStyle(0xdfe6e2, 0.1 + (i % 3) * 0.022);
+      this.fogLayer.fillEllipse(this.scale.width / 2, y, this.scale.width * 1.5, 130 + (i % 4) * 34);
+    }
+    this.windStreaks = this.add.graphics().setScrollFactor(0).setDepth(896).setVisible(false);
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 137) % this.scale.width;
+      const y = ((i * 89) % Math.floor(this.scale.height * 0.8)) + 30;
+      const len = 26 + (i % 5) * 16;
+      this.windStreaks.lineStyle(1.5, 0xf4f8ff, 0.16 + (i % 3) * 0.05);
+      this.windStreaks.beginPath();
+      this.windStreaks.moveTo(x, y);
+      this.windStreaks.lineTo(x + len, y - 4 - (i % 4));
+      this.windStreaks.strokePath();
+    }
   }
 
   private createWeatherPuddles(): void {
@@ -2171,13 +2640,26 @@ export class GameScene extends Phaser.Scene {
       this.splashEmitter.stop();
     }
     const season = this.state.data.season;
-    if (season === 'winter' && !rainy) this.snowEmitter.start();
+    const snowing = w === 'snow';
+    if ((season === 'winter' && !rainy) || snowing) this.snowEmitter.start();
     else this.snowEmitter.stop();
-    if (season === 'fall' && !rainy) this.leafEmitter.start();
+    const leafing = w === 'wind' ? season !== 'winter' : season === 'fall' && !rainy;
+    if (leafing) this.leafEmitter.start();
     else this.leafEmitter.stop();
+    if (w === 'wind') {
+      this.leafEmitter.frequency = 55;
+      this.leafEmitter.setParticleSpeed(-120, 60);
+    } else {
+      this.leafEmitter.frequency = 220;
+      this.leafEmitter.setParticleSpeed(-25, 42);
+    }
+    if (w === 'snow') this.snowEmitter.frequency = 26;
+    else this.snowEmitter.frequency = 70;
     for (const puddle of this.weatherPuddles) {
       puddle.setAlpha(rainy ? 0.82 : 0);
     }
+    this.fogLayer.setVisible(w === 'fog');
+    this.windStreaks.setVisible(w === 'wind');
   }
 
   private spawnWaterRipple(x: number, y: number): void {
@@ -2289,11 +2771,12 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.player) return;
     const dt = Math.min(delta, 80) / 1000;
+    if (this.miniOpen) this.updateMinimapCursor();
 
     if (!this.state.paused && !this.sleeping) {
       const boots = this.state.data.upgrades.boots ?? 0;
       let speed =
-      122 *
+      150 *
       (1 +
         boots * 0.12 +
         this.state.toolBonus('speed') +
@@ -2312,6 +2795,23 @@ export class GameScene extends Phaser.Scene {
       if (joy && (Math.abs(joy.x) > 0.18 || Math.abs(joy.y) > 0.18)) {
         ix = joy.x;
         iy = joy.y;
+      }
+      // Clicking the map starts a walk; any key or the joystick takes the wheel back.
+      if (Math.abs(ix) > 0.05 || Math.abs(iy) > 0.05) {
+        if (this.walkTile) this.stopWalk();
+      } else if (this.walkTile) {
+        this.updateWalk(dt);
+        this.player.setFlipX(this.facing === 'left');
+        this.player.setDepth(this.player.y);
+        this.playerShadow.setPosition(this.player.x, this.player.y);
+        this.playerShadow.setDepth(this.player.y - 1);
+        this.state.data.player = { x: this.player.x, y: this.player.y, facing: this.facing };
+        const walked = this.state.tickClock(delta);
+        if (walked) this.sleep();
+        this.updateLighting(delta);
+        this.updateAnimalBubbles();
+        this.updateHoverFromPointer();
+        return;
       }
       const len = Math.hypot(ix, iy);
       if (len > 1) {

@@ -32,6 +32,9 @@ export interface GameUIHandlers {
   sleep(): void;
   exitToMenu(): void;
   beginBuild(buildingId: string | null): void;
+  beginManage(uid: string | null): void;
+  toggleMap(): void;
+  warpHome(): void;
   actionButton(): void;
   panelClosed?(): void;
 }
@@ -108,6 +111,14 @@ export class GameUI {
   private fishingOverlay: HTMLElement | null = null;
   private fishingTimer: number | null = null;
   private fishingRaf: number | null = null;
+  private fishingCleanup: (() => void) | null = null;
+  private static fishingEasy = (() => {
+    try {
+      return window.localStorage.getItem('pfs.fishingEasy') === '1';
+    } catch {
+      return false;
+    }
+  })();
 
   private readonly panelBuilders: Record<string, PanelBuilder> = {
     shop: renderShop,
@@ -156,6 +167,9 @@ export class GameUI {
       requestSave: () => void this.requestSave(),
       sleep: () => this.requestSleep(),
       beginBuild: (id) => this.beginBuild(id),
+      beginManage: (uid) => this.beginManage(uid),
+      toggleMap: () => this.handlers.toggleMap(),
+      warpHome: () => this.handlers.warpHome(),
       exitToMenu: () => this.confirmExit(),
       openPanel: (id) => this.openPanel(id),
       isBuildMode: () => this.buildMode,
@@ -327,6 +341,25 @@ export class GameUI {
       this.handlers.actionButton();
     });
     touch.append(this.joystickBase, actionBtn);
+    const mapBtn = el('button', 'action-btn map-btn');
+    mapBtn.type = 'button';
+    mapBtn.textContent = 'MAP';
+    mapBtn.setAttribute('aria-label', 'Open the farm map');
+    mapBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      audio.resume();
+      this.handlers.toggleMap();
+    });
+    const homeBtn = el('button', 'action-btn home-btn');
+    homeBtn.type = 'button';
+    homeBtn.textContent = 'HOME';
+    homeBtn.setAttribute('aria-label', 'Walk back to the farmhouse');
+    homeBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      audio.resume();
+      this.handlers.warpHome();
+    });
+    touch.append(this.joystickBase, mapBtn, homeBtn, actionBtn);
     this.hud.appendChild(touch);
     this.setupJoystick();
 
@@ -787,66 +820,146 @@ export class GameUI {
     const box = el('div', 'fishing-box');
     const title = el('h3', undefined, 'Fishing');
     const status = el('p', 'fishing-status', cast.baitUsed ? 'Bait in the water. Waiting for a bite…' : 'Waiting for a bite…');
+    const arena = el('div', 'fishing-arena');
     const track = el('div', 'fishing-track');
     const zone = el('div', 'fishing-zone');
     const marker = el('div', 'fishing-marker');
-    const zoneWidth = cast.baitUsed ? 28 : 18;
-    const zoneLeft = 12 + Math.random() * (88 - zoneWidth - 12);
-    zone.style.left = `${zoneLeft}%`;
-    zone.style.width = `${zoneWidth}%`;
-    track.append(zone, marker);
+    const meter = el('div', 'fishing-meter');
+    const meterFill = el('div', 'fishing-meter-fill');
+    const meterLabel = el('span', 'fishing-meter-label', 'Catch');
+    meter.append(meterFill, meterLabel);
+    track.append(marker, zone);
+    arena.append(track, meter);
     let finished = false;
-    const reel = button('Reel!', {
+    const result = el('p', 'hint center');
+    const easyWrap = el('label', 'fishing-easy');
+    const easyBox = document.createElement('input');
+    easyBox.type = 'checkbox';
+    easyBox.checked = GameUI.fishingEasy;
+    easyWrap.append(easyBox, el('span', undefined, 'Relaxed pace'));
+    const reel = button('Hold to reel', {
       variant: 'gold',
       disabled: true,
       onClick: () => {
-        if (finished) {
-          this.closeFishingGame();
-          return;
-        }
-        if (!biting) {
-          finish(false, 'You reeled too early. The fish got away.');
-          return;
-        }
-        const markerPos = currentMarker();
-        const hit = markerPos >= zoneLeft && markerPos <= zoneLeft + zoneWidth;
-        finish(hit, hit ? '' : 'The fish slipped off the hook.');
+        if (finished) this.closeFishingGame();
       }
     });
-    const result = el('p', 'hint center');
-    box.append(title, status, track, reel, result);
+    box.append(title, status, arena, reel, easyWrap, result);
     overlay.appendChild(box);
     this.root.appendChild(overlay);
     this.fishingOverlay = overlay;
 
     let biting = false;
-    let phaseStart = 0;
-    const currentMarker = (): number => {
-      const elapsed = performance.now() - phaseStart;
-      const cycle = 1150 + (cast.baitUsed ? 180 : 0);
-      const t = (elapsed % cycle) / cycle;
-      const wave = (1 - Math.cos(t * Math.PI * 2)) / 2;
-      return 6 + wave * 88;
+    let holding = false;
+    let elapsed = 0;
+    let last = 0;
+    let hook = 30;
+    let fish = 60;
+    let fishDir = 1;
+    let progress = 34;
+
+    const paddleWidth = 16;
+    const zoneWidth = (): number => (easyBox.checked ? 38 : cast.baitUsed ? 30 : 22);
+    const fishSpeed = (): number => (easyBox.checked ? 15 : 23) + Math.min(15, elapsed * 0.55);
+
+    const step = (dt: number): void => {
+      elapsed += dt;
+      const half = zoneWidth() / 2;
+      fish += fishDir * fishSpeed() * dt;
+      if (fish > 100 - half) {
+        fish = 100 - half;
+        fishDir = -1;
+      }
+      if (fish < half) {
+        fish = half;
+        fishDir = 1;
+      }
+      if (Math.random() < dt * 0.8) fishDir *= -1;
+
+      const push = easyBox.checked ? 60 : 78;
+      hook += (holding ? push : -push * 0.85) * dt;
+      if (hook > 100 - paddleWidth / 2) hook = 100 - paddleWidth / 2;
+      if (hook < paddleWidth / 2) hook = paddleWidth / 2;
+
+      const overlap = Math.abs(hook - fish) <= (paddleWidth + zoneWidth()) / 2 - 2;
+      progress += (overlap ? 31 : -19) * dt;
+      if (progress < 0) progress = 0;
+      if (progress > 100) progress = 100;
+
+      marker.style.left = `${hook}%`;
+      zone.style.left = `${fish - half}%`;
+      zone.style.width = `${zoneWidth()}%`;
+      meterFill.style.width = `${progress}%`;
+      meterFill.classList.toggle('low', progress < 32);
+
+      if (progress >= 100) finish(true, '');
+      else if (progress <= 0) finish(false, 'The line slipped out of the water.');
+      else if (elapsed > 26) finish(false, 'It fought for too long and got away.');
     };
-    const tick = (): void => {
+
+    const loop = (now: number): void => {
       if (!biting) return;
-      marker.style.left = `${currentMarker()}%`;
-      this.fishingRaf = window.requestAnimationFrame(tick);
+      const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+      last = now;
+      step(dt);
+      if (biting) this.fishingRaf = window.requestAnimationFrame(loop);
     };
+
+    const setHold = (on: boolean): void => {
+      holding = on;
+    };
+    const onDown = (ev: Event): void => {
+      ev.preventDefault();
+      setHold(true);
+    };
+    const onUp = (): void => setHold(false);
+    const onKeyDown = (ev: KeyboardEvent): void => {
+      if (ev.code === 'Space' || ev.key === ' ' || ev.key === 'Enter') {
+        ev.preventDefault();
+        setHold(true);
+      }
+    };
+    const onKeyUp = (ev: KeyboardEvent): void => {
+      if (ev.code === 'Space' || ev.key === ' ' || ev.key === 'Enter') setHold(false);
+    };
+    reel.addEventListener('pointerdown', onDown);
+    reel.addEventListener('pointerleave', onUp);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    easyBox.addEventListener('change', () => {
+      GameUI.fishingEasy = easyBox.checked;
+      try {
+        window.localStorage.setItem('pfs.fishingEasy', easyBox.checked ? '1' : '0');
+      } catch {
+        // A blocked storage simply means the choice lasts for this session.
+      }
+    });
+    this.fishingCleanup = (): void => {
+      reel.removeEventListener('pointerdown', onDown);
+      reel.removeEventListener('pointerleave', onUp);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+
     this.fishingTimer = window.setTimeout(() => {
-      if (!this.fishingOverlay) return;
+      if (!this.fishingOverlay || finished) return;
       biting = true;
-      phaseStart = performance.now();
-      status.textContent = 'Bite! Reel when the marker is in the green zone!';
+      status.textContent = 'Bite! Hold Reel to keep the hook on the fish.';
       reel.disabled = false;
       audio.play('click');
-      tick();
+      last = 0;
+      this.fishingRaf = window.requestAnimationFrame(loop);
     }, 900 + Math.random() * 900);
 
     const finish = (success: boolean, failure: string): void => {
       if (!this.fishingOverlay || finished) return;
       finished = true;
       biting = false;
+      holding = false;
+      this.fishingCleanup?.();
+      this.fishingCleanup = null;
       if (this.fishingRaf !== null) window.cancelAnimationFrame(this.fishingRaf);
       this.fishingRaf = null;
       if (this.fishingTimer !== null) window.clearTimeout(this.fishingTimer);
@@ -875,6 +988,8 @@ export class GameUI {
   }
 
   closeFishingGame(): void {
+    this.fishingCleanup?.();
+    this.fishingCleanup = null;
     if (this.fishingTimer !== null) window.clearTimeout(this.fishingTimer);
     if (this.fishingRaf !== null) window.cancelAnimationFrame(this.fishingRaf);
     this.fishingTimer = null;
@@ -1033,6 +1148,19 @@ export class GameUI {
     this.buildName.textContent = `Placing ${def.name} (${def.cost}g) — click or tap the ground. On touch, tap twice to confirm. Right-click or Cancel to stop.`;
     this.buildBanner.classList.remove('hidden');
     this.toast('Placement mode: choose a valid spot on the ground.', 'info');
+  }
+
+  private beginManage(uid: string | null): void {
+    if (!uid) {
+      this.handlers.beginManage(null);
+      this.buildPlaced();
+      return;
+    }
+    this.buildMode = true;
+    this.handlers.beginManage(uid);
+    this.buildName.textContent = 'Managing a building — click a new spot to move it, or press Remove. Right-click or Cancel to stop.';
+    this.buildBanner.classList.remove('hidden');
+    this.toast('Manage mode: pick a new spot, or remove it.', 'info');
   }
 
   // ---------------------------------------------------------------- tutorial

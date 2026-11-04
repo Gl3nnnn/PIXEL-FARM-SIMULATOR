@@ -58,6 +58,50 @@ export function renderBuild(ctx: UIContext, root: HTMLElement): void {
     buildingsSec.appendChild(grid);
     content.appendChild(buildingsSec);
 
+    const manageSec = section('Manage Buildings', 'Move or remove what you have already built. Removing refunds half the cost.');
+    const placed = state.data.buildings.filter((b) => b.id !== 'farmhouse');
+    if (placed.length === 0) {
+      manageSec.appendChild(el('p', 'hint', 'Nothing built yet.'));
+    } else {
+      const list = el('div', 'build-manage-list');
+      for (const b of placed) {
+        const def = BUILDINGS[b.id];
+        if (!def) continue;
+        const row = el('div', 'list-row');
+        const info = el('div', 'list-info');
+        info.appendChild(el('strong', undefined, def.name));
+        info.appendChild(el('span', 'hint', `at ${b.x}, ${b.y} · ${def.w}×${def.h}`));
+        row.appendChild(info);
+        const actions = el('div', 'row-actions');
+        actions.appendChild(
+          button('Move', {
+            small: true,
+            onClick: () => {
+              ctx.closePanel();
+              ctx.beginManage(b.uid);
+              audio.play('click');
+            }
+          })
+        );
+        actions.appendChild(
+          button('Remove', {
+            small: true,
+            variant: 'danger',
+            onClick: () => {
+              const result = state.removeBuilding(b.uid);
+              ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+        row.appendChild(actions);
+        list.appendChild(row);
+      }
+      manageSec.appendChild(list);
+    }
+    content.appendChild(manageSec);
+
     const landSec = section('Land & Home', 'Unlock new fields to grow your empire.');
     const next = state.nextPlot();
     const landRow = el('div', 'list-row');

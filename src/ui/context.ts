@@ -10,6 +10,9 @@ export interface UIContext {
   requestSave(): void;
   sleep(): void;
   beginBuild(buildingId: string | null): void;
+  beginManage(uid: string | null): void;
+  toggleMap(): void;
+  warpHome(): void;
   exitToMenu(): void;
   openPanel(id: string): void;
   isBuildMode(): boolean;

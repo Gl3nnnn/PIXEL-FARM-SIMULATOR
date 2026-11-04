@@ -54,7 +54,10 @@ export const WEATHER_INFO: Record<Weather, { name: string; icon: string }> = {
   sunny: { name: 'Sunny', icon: '☀' },
   cloudy: { name: 'Cloudy', icon: '☁' },
   rain: { name: 'Rain', icon: '☂' },
-  storm: { name: 'Storm', icon: '⚡' }
+  storm: { name: 'Storm', icon: '⚡' },
+  snow: { name: 'Snow', icon: '❄' },
+  wind: { name: 'Windy', icon: '≈' },
+  fog: { name: 'Fog', icon: '≋' }
 };
 
 export const QUALITY_MULTIPLIER = { normal: 1, silver: 1.3, gold: 1.75 } as const;
@@ -867,6 +870,9 @@ export const TOOLS: ToolDef[] = [
   { id: 'bamboo_rod', name: 'Bamboo Rod', effect: 'rod', bonus: 0.04, price: 700, unlockLevel: 2, desc: 'A light rod that lands better catches.', colors: [0xa8b83a, 0x6f8a20] },
   { id: 'carbon_rod', name: 'Carbon Rod', effect: 'rod', bonus: 0.08, price: 2100, unlockLevel: 4, desc: 'A fast rod for keen anglers.', colors: [0x3a3a3a, 0x1a1a1a] },
   { id: 'master_rod', name: 'Master Rod', effect: 'rod', bonus: 0.14, price: 4800, unlockLevel: 7, desc: 'The rod of a true angler.', colors: [0x4a6a8a, 0x2a4a6a] },
+  { id: 'sower_pouch', name: 'Sower Pouch', effect: 'plant', bonus: 1, price: 700, unlockLevel: 2, desc: 'Sows a wider patch from one handful of seeds.', colors: [0xc8b48a, 0x8a7a4a] },
+  { id: 'seeder_gloves', name: 'Seeder Gloves', effect: 'plant', bonus: 2, price: 2200, unlockLevel: 4, desc: 'Plant three tiles wide with each scoop.', colors: [0x9a8a5a, 0x6a5a30] },
+  { id: 'broadcaster', name: 'Master Broadcaster', effect: 'plant', bonus: 3, price: 5200, unlockLevel: 7, desc: 'Scatters seed across a whole patch.', colors: [0xe0c15a, 0x9a7a2a] },
   { id: 'copper_pick', name: 'Copper Pickaxe', effect: 'mine', bonus: 1, price: 820, unlockLevel: 3, desc: 'Breaks rocks in fewer swings.', colors: [0xd8844a, 0x9a5a2a] },
   { id: 'steel_pick', name: 'Steel Pickaxe', effect: 'mine', bonus: 2, price: 2400, unlockLevel: 5, desc: 'Cracks stone and ore quickly.', colors: [0xb8c0c8, 0x7a828a] },
   { id: 'golden_pick', name: 'Golden Pickaxe', effect: 'mine', bonus: 3, price: 5600, unlockLevel: 8, desc: 'Shatters rock in a single hit.', colors: [0xf0c84a, 0xb8902a] },
@@ -1009,13 +1015,13 @@ export const FESTIVALS: Record<Season, FestivalDef> = {
 
 
 export const FISH: Record<string, FishDef> = {
-  minnow: { id: 'minnow', name: 'Minnow', itemId: 'minnow', seasons: ['spring', 'summer', 'fall', 'winter'], weathers: ['sunny', 'cloudy', 'rain'], minHour: 6, maxHour: 18, rarity: 0.34, minSell: 18, desc: 'A tiny fish that nibbles at the shallows.' },
-  carp: { id: 'carp', name: 'Carp', itemId: 'carp', seasons: ['spring', 'summer'], weathers: ['sunny', 'cloudy', 'rain', 'storm'], minHour: 6, maxHour: 20, rarity: 0.26, minSell: 32, desc: 'A patient bottom-feeder.' },
-  bass: { id: 'bass', name: 'Bass', itemId: 'bass', seasons: ['spring', 'fall'], weathers: ['sunny', 'cloudy', 'rain'], minHour: 6, maxHour: 19, rarity: 0.18, minSell: 55, desc: 'A strong fighter on the line.' },
-  trout: { id: 'trout', name: 'Trout', itemId: 'trout', seasons: ['fall', 'winter'], weathers: ['cloudy', 'rain', 'storm'], minHour: 6, maxHour: 18, rarity: 0.13, minSell: 75, desc: 'Prefers cool, cloudy water.' },
-  catfish: { id: 'catfish', name: 'Catfish', itemId: 'catfish', seasons: ['summer', 'fall'], weathers: ['cloudy', 'rain', 'storm'], minHour: 18, maxHour: 24, rarity: 0.1, minSell: 110, desc: 'A whiskered night hunter.' },
-  salmon: { id: 'salmon', name: 'Salmon', itemId: 'salmon', seasons: ['fall'], weathers: ['sunny', 'cloudy', 'rain'], minHour: 6, maxHour: 18, rarity: 0.11, minSell: 150, desc: 'A prized autumn catch.' },
-  koi: { id: 'koi', name: 'Koi', itemId: 'koi', seasons: ['spring', 'summer'], weathers: ['sunny'], minHour: 6, maxHour: 12, rarity: 0.05, minSell: 260, desc: 'A beautiful ornamental fish.' },
+  minnow: { id: 'minnow', name: 'Minnow', itemId: 'minnow', seasons: ['spring', 'summer', 'fall', 'winter'], weathers: ['sunny', 'cloudy', 'rain', 'snow', 'wind', 'fog'], minHour: 6, maxHour: 18, rarity: 0.34, minSell: 18, desc: 'A tiny fish that nibbles at the shallows.' },
+  carp: { id: 'carp', name: 'Carp', itemId: 'carp', seasons: ['spring', 'summer'], weathers: ['sunny', 'cloudy', 'rain', 'storm', 'snow', 'wind', 'fog'], minHour: 6, maxHour: 20, rarity: 0.26, minSell: 32, desc: 'A patient bottom-feeder.' },
+  bass: { id: 'bass', name: 'Bass', itemId: 'bass', seasons: ['spring', 'fall'], weathers: ['sunny', 'cloudy', 'rain', 'wind', 'fog'], minHour: 6, maxHour: 19, rarity: 0.18, minSell: 55, desc: 'A strong fighter on the line.' },
+  trout: { id: 'trout', name: 'Trout', itemId: 'trout', seasons: ['fall', 'winter'], weathers: ['cloudy', 'rain', 'storm', 'snow', 'fog'], minHour: 6, maxHour: 18, rarity: 0.13, minSell: 75, desc: 'Prefers cool, cloudy water.' },
+  catfish: { id: 'catfish', name: 'Catfish', itemId: 'catfish', seasons: ['summer', 'fall'], weathers: ['cloudy', 'rain', 'storm', 'fog'], minHour: 18, maxHour: 24, rarity: 0.1, minSell: 110, desc: 'A whiskered night hunter.' },
+  salmon: { id: 'salmon', name: 'Salmon', itemId: 'salmon', seasons: ['fall'], weathers: ['sunny', 'cloudy', 'rain', 'wind'], minHour: 6, maxHour: 18, rarity: 0.11, minSell: 150, desc: 'A prized autumn catch.' },
+  koi: { id: 'koi', name: 'Koi', itemId: 'koi', seasons: ['spring', 'summer'], weathers: ['sunny', 'wind'], minHour: 6, maxHour: 12, rarity: 0.05, minSell: 260, desc: 'A beautiful ornamental fish.' },
   golden_carp: { id: 'golden_carp', name: 'Golden Carp', itemId: 'golden_carp', seasons: ['spring', 'summer', 'fall', 'winter'], weathers: ['sunny'], minHour: 6, maxHour: 18, rarity: 0.015, minSell: 600, desc: 'A legendary golden catch. Very rare.' }
 };
 

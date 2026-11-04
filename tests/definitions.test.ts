@@ -33,9 +33,9 @@ describe('content definitions', () => {
     }
   });
 
-  it('ships seventy-five animals, fifty farm tools and all required buildings', () => {
+  it('ships seventy-five animals, fifty-three farm tools and all required buildings', () => {
     expect(Object.keys(ANIMALS)).toHaveLength(75);
-    expect(TOOLS).toHaveLength(50);
+    expect(TOOLS).toHaveLength(53);
     expect(Object.keys(ANIMALS)).toEqual(
       expect.arrayContaining(['chicken', 'duck', 'cow', 'sheep', 'pig'])
     );
@@ -73,7 +73,7 @@ describe('content definitions', () => {
       expect(tool.price).toBeGreaterThan(0);
       expect(tool.bonus).toBeGreaterThan(0);
       expect(tool.unlockLevel).toBeGreaterThanOrEqual(1);
-      expect(['till', 'water', 'speed', 'bag', 'luck', 'rod', 'mine']).toContain(tool.effect);
+      expect(['till', 'water', 'plant', 'speed', 'bag', 'luck', 'rod', 'mine']).toContain(tool.effect);
     }
   });
 

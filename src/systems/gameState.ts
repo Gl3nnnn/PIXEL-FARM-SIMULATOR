@@ -46,6 +46,7 @@ import {
 import type {
   ActionResult,
   AnimalSave,
+  BuildingDef,
   BuildingSave,
   ChildSave,
   FestivalTier,
@@ -1019,6 +1020,110 @@ export class GameState {
     };
   }
 
+  // Plant the same seed across every empty, tilled tile within reach.
+  plantSweep(cx: number, cy: number, seedId: string): ActionResult & { tiles: number } {
+    const cropDef = cropForSeed(seedId);
+    if (!cropDef) return { ok: false, tiles: 0, message: 'That is not a seed.' };
+    if (!this.hasItem(seedId)) return { ok: false, tiles: 0, message: 'You are out of those seeds.' };
+    const plantCost = this.energyCost('plant');
+    if (!this.hasEnergy(plantCost)) return { ...this.outOfEnergy(plantCost), tiles: 0 };
+    if (!this.canPlantCrop(cropDef.id)) {
+      const seasons = cropDef.seasons.map((s) => SEASON_INFO[s].name).join(' or ');
+      return { ok: false, tiles: 0, message: `${cropDef.name} grows in ${seasons}. Build a greenhouse to plant it now.` };
+    }
+    const radius = (this.data.upgrades.can ?? 0) + this.toolBonus('plant');
+    let count = 0;
+    for (let y = cy - radius; y <= cy + radius; y++) {
+      for (let x = cx - radius; x <= cx + radius; x++) {
+        if (!inBounds(x, y) || !this.isWithinInteraction(x, y)) continue;
+        const tile = this.tileAt(x, y);
+        if (!tile?.tilled || tile.crop) continue;
+        if (!this.isFarmable(x, y)) continue;
+        if (!this.hasItem(seedId)) break;
+        if (!this.hasEnergy(plantCost)) break;
+        this.spendEnergy(plantCost);
+        this.removeItem(seedId, 1);
+        tile.crop = { id: cropDef.id, growth: 0, dryDays: 0, regrows: 0 };
+        this.data.stats.planted += 1;
+        this.addXp('farming', 2, false);
+        count += 1;
+      }
+    }
+    if (count === 0) return { ok: false, tiles: 0, message: 'No empty tilled soil nearby.' };
+    this.emitChange();
+    this.emit('plant', { x: cx, y: cy, cropId: cropDef.id });
+    this.checkProgress();
+    return { ok: true, tiles: count, message: `Planted ${count} ${cropDef.name}${count === 1 ? '' : 's'}.` };
+  }
+
+  // Harvest every ripe crop on one field, if the farmer can reach the gate.
+  harvestField(plotId: number): ActionResult & { tiles: number; kinds: number } {
+    const plot = PLOTS[plotId];
+    if (!plot) return { ok: false, tiles: 0, kinds: 0, message: 'Unknown field.' };
+    if (plotId >= this.data.unlockedPlots) {
+      return { ok: false, tiles: 0, kinds: 0, message: 'Buy this field first.' };
+    }
+    const gateX = plot.x + Math.floor(plot.w / 2);
+    const gateY = plot.y + plot.h - 1;
+    if (!this.isWithinInteraction(gateX, gateY)) {
+      return { ok: false, tiles: 0, kinds: 0, message: 'Stand next to this field\u2019s gate to harvest it.' };
+    }
+    const harvestCost = this.energyCost('harvest');
+    const ready: Array<{ x: number; y: number; crop: string }> = [];
+    for (let y = plot.y; y < plot.y + plot.h; y++) {
+      for (let x = plot.x; x < plot.x + plot.w; x++) {
+        if (this.cropMature(x, y)) ready.push({ x, y, crop: this.tileAt(x, y)!.crop!.id });
+      }
+    }
+    if (ready.length === 0) {
+      return { ok: false, tiles: 0, kinds: 0, message: 'Nothing on this field is ready yet.' };
+    }
+    let harvested = 0;
+    const kinds = new Set<string>();
+    for (const spot of ready) {
+      if (!this.hasEnergy(harvestCost)) break;
+      const tile = this.tileAt(spot.x, spot.y);
+      const def = tile?.crop ? CROPS[tile.crop.id] : undefined;
+      if (!tile?.crop || !def) continue;
+      const quality = this.rollQuality(tile);
+      let yieldQty = randomInt(def.yieldMin, def.yieldMax, this.rng);
+      if (this.professionSum('extraYield') > 0 && this.rng() < 0.25) yieldQty += 1;
+      if (this.freeSpaceFor(def.harvestId, quality) < yieldQty) break;
+      this.spendEnergy(harvestCost);
+      this.addItem(def.harvestId, yieldQty, quality);
+      this.data.stats.harvests += 1;
+      if (def.id === 'carrots') this.data.stats.carrotsHarvested += yieldQty;
+      if (quality === 'gold') this.data.stats.goldHarvests += 1;
+      this.addXp('farming', 6 + yieldQty, false);
+      kinds.add(def.id);
+      if (def.regrowDays > 0) {
+        tile.crop.growth = Math.max(0, def.growthDays - def.regrowDays);
+        tile.crop.regrows += 1;
+        tile.crop.dryDays = 0;
+        tile.watered = false;
+        tile.fertilized = false;
+      } else {
+        tile.crop = undefined;
+        tile.watered = false;
+        tile.fertilized = false;
+        this.cleanupTile(spot.x, spot.y);
+      }
+      this.emit('harvest', { x: spot.x, y: spot.y, cropId: def.id, qty: yieldQty, quality });
+      harvested += 1;
+    }
+    if (harvested === 0) {
+      return { ok: false, tiles: 0, kinds: 0, message: 'Your backpack is full or you are out of energy.' };
+    }
+    this.emitChange();
+    this.checkProgress();
+    return {
+      ok: true,
+      tiles: harvested,
+      kinds: kinds.size,
+      message: `Harvested ${harvested} pile${harvested === 1 ? '' : 's'} from ${plot.name}.`
+    };
+  }
+
   private rollQuality(tile: TileSave): Quality {
     const level = levelFromXp(this.data.xp.farming);
     const fert = tile.fertilized ? 0.16 : 0;
@@ -1175,20 +1280,17 @@ export class GameState {
     });
   }
 
-  canPlaceBuilding(buildingId: string, x: number, y: number): ActionResult {
-    const def = BUILDINGS[buildingId];
-    if (!def) return { ok: false, message: 'Unknown building.' };
-    if (buildingId === 'farmhouse') return { ok: false, message: 'The farmhouse is already built.' };
-    if (this.level < def.unlockLevel) {
-      return { ok: false, message: `Unlocks at farmer level ${def.unlockLevel}.` };
-    }
-    if (this.data.coins < def.cost) return { ok: false, message: 'Not enough coins.' };
+  private placementOk(def: BuildingDef, x: number, y: number, ignoreUid: string | null): ActionResult {
     if (x < 0 || y < 0 || x + def.w > WORLD_W || y + def.h > WORLD_H) {
       return { ok: false, message: 'Does not fit here.' };
     }
-    if (this.buildingOccupies(x, y, def.w, def.h)) {
-      return { ok: false, message: 'Something is already built here.' };
-    }
+    const clash = this.data.buildings.find((b) => {
+      if (b.uid === ignoreUid) return false;
+      const other = BUILDINGS[b.id];
+      if (!other) return false;
+      return x < b.x + other.w && x + def.w > b.x && y < b.y + other.h && y + def.h > b.y;
+    });
+    if (clash) return { ok: false, message: 'Something is already built here.' };
     for (let ty = y; ty < y + def.h; ty++) {
       for (let tx = x; tx < x + def.w; tx++) {
         if (isWaterTile(tx, ty) || isObstacleTile(tx, ty) || isMineNodeTile(tx, ty)) {
@@ -1202,7 +1304,6 @@ export class GameState {
             return { ok: false, message: 'That field is in use.' };
           }
           if (def.kind === 'decor' && def.id === 'path') {
-            // Paths are allowed over field tiles only when empty.
             if (tile?.crop) return { ok: false, message: 'Something is growing there.' };
           } else if (def.kind !== 'decor') {
             return { ok: false, message: 'Build off the crop field.' };
@@ -1217,6 +1318,65 @@ export class GameState {
       }
     }
     return { ok: true };
+  }
+
+  canPlaceBuilding(buildingId: string, x: number, y: number): ActionResult {
+    const def = BUILDINGS[buildingId];
+    if (!def) return { ok: false, message: 'Unknown building.' };
+    if (buildingId === 'farmhouse') return { ok: false, message: 'The farmhouse is already built.' };
+    if (this.level < def.unlockLevel) {
+      return { ok: false, message: `Unlocks at farmer level ${def.unlockLevel}.` };
+    }
+    if (this.data.coins < def.cost) return { ok: false, message: 'Not enough coins.' };
+    return this.placementOk(def, x, y, null);
+  }
+
+  canMoveBuilding(uid: string, x: number, y: number): ActionResult {
+    const b = this.data.buildings.find((entry) => entry.uid === uid);
+    if (!b) return { ok: false, message: 'Building not found.' };
+    const def = BUILDINGS[b.id];
+    if (!def) return { ok: false, message: 'Unknown building.' };
+    return this.placementOk(def, x, y, uid);
+  }
+
+  moveBuilding(uid: string, x: number, y: number): ActionResult {
+    const b = this.data.buildings.find((entry) => entry.uid === uid);
+    if (!b) return { ok: false, message: 'Building not found.' };
+    const def = BUILDINGS[b.id];
+    if (!def) return { ok: false, message: 'Unknown building.' };
+    if (b.x === x && b.y === y) return { ok: false, message: 'It is already there.' };
+    const check = this.canMoveBuilding(uid, x, y);
+    if (!check.ok) return check;
+    b.x = x;
+    b.y = y;
+    this.emitChange();
+    this.emit('build', { buildingId: b.id, x, y });
+    return { ok: true, message: `${def.name} moved.` };
+  }
+
+  removeBuilding(uid: string): ActionResult & { refund?: number } {
+    const index = this.data.buildings.findIndex((entry) => entry.uid === uid);
+    if (index < 0) return { ok: false, message: 'Building not found.' };
+    const b = this.data.buildings[index];
+    const def = BUILDINGS[b.id];
+    if (!def) return { ok: false, message: 'Unknown building.' };
+    if (b.id === 'farmhouse') return { ok: false, message: 'You cannot remove your own farmhouse.' };
+    const x0 = b.x * TILE;
+    const y0 = b.y * TILE;
+    const x1 = (b.x + def.w) * TILE;
+    const y1 = (b.y + def.h) * TILE;
+    const inside = this.data.animals.find((a) => a.x >= x0 && a.x < x1 && a.y >= y0 && a.y < y1);
+    if (inside) {
+      const species = ANIMALS[inside.species]?.name ?? 'animal';
+      return { ok: false, message: `Move your ${species} out of the way first.` };
+    }
+    const refund = Math.floor(def.cost * 0.5);
+    this.data.buildings.splice(index, 1);
+    this.data.coins += refund;
+    this.ensureCapacity();
+    this.emitChange();
+    this.emit('build', { buildingId: b.id, x: b.x, y: b.y });
+    return { ok: true, refund, message: `${def.name} removed. ${refund} coins refunded.` };
   }
 
   build(buildingId: string, x: number, y: number): ActionResult {
@@ -2477,28 +2637,36 @@ export class GameState {
   weatherForSeason(season: Season): Weather {
     const table: Record<Season, Array<[Weather, number]>> = {
       spring: [
-        ['sunny', 0.45],
-        ['cloudy', 0.23],
-        ['rain', 0.27],
-        ['storm', 0.05]
+        ['sunny', 0.42],
+        ['cloudy', 0.2],
+        ['rain', 0.24],
+        ['storm', 0.05],
+        ['wind', 0.05],
+        ['fog', 0.04]
       ],
       summer: [
-        ['sunny', 0.62],
-        ['cloudy', 0.16],
-        ['rain', 0.16],
-        ['storm', 0.06]
+        ['sunny', 0.58],
+        ['cloudy', 0.14],
+        ['rain', 0.14],
+        ['storm', 0.05],
+        ['wind', 0.05],
+        ['fog', 0.04]
       ],
       fall: [
-        ['sunny', 0.4],
-        ['cloudy', 0.28],
-        ['rain', 0.27],
-        ['storm', 0.05]
+        ['sunny', 0.34],
+        ['cloudy', 0.24],
+        ['rain', 0.22],
+        ['storm', 0.05],
+        ['wind', 0.09],
+        ['fog', 0.06]
       ],
       winter: [
-        ['sunny', 0.3],
-        ['cloudy', 0.34],
-        ['rain', 0.26],
-        ['storm', 0.1]
+        ['sunny', 0.2],
+        ['cloudy', 0.26],
+        ['snow', 0.34],
+        ['storm', 0.04],
+        ['wind', 0.08],
+        ['fog', 0.08]
       ]
     };
     const roll = this.rng();
@@ -2649,6 +2817,16 @@ export class GameState {
         if (tile.tilled) tile.watered = true;
       }
       messages.push(d.weather === 'rain' ? 'Rain waters your fields overnight.' : 'A storm soaks the fields.');
+    } else if (d.weather === 'snow') {
+      // Melting snow keeps the soil damp, so nothing dries out overnight.
+      for (const tile of Object.values(d.tiles)) {
+        if (tile.tilled) tile.watered = true;
+      }
+      messages.push('Snow covers the fields. The meltwater soaks the soil.');
+    } else if (d.weather === 'fog') {
+      messages.push('A thick fog rolls over the valley.');
+    } else if (d.weather === 'wind') {
+      messages.push('A stiff wind blows across the farm.');
     }
 
     // 5) Wells and sprinklers water their surroundings.
