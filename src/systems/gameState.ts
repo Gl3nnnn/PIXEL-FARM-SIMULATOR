@@ -1,5 +1,6 @@
 import {
   ANIMALS,
+  APPEARANCE_DEFAULT,
   AUTOMATION,
   BASE_MAX_ENERGY,
   BUFFS,
@@ -10,6 +11,8 @@ import {
   CURRENT_SAVE_VERSION,
   DAYS_PER_SEASON,
   ENERGY_COST,
+  EVALUATION_GOALS,
+  EVALUATION_CANDLE_POINTS,
   FESTIVAL_CONTESTS,
   FESTIVALS,
   FISH,
@@ -17,10 +20,16 @@ import {
   FURNITURE,
   ITEMS,
   LETTERS,
+  LOST_ITEM_FEE_RATE,
+  LOST_ITEM_KEEP_DAYS,
+  LOST_ITEM_MAX,
+  LOST_ITEM_MIN_FEE,
+  LOST_ITEM_RESCUE_VALUE,
   MAIN_QUESTS,
   MINE_FLOOR_H,
   MINE_FLOOR_W,
   MINE_MAX_FLOOR,
+  MINE_SUMMIT,
   MINUTES_PER_REAL_SECOND,
   MUSEUM_REWARDS,
   NPCS,
@@ -35,6 +44,7 @@ import {
   START_MINUTE,
   TILE,
   TOOLS,
+  TV_FORECASTS,
   UPGRADES,
   WEAPONS,
   WORLD_H,
@@ -53,6 +63,7 @@ import type {
   MineNodeSave,
   NpcSave,
   HousingId,
+  MailDef,
   Quality,
   QuestDef,
   SaveData,
@@ -243,7 +254,14 @@ export function createNewSave(): SaveData {
     museum: { donated: [], claimed: [] },
     pet: { type: null, name: '', affection: 0, lastPetDay: 0 },
     horseOwned: false,
-    festivalGame: { season: 'spring', year: 1, played: false, score: 0 }
+    festivalGame: { season: 'spring', year: 1, played: false, score: 0 },
+    appearance: { ...APPEARANCE_DEFAULT },
+    dailyLuck: 0,
+    dailyForecast: '',
+    daysAway: 0,
+    lostItems: [],
+    summitClaimed: [],
+    evaluation: null
   };
 }
 
@@ -521,15 +539,29 @@ export class GameState {
     return { ok: true, message: parts.length ? `Took ${parts.join(' and ')}.` : 'Letter read.' };
   }
 
-  /** New letters arrive as the farmer levels up. */
+  /** New letters arrive as the farm grows: by level, and by day for the guide. */
   private deliverLetters(): string[] {
     const arrived: string[] = [];
     if (!this.data.mail) this.data.mail = [];
+    const playDay = this.data.stats.daysPlayed + 1;
+    const due: MailDef[] = [];
     for (const letter of LETTERS) {
       if (this.data.mail.some((m) => m.id === letter.id)) continue;
       if (this.level < letter.atLevel) continue;
+      if (letter.atDay !== undefined) {
+        if (playDay >= letter.atDay) due.push(letter);
+        continue;
+      }
       this.data.mail.push({ id: letter.id, read: false, claimed: false, day: this.data.day });
       arrived.push(letter.subject);
+    }
+    // The guided letters arrive one per day, oldest first, so a new farmer reads
+    // one useful thing at a time instead of a mailbox full of advice.
+    due.sort((a, b) => (a.atDay ?? 0) - (b.atDay ?? 0));
+    const next = due[0];
+    if (next) {
+      this.data.mail.push({ id: next.id, read: false, claimed: false, day: this.data.day });
+      arrived.push(next.subject);
     }
     return arrived;
   }
@@ -1132,7 +1164,8 @@ export class GameState {
       this.professionSum('luck') +
       this.buffSum('luck') +
       houseBonus(this.data.house ?? { furniture: [] }, 'luck') +
-      petBonus(this.data.pet ?? { type: null, name: '', affection: 0, lastPetDay: 0 });
+      petBonus(this.data.pet ?? { type: null, name: '', affection: 0, lastPetDay: 0 }) +
+      (this.data.dailyLuck ?? 0);
     const goldChance = 0.02 + fert + level * 0.008 + luck;
     const silverChance = 0.2 + fert * 1.4 + level * 0.015 + luck;
     const roll = this.rng();
@@ -1956,6 +1989,9 @@ export class GameState {
     const d = this.data;
     if (!d.mineRun) d.mineRun = createMineRun();
     if (!d.shipping) d.shipping = { items: [] };
+    if (!Array.isArray(d.lostItems)) d.lostItems = [];
+    if (!Array.isArray(d.summitClaimed)) d.summitClaimed = [];
+    if (d.evaluation === undefined) d.evaluation = null;
     if (!d.family) d.family = { children: [] };
     if (!d.house) d.house = { furniture: [] };
     if (!d.museum) d.museum = { donated: [], claimed: [] };
@@ -2285,6 +2321,7 @@ export class GameState {
     for (const stack of items) {
       total += this.sellPrice(stack.itemId, stack.quality) * stack.qty;
       count += stack.qty;
+      this.rescueLostItem(stack.itemId, stack.qty, stack.quality);
     }
     if (count > 0) {
       this.data.coins += total;
@@ -2295,6 +2332,135 @@ export class GameState {
     }
     this.data.shipping.items = [];
     return { total, count };
+  }
+
+  // ------------------------------------------------------ lost item storehouse
+
+  /**
+   * Remember goods that leave the farm by accident. Only things worth a real
+   * amount are kept, so a basket of turnips does not clog the shelf.
+   */
+  private rescueLostItem(itemId: string, qty: number, quality: Quality): void {
+    const def = ITEMS[itemId];
+    if (!def || def.type === 'tool' || qty <= 0) return;
+    const value = this.sellPrice(itemId, quality) * qty;
+    if (value < LOST_ITEM_RESCUE_VALUE) return;
+    if (!Array.isArray(this.data.lostItems)) this.data.lostItems = [];
+    const existing = this.data.lostItems.find(
+      (entry) => entry.itemId === itemId && entry.quality === quality
+    );
+    if (existing) {
+      existing.qty += qty;
+      return;
+    }
+    this.data.lostItems.push({
+      itemId,
+      qty,
+      quality,
+      day: absoluteDay(this.data.season, this.data.year, this.data.day)
+    });
+    while (this.data.lostItems.length > LOST_ITEM_MAX) this.data.lostItems.shift();
+  }
+
+  /**
+   * The reclaim fee, always worked out at today's price so buying something back
+   * can never cost less than it is worth - the market swings, the rule does not.
+   */
+  lostItemFee(entry: { itemId: string; qty: number; quality: Quality }): number {
+    const unit = Math.max(
+      LOST_ITEM_MIN_FEE,
+      Math.round(this.sellPrice(entry.itemId, entry.quality) * LOST_ITEM_FEE_RATE)
+    );
+    return unit * entry.qty;
+  }
+
+  /** The storehouse shelf, oldest entries cleared out. */
+  lostItemState() {
+    if (!Array.isArray(this.data.lostItems)) this.data.lostItems = [];
+    const today = absoluteDay(this.data.season, this.data.year, this.data.day);
+    this.data.lostItems = this.data.lostItems.filter(
+      (entry) => today - entry.day < LOST_ITEM_KEEP_DAYS && !!ITEMS[entry.itemId]
+    );
+    return {
+      items: this.data.lostItems.map((entry, index) => ({
+        index,
+        entry,
+        def: ITEMS[entry.itemId],
+        fee: this.lostItemFee(entry),
+        daysLeft: Math.max(0, LOST_ITEM_KEEP_DAYS - (today - entry.day))
+      })),
+      keepDays: LOST_ITEM_KEEP_DAYS
+    };
+  }
+
+  /** Buys back one entry from the storehouse. */
+  reclaimLostItem(index: number): ActionResult {
+    const entry = (this.data.lostItems ?? [])[index];
+    if (!entry) return { ok: false, message: 'That is not on the shelf any more.' };
+    const def = ITEMS[entry.itemId];
+    if (!def) return { ok: false, message: 'Unknown item.' };
+    const fee = this.lostItemFee(entry);
+    if (this.data.coins < fee) return { ok: false, message: `You need ${fee} coins for that.` };
+    if (this.freeSpaceFor(entry.itemId, entry.quality) < entry.qty) {
+      return { ok: false, message: 'Make room in your backpack first.' };
+    }
+    this.data.coins -= fee;
+    this.addItem(entry.itemId, entry.qty, entry.quality);
+    this.data.lostItems.splice(index, 1);
+    this.emitChange();
+    return { ok: true, message: `Reclaimed ${entry.qty} × ${def.name} for ${fee} coins.` };
+  }
+
+  // ------------------------------------------------------- farm evaluation
+
+  /** What the old farmer looks at when he grades the farm. */
+  evaluationReport() {
+    const collection = this.collectionState().total;
+    const lines = [
+      { label: `Coins earned (${EVALUATION_GOALS.coinsEarned.toLocaleString()})`, value: this.data.stats.coinsEarned, goal: EVALUATION_GOALS.coinsEarned },
+      { label: `Buildings (${EVALUATION_GOALS.buildings})`, value: functionalBuildingCount(this.data), goal: EVALUATION_GOALS.buildings },
+      { label: `Animals (${EVALUATION_GOALS.animals})`, value: this.data.animals.length, goal: EVALUATION_GOALS.animals },
+      { label: `Community bundles (${EVALUATION_GOALS.bundles})`, value: this.bundlesCompleted(), goal: EVALUATION_GOALS.bundles },
+      { label: `Collection entries (${EVALUATION_GOALS.collection})`, value: collection.found, goal: EVALUATION_GOALS.collection },
+      { label: `Farmer level (${EVALUATION_GOALS.level})`, value: this.level, goal: EVALUATION_GOALS.level },
+      { label: `Festival ribbons (${EVALUATION_GOALS.ribbons})`, value: this.data.ribbons.length, goal: EVALUATION_GOALS.ribbons },
+      { label: `Museum donations (${EVALUATION_GOALS.museum})`, value: this.data.museum.donated.length, goal: EVALUATION_GOALS.museum }
+    ];
+    let points = 0;
+    const reasons: string[] = [];
+    for (const line of lines) {
+      const done = line.value >= line.goal;
+      if (done) {
+        points += 1;
+        reasons.push(line.label);
+      }
+    }
+    const candles = Math.min(4, Math.floor(points / EVALUATION_CANDLE_POINTS));
+    const seen = !!this.data.evaluation;
+    return { lines, points, candles, reasons, seen, saved: this.data.evaluation };
+  }
+
+  /**
+   * The old farmer calls on the first day of year 2. Returns the visit message,
+   * or null when he is not due.
+   */
+  private holdEvaluation(messages: string[]): void {
+    const due = this.data.year > 1 && !this.data.evaluation;
+    if (!due) return;
+    const report = this.evaluationReport();
+    this.data.evaluation = {
+      candles: report.candles,
+      reasons: report.reasons,
+      day: absoluteDay(this.data.season, this.data.year, this.data.day)
+    };
+    const reward = report.candles * 750;
+    this.data.coins += reward;
+    this.data.stats.coinsEarned += reward;
+    this.grantXpNoCheck(report.candles * 60);
+    messages.push(
+      `The old farmer came by and lit ${report.candles} of 4 candles on his shrine. He left ${reward} coins behind.`
+    );
+    this.emit('evaluation', { candles: report.candles });
   }
 
   // ------------------------------------------------------------------ family
@@ -2492,7 +2658,7 @@ export class GameState {
       played: fresh && game.played,
       score: fresh ? game.score : 0,
       available: this.festivalAvailable(),
-      luck: this.toolBonus('luck') + this.professionSum('luck') + this.buffSum('luck')
+      luck: this.toolBonus('luck') + this.professionSum('luck') + this.buffSum('luck') + (this.data.dailyLuck ?? 0)
     };
   }
 
@@ -2723,6 +2889,7 @@ export class GameState {
     wilted: number;
     products: number;
     messages: string[];
+    forecast: string;
   } {
     const d = this.data;
     const messages: string[] = [];
@@ -2911,6 +3078,18 @@ export class GameState {
     if (newLetters.length > 0) messages.push(`New mail: ${newLetters.join(', ')}.`);
     this.checkProgress();
 
+    // 9) The morning TV forecast rolls the day's luck.
+    const forecast = TV_FORECASTS[Math.floor(this.rng() * TV_FORECASTS.length)] ?? TV_FORECASTS[2];
+    d.dailyLuck = forecast.luck;
+    d.dailyForecast = `${forecast.label}: ${forecast.text}`;
+    messages.push(`TV forecast - ${forecast.label.toLowerCase()}. ${forecast.text}`);
+
+    // 10) A farm left alone for a while greets you back with a small gift.
+    this.greetReturningFarmer(messages);
+
+    // 11) The old farmer grades the farm once year two begins.
+    this.holdEvaluation(messages);
+
     this.emitChange();
     this.emit('day', { day: d.day, season: d.season, weather: d.weather });
     this.checkAchievements();
@@ -2922,11 +3101,82 @@ export class GameState {
       grown,
       wilted,
       products,
-      messages
+      messages,
+      forecast: d.dailyForecast
+    };
+  }
+
+  /**
+   * The treasure room at the bottom of the old mine. It pays out once, so the
+   * long climb ends in something you can hold.
+   */
+  summitState() {
+    const run = this.data.mineRun;
+    const claimed = (this.data.summitClaimed ?? []).includes(MINE_SUMMIT.floor);
+    return {
+      maxFloor: MINE_MAX_FLOOR,
+      reached: !!run && run.maxFloor >= MINE_SUMMIT.floor,
+      claimed,
+      coins: MINE_SUMMIT.coins,
+      itemId: MINE_SUMMIT.itemId,
+      itemName: ITEMS[MINE_SUMMIT.itemId]?.name ?? 'Summit Key',
+      itemQty: MINE_SUMMIT.itemQty,
+      xp: MINE_SUMMIT.xp
+    };
+  }
+
+  /** Hand over the treasure room prize, once. */
+  claimSummit(): ActionResult {
+    const run = this.data.mineRun;
+    if (!run || run.maxFloor < MINE_SUMMIT.floor) {
+      return { ok: false, message: `Reach floor ${MINE_SUMMIT.floor} first.` };
+    }
+    if (!Array.isArray(this.data.summitClaimed)) this.data.summitClaimed = [];
+    if (this.data.summitClaimed.includes(MINE_SUMMIT.floor)) {
+      return { ok: false, message: 'The treasure room is already empty.' };
+    }
+    const room = this.freeSpaceFor(MINE_SUMMIT.itemId) >= MINE_SUMMIT.itemQty;
+    this.data.summitClaimed.push(MINE_SUMMIT.floor);
+    this.data.coins += MINE_SUMMIT.coins;
+    this.data.stats.coinsEarned += MINE_SUMMIT.coins;
+    if (room) this.addItem(MINE_SUMMIT.itemId, MINE_SUMMIT.itemQty);
+    this.grantXpNoCheck(MINE_SUMMIT.xp);
+    this.emit('summit', { floor: MINE_SUMMIT.floor });
+    if (!room) {
+      // Nothing is ever dropped for good: the key waits on the storehouse shelf.
+      this.rescueLostItem(MINE_SUMMIT.itemId, MINE_SUMMIT.itemQty, 'normal');
+      return {
+        ok: true,
+        message: `The treasury held ${MINE_SUMMIT.coins} coins. Your backpack was full, so the key waits in lost and found.`
+      };
+    }
+    return {
+      ok: true,
+      message: `The treasury held ${MINE_SUMMIT.coins} coins and the ${ITEMS[MINE_SUMMIT.itemId]?.name ?? 'Summit Key'}.`
     };
   }
 
   // -------------------------------------------------------------- progress
+
+  /**
+   * Welcome a farmer back after a few days away. Stardew never notices a break;
+   * here the farm does, with a small gift waiting in the mailbox.
+   */
+  private greetReturningFarmer(messages: string[]): void {
+    const away = this.data.daysAway ?? 0;
+    this.data.daysAway = 0;
+    if (away < 3) return;
+    if (!this.data.mail) this.data.mail = [];
+    const id = 'letter_welcome_back';
+    if (!this.data.mail.some((m) => m.id === id)) {
+      this.data.mail.push({ id, read: false, claimed: false, day: this.data.day });
+    }
+    this.data.coins += 60;
+    this.data.stats.coinsEarned += 60;
+    messages.push(
+      `Welcome back! You were away ${away} days. Your neighbours kept an eye on things and left 60 coins in the mailbox.`
+    );
+  }
 
   /** Crows try to eat crops overnight. Scarecrows keep them off nearby fields. */
   crowAttack(): { eaten: number; scared: boolean } {

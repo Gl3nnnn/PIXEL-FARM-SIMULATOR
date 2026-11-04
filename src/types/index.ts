@@ -164,7 +164,9 @@ export type QuestMetric =
   | 'level'
   | 'carrotsHarvested'
   | 'eggsCollected'
-  | 'buildingsOwned';
+  | 'buildingsOwned'
+  | 'deepestFloor'
+  | 'museumDonations';
 
 export interface QuestDef {
   id: string;
@@ -441,6 +443,11 @@ export interface MailDef {
   coins: number;
   /** Appears once the farmer reaches this level (1 = any time). */
   atLevel: number;
+  /**
+   * Tutorial letters instead wait for a number of days played, and only the
+   * earliest due one is delivered each day so the mailbox never floods.
+   */
+  atDay?: number;
   itemId?: string;
   itemQty?: number;
 }
@@ -520,6 +527,25 @@ export interface MineRunSave {
 
 export interface ShippingSave {
   items: InventoryStack[];
+}
+
+/** One entry in the lost item storehouse. */
+export interface LostItemSave {
+  itemId: string;
+  qty: number;
+  quality: Quality;
+  /** Absolute day the entry was stored, so it can be forgotten after a while. */
+  day: number;
+}
+
+/** The final farm evaluation left behind by the old farmer. */
+export interface EvaluationSave {
+  /** How many of the four candles were lit. */
+  candles: number;
+  /** The lines that made up the score. */
+  reasons: string[];
+  /** Absolute day the visit happened. */
+  day: number;
 }
 
 export interface ChildSave {
@@ -609,6 +635,21 @@ export interface PlayerSave {
   facing: Facing;
 }
 
+/** The farmer's look: indexes into APPEARANCE, with hat -1 for none. */
+export interface AppearanceSave {
+  skin: number;
+  hair: number;
+  shirt: number;
+  hat: number;
+}
+
+export interface AppearanceSave {
+  skin: number;
+  hair: number;
+  shirt: number;
+  hat: number;
+}
+
 export interface SaveData {
   version: number;
   createdAt: number;
@@ -661,6 +702,12 @@ export interface SaveData {
   mineRun: MineRunSave;
   /** Goods waiting to be sold by the shipping bin overnight. */
   shipping: ShippingSave;
+  /** Items handed back by the lost item storehouse. */
+  lostItems: LostItemSave[];
+  /** Floors of the old mine already paid out as a summit prize. */
+  summitClaimed: number[];
+  /** The farm evaluation, once the old farmer comes to visit. */
+  evaluation: EvaluationSave | null;
   /** Spouse, children and the family home. */
   family: FamilySave;
   /** Furniture placed inside the farmhouse. */
@@ -673,6 +720,14 @@ export interface SaveData {
   horseOwned: boolean;
   /** Festival minigame progress for the current season. */
   festivalGame: FestivalGameSave;
+  /** The farmer's chosen look. */
+  appearance: AppearanceSave;
+  /** Luck rolled by the morning TV forecast, -0.05 to 0.05. */
+  dailyLuck: number;
+  /** Text of the day's TV forecast, shown in the farm report. */
+  dailyForecast: string;
+  /** Days since the farm was last played, 0 when you played yesterday. */
+  daysAway: number;
 }
 
 export interface Settings {
@@ -704,6 +759,8 @@ export interface DaySummary {
   wilted: number;
   products: number;
   messages: string[];
+  /** The morning TV forecast for the new day. */
+  forecast?: string;
 }
 
 export interface SaveSlotInfo {

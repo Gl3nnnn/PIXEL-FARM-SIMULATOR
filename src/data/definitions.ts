@@ -160,6 +160,7 @@ export const ITEMS: Record<string, ItemDef> = {
   artifact_pottery: { id: 'artifact_pottery', name: 'Ancient Pottery', type: 'artifact', price: 180, sell: 180, stack: 99, desc: 'A painted shard from a forgotten farmstead.', color: 0xc08a5a, color2: 0x8a5a34 },
   artifact_coin: { id: 'artifact_coin', name: 'Old Coin', type: 'artifact', price: 260, sell: 260, stack: 99, desc: 'A coin stamped with a valley that no longer exists.', color: 0xe8c84a, color2: 0xa8862a },
   artifact_bone: { id: 'artifact_bone', name: 'Fossil Bone', type: 'artifact', price: 340, sell: 340, stack: 99, desc: 'Something very old slept in the quarry.', color: 0xe8e0c8, color2: 0xb0a888 },
+  summit_key: { id: 'summit_key', name: 'Summit Key', type: 'artifact', price: 2500, sell: 1200, stack: 1, desc: 'A heavy brass key from the treasure room at the very bottom of the old mine.', color: 0xd8b040, color2: 0x8a6a20 },
   artifact_doll: { id: 'artifact_doll', name: 'Porcelain Doll', type: 'artifact', price: 440, sell: 440, stack: 99, desc: 'Its painted smile is still perfect.', color: 0xf0d8dc, color2: 0xc88a9a },
   artifact_scroll: { id: 'artifact_scroll', name: 'Sealed Scroll', type: 'artifact', price: 560, sell: 560, stack: 99, desc: 'Words written in a hand nobody reads anymore.', color: 0xe8d8b0, color2: 0xa88a5a },
   artifact_seed: { id: 'artifact_seed', name: 'Ancient Seed', type: 'artifact', price: 800, sell: 800, stack: 99, desc: 'A seed that waited centuries for a farmer.', color: 0x8a6a3a, color2: 0x5a9a3a }
@@ -186,6 +187,51 @@ export const MINE_MONSTERS: MineMonsterDef[] = [
 export const MINE_MAX_FLOOR = 120;
 export const MINE_FLOOR_W = 9;
 export const MINE_FLOOR_H = 7;
+
+/** The treasure room waiting at the bottom of the old mine. */
+export const MINE_SUMMIT = {
+  floor: MINE_MAX_FLOOR,
+  coins: 5000,
+  xp: 300,
+  itemId: 'summit_key',
+  itemQty: 1
+};
+
+// ------------------------------------------------------- lost item storehouse
+/**
+ * The storehouse in town hands back goods you sold or lost by mistake, for a
+ * small fee. Stardew simply forgets them, so this is deliberately kinder.
+ */
+export const LOST_ITEM_MAX = 10;
+/**
+ * A reclaim costs this much of the item's sell value, so it stings a little and
+ * can never be abused as a money loop - the fee is always above market price.
+ */
+export const LOST_ITEM_FEE_RATE = 1.5;
+/** A fee never drops below this, so the storehouse stays worth visiting. */
+export const LOST_ITEM_MIN_FEE = 5;
+/**
+ * Only a real loss is rescued, so ordinary harvests are not swept up and the
+ * shelf stays a place for things you would actually miss.
+ */
+export const LOST_ITEM_RESCUE_VALUE = 400;
+/** Entries older than this are quietly cleared away. */
+export const LOST_ITEM_KEEP_DAYS = 28;
+
+// ---------------------------------------------------------- farm evaluation
+/** The old farmer visits on the first day of year 2 and grades the farm. */
+export const EVALUATION_GOALS = {
+  coinsEarned: 25000,
+  buildings: 8,
+  animals: 6,
+  bundles: 3,
+  collection: 30,
+  level: 12,
+  ribbons: 2,
+  museum: 4
+};
+/** Points needed for one lit candle, so four candles light a perfect farm. */
+export const EVALUATION_CANDLE_POINTS = 2.5;
 
 // ------------------------------------------------------------ house furniture
 /** Furniture sold by the town carpenter. Each piece gives a small permanent perk. */
@@ -322,6 +368,32 @@ export const FORAGE: ForageDef[] = [
   { id: 'snow_yam', itemId: 'snow_yam', seasons: ['winter'], weight: 3 }
 ];
 
+// ---------------------------------------------------------------------- look
+
+/** Colours the farmer can pick at the start. The first entry of each list is the default. */
+export const SKIN_TONES = ['#f0c9a0', '#e0ac82', '#c88a58', '#a86a42', '#7a4a2c', '#5a3520'];
+export const HAIR_COLORS = ['#5a3a22', '#8a6a3a', '#2a2a2a', '#c8a050', '#a8502a', '#6a3a8a'];
+export const SHIRT_COLORS = ['#4f86c8', '#c85a4a', '#4a9a6a', '#c8a03a', '#8a5ac8', '#3a3a4a'];
+export const HAT_COLORS = ['#d9b35a', '#b84a3a', '#3a6ab8', '#4a8a4a', '#e8e0d0', '#6a3a2a'];
+
+/** The look a brand-new farmer starts with. Hat -1 means no hat. */
+export const APPEARANCE_DEFAULT = { skin: 0, hair: 0, shirt: 0, hat: 0 };
+
+/** One morning TV forecast. `luck` is added to harvest quality and fishing for the day. */
+export interface TVForecast {
+  label: string;
+  luck: number;
+  text: string;
+}
+
+export const TV_FORECASTS: TVForecast[] = [
+  { label: 'Very good spirits', luck: 0.05, text: 'The spirits are in a very good mood today. You feel lucky.' },
+  { label: 'Good spirits', luck: 0.02, text: 'The spirits are in good humour today.' },
+  { label: 'Neutral spirits', luck: 0, text: 'The spirits are neutral today. A steady day ahead.' },
+  { label: 'Slightly low spirits', luck: -0.01, text: 'The spirits are a little low today. Take care out there.' },
+  { label: 'Low spirits', luck: -0.02, text: 'The spirits are quite displeased today. Not a lucky day.' }
+];
+
 // ---------------------------------------------------------------------- mail
 /** Letters that arrive in the mailbox as the farm grows. */
 export const LETTERS: MailDef[] = [
@@ -354,6 +426,48 @@ export const LETTERS: MailDef[] = [
     id: 'letter_stars', from: 'Orin', subject: 'The pond is quiet tonight',
     body: 'Some nights the pond is so calm you can see the stars in it. If you find a lucky charm out there, keep it. Come fish with me some time.',
     coins: 200, atLevel: 7
+  },
+  {
+    id: 'letter_welcome_back', from: 'Rowan', subject: 'Good to see you again',
+    body: 'You were gone a while, so a few of us watered what we could and swept the porch. The farm is glad you are back - take these coins as a welcome-home gift.',
+    coins: 0, atLevel: 99
+  },
+  // A short guided course for a new farmer: one system explained per day, so a
+  // first week here never has to guess what to do next.
+  {
+    id: 'letter_guide_shop', from: 'Rowan', subject: 'Start with a few seeds',
+    body: 'Your fields are already tilled, so you only need seeds. Open the Shop and buy a handful of spring seeds - turnips are cheap and quick. Then stand on a field, pick the seed in your backpack and press Plant.',
+    coins: 80, atLevel: 1, atDay: 1
+  },
+  {
+    id: 'letter_guide_water', from: 'Marisol', subject: 'Water them every morning',
+    body: 'Seeds only grow on watered soil, and rain waters the whole farm for you. Fill your watering can at the pond when it runs dry. A crop is ready when it starts to shine - walk up and press Harvest.',
+    coins: 0, atLevel: 1, atDay: 2
+  },
+  {
+    id: 'letter_guide_sleep', from: 'Village Council', subject: 'Sleep, and the day ends',
+    body: 'Press Sleep in the top bar when you are finished for the day. Crops grow overnight, the shipping bin sells what you left in it, and the morning report tells you what happened. Your energy refills too.',
+    coins: 60, atLevel: 1, atDay: 3
+  },
+  {
+    id: 'letter_guide_build', from: 'Tomas', subject: 'Build a coop, then buy a hen',
+    body: 'Open Build and place a Coop. Once it stands, open Animals and buy a hen for it. Feed her from the trough each day, and she will leave an egg for you to collect.',
+    coins: 0, atLevel: 1, atDay: 4, itemId: 'animal_feed', itemQty: 5
+  },
+  {
+    id: 'letter_guide_mine', from: 'Orin', subject: 'There is ore under the farm',
+    body: 'The quarry rocks on your land break open for stone and copper, and the Old Mine in town goes much deeper. Take a pickaxe, clear rocks to find the ladder, and watch your health down there.',
+    coins: 0, atLevel: 1, atDay: 5
+  },
+  {
+    id: 'letter_guide_map', from: 'Rowan', subject: 'The long walk back',
+    body: 'Our farm is a big one, so do not walk it twice. Press M for the map and click anywhere to walk there yourself, or use the home button to head straight back to the porch.',
+    coins: 0, atLevel: 1, atDay: 6
+  },
+  {
+    id: 'letter_guide_help', from: 'Village Council', subject: 'Everything else is in the menus',
+    body: 'Community holds your bundles, professions and the mail. Stats shows your skills. Almanac lists every crop. Press H for the shop, B for building and C for crafting. Ask any villager for a hint and they will help.',
+    coins: 120, atLevel: 1, atDay: 7
   }
 ];
 
@@ -950,7 +1064,8 @@ export const ACHIEVEMENTS: QuestDef[] = [
   { id: 'a_animals', title: 'Full House', desc: 'Own 5 animals at once.', metric: 'animalsOwned', target: 5, coins: 600, xp: 70, tier: 'achievement' },
   { id: 'a_gold', title: 'Gold Standard', desc: 'Harvest 20 gold-quality crops.', metric: 'goldHarvests', target: 20, coins: 900, xp: 100, tier: 'achievement' },
   { id: 'a_crafts', title: 'Artisan', desc: 'Craft 20 goods.', metric: 'crafts', target: 20, coins: 800, xp: 100, tier: 'achievement' },
-  { id: 'a_level10', title: 'Seasoned Farmer', desc: 'Reach farmer level 10.', metric: 'level', target: 10, coins: 1500, xp: 0, tier: 'achievement' }
+  { id: 'a_level10', title: 'Seasoned Farmer', desc: 'Reach farmer level 10.', metric: 'level', target: 10, coins: 1500, xp: 0, tier: 'achievement' },
+  { id: 'a_summit', title: 'To the Very Bottom', desc: 'Reach the deepest floor of the old mine.', metric: 'deepestFloor', target: MINE_MAX_FLOOR, coins: 2000, xp: 150, tier: 'achievement' }
 ];
 
 export const DAILY_TEMPLATES: Array<Omit<QuestDef, 'tier'>> = [

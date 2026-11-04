@@ -131,6 +131,45 @@ export function renderShipping(ctx: UIContext, root: HTMLElement): void {
     }
     content.appendChild(waiting);
 
+    // The storehouse shelf: anything valuable that left the farm by mistake can
+    // be bought back here for a fee, so nothing is lost for good.
+    const lost = state.lostItemState();
+    const shelf = section(
+      'Lost and found',
+      `The storehouse keeps valuable goods for ${lost.keepDays} days. Hand back a small fee to reclaim them.`
+    );
+    if (lost.items.length === 0) {
+      shelf.appendChild(emptyState('The shelf is empty. Nothing of yours has gone missing.'));
+    } else {
+      for (const entry of lost.items) {
+        if (!entry.def) continue;
+        const row = el('div', 'list-row compact');
+        row.appendChild(iconImg(ctx.icon(entry.entry.itemId), 34, entry.def.name));
+        const label = el('div', 'list-info grow');
+        label.appendChild(el('strong', undefined, `${entry.def.name} ×${formatNumber(entry.entry.qty)}`));
+        label.appendChild(
+          el('span', 'hint', `Reclaim for ${formatNumber(entry.fee)}g · ${entry.daysLeft} days left`)
+        );
+        row.appendChild(label);
+        row.appendChild(
+          button('Reclaim', {
+            small: true,
+            variant: 'gold',
+            disabled: state.data.coins < entry.fee,
+            onClick: () => {
+              const result = state.reclaimLostItem(entry.index);
+              ctx.toast(result.message ?? '', result.ok ? 'success' : 'error');
+              audio.play(result.ok ? 'click' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+        shelf.appendChild(row);
+      }
+    }
+    content.appendChild(shelf);
+
     const footer = el('div', 'panel-footer');
     footer.appendChild(button('Back to town', { onClick: () => ctx.openPanel('town') }));
     footer.appendChild(button('Close', { onClick: () => ctx.closePanel() }));

@@ -2,7 +2,7 @@ import { PLOTS, SEASON_INFO, xpProgress } from '../../data/definitions';
 import { functionalBuildingCount } from '../../systems/quests';
 import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
-import { el, progressBar, section, statRow } from '../uiKit';
+import { el, pill, progressBar, section, statRow } from '../uiKit';
 
 export function renderStats(ctx: UIContext, root: HTMLElement): void {
   const content = el('div', 'panel-content');
@@ -65,6 +65,32 @@ export function renderStats(ctx: UIContext, root: HTMLElement): void {
   life.appendChild(statRow('Festival ribbons', String(d.ribbons.length)));
   life.appendChild(statRow('Days played', formatNumber(d.stats.daysPlayed)));
   content.appendChild(life);
+
+  // The old farmer's verdict, and what he looked at, all in one place.
+  const review = state.evaluationReport();
+  const grade = section(
+    'Farm evaluation',
+    review.saved
+      ? 'The old farmer has already visited. This is what he found.'
+      : 'The old farmer visits once year two begins and lights a candle for each thing you have built.'
+  );
+  const candleRow = el('div', 'tag-row');
+  for (let i = 0; i < 4; i++) {
+    candleRow.appendChild(
+      pill(i < review.candles ? 'Candle lit' : 'Dark candle', i < review.candles ? 'gold' : 'warn')
+    );
+  }
+  grade.appendChild(candleRow);
+  const goalList = el('div', 'two-col');
+  for (const line of review.lines) {
+    const done = line.value >= line.goal;
+    const wrap = el('div', 'skill-block');
+    wrap.appendChild(progressBar(Math.min(line.value, line.goal), line.goal, line.label, undefined));
+    wrap.appendChild(el('span', 'hint', done ? 'Done' : `${formatNumber(line.value)} of ${formatNumber(line.goal)}`));
+    goalList.appendChild(wrap);
+  }
+  grade.appendChild(goalList);
+  content.appendChild(grade);
 
   content.appendChild(el('p', 'hint center', 'Progress saves automatically. Local saves stay on this browser.'));
   const footer = el('div', 'panel-footer');

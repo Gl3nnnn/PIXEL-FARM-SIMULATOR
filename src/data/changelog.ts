@@ -1,4 +1,4 @@
-export const GAME_VERSION = '3.0.1';
+export const GAME_VERSION = '3.2.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '3.3.0',
+    date: '2026-11-16',
+    title: 'A guided first week, lost and found, and a finish line',
+    changes: [
+      'Seven welcome letters now arrive one a day for your first week, each teaching one thing - seeds, watering, sleeping, a coop, the mine, the map and the menus - with small gifts along the way.',
+      'A lost and found shelf in the Shipping panel buys back anything valuable that left the farm by mistake, for a small fee. The storehouse keeps it for 28 days.',
+      'The bottom of the old mine now holds a treasure room: 5,000 coins and the Summit Key, plus a new achievement for reaching floor 120.',
+      'The old farmer visits on the first day of year two and lights up to four candles on his shrine, graded on coins, buildings, animals, bundles, collection, level, ribbons and museum donations. Each candle pays out.',
+      'The Stats panel shows the evaluation goals and which candles you have lit, so you can see what is left to do.'
+    ]
+  },
+  {
+    version: '3.2.0',
+    date: '2026-11-15',
+    title: 'Your own farmer, a morning forecast, and a warm welcome back',
+    changes: [
+      'Design your farmer before a new farm starts: pick skin, hair, shirt and hat, and the sprite you walk around in is redrawn live in the preview.',
+      'Every morning a TV forecast rolls the luck of the day - from very good spirits down to low. It really shifts harvest quality and the festival prize pick.',
+      'Leave the farm for three days or more and you come back to a welcome-home letter with 60 coins from your neighbours, and a line in the day report saying how long you were gone.',
+      'Your chosen look is saved with the farm and comes back on any device you load it on.'
+    ]
+  },
   {
     version: '3.1.0',
     date: '2026-11-14',

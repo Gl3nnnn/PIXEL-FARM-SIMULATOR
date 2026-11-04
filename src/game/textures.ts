@@ -1,6 +1,19 @@
 import Phaser from 'phaser';
-import { ANIMALS, BUILDINGS, CROPS, ITEMS, NPCS, SEASONS, SEASON_INFO } from '../data/definitions';
-import type { AnimalDef, BuildingDef, CropDef, NpcDef, Season } from '../types';
+import {
+  ANIMALS,
+  APPEARANCE_DEFAULT,
+  BUILDINGS,
+  CROPS,
+  HAIR_COLORS,
+  HAT_COLORS,
+  ITEMS,
+  NPCS,
+  SEASONS,
+  SEASON_INFO,
+  SHIRT_COLORS,
+  SKIN_TONES
+} from '../data/definitions';
+import type { AnimalDef, AppearanceSave, BuildingDef, CropDef, NpcDef, Season } from '../types';
 import { mulberry32 } from '../systems/util';
 
 type Ctx = CanvasRenderingContext2D;
@@ -14,6 +27,13 @@ function shade(color: number, amount: number): string {
   const g = Math.max(0, Math.min(255, ((color >> 8) & 0xff) + amount));
   const b = Math.max(0, Math.min(255, (color & 0xff) + amount));
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/** Lighten (positive) or darken (negative) a '#rrggbb' colour. */
+function shadeHex(hexColor: string, amount: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hexColor);
+  if (!m) return hexColor;
+  return shade(parseInt(m[1], 16), amount);
 }
 
 function makeTexture(
@@ -195,14 +215,21 @@ function drawPath(ctx: Ctx): void {
   px(ctx, 0, 15, 16, 1, '#a9855a');
 }
 
-function drawPlayer(ctx: Ctx, dir: 'down' | 'up' | 'left' | 'right', frame: number): void {
+function drawPlayer(
+  ctx: Ctx,
+  dir: 'down' | 'up' | 'left' | 'right',
+  frame: number,
+  look: AppearanceSave = APPEARANCE_DEFAULT
+): void {
   px(ctx, 0, 0, 16, 24, 'rgba(0,0,0,0)');
-  const skin = '#f0c9a0';
-  const skinDark = '#d8a878';
-  const hat = '#d9b35a';
-  const hatDark = '#b08a3a';
-  const shirt = '#4f86c8';
-  const shirtDark = '#3a68a0';
+  const skin = SKIN_TONES[look.skin] ?? SKIN_TONES[0];
+  const skinDark = shadeHex(skin, -24);
+  const hatOn = look.hat >= 0 && look.hat < HAT_COLORS.length;
+  const hat = hatOn ? HAT_COLORS[look.hat] : '';
+  const hatDark = hatOn ? shadeHex(hat, -28) : '';
+  const hair = HAIR_COLORS[look.hair] ?? HAIR_COLORS[0];
+  const shirt = SHIRT_COLORS[look.shirt] ?? SHIRT_COLORS[0];
+  const shirtDark = shadeHex(shirt, -30);
   const overall = '#3f6a4a';
   const boot = '#5a4632';
   const stride = frame === 0 ? 0 : frame === 1 ? 1 : -1;
@@ -222,10 +249,15 @@ function drawPlayer(ctx: Ctx, dir: 'down' | 'up' | 'left' | 'right', frame: numb
     px(ctx, 5, 6, 6, 6, skin);
     px(ctx, 5, 6, 1, 6, skinDark);
     px(ctx, 9 + Math.max(0, flip), 8, 1, 1, '#3a2a1a');
+    // side hair
+    px(ctx, 5, 4, 6, 2, hair);
+    px(ctx, 11, 6, 1, 3, hair);
     // hat
-    px(ctx, 4, 4, 8, 2, hatDark);
-    px(ctx, 5, 2, 6, 2, hat);
-    px(ctx, 11, 5, 2, 1, hatDark);
+    if (hatOn) {
+      px(ctx, 4, 4, 8, 2, hatDark);
+      px(ctx, 5, 2, 6, 2, hat);
+      px(ctx, 11, 5, 2, 1, hatDark);
+    }
   } else {
     // legs
     px(ctx, 6, 19, 2, 4, boot);
@@ -250,13 +282,16 @@ function drawPlayer(ctx: Ctx, dir: 'down' | 'up' | 'left' | 'right', frame: numb
       px(ctx, 9, 8, 1, 1, '#3a2a1a');
       px(ctx, 7, 10, 2, 1, '#c88a72');
     } else {
-      px(ctx, 7, 7, 2, 3, '#8a6a3a');
+      px(ctx, 7, 7, 2, 3, hair);
     }
-    // hat
-    px(ctx, 4, 4, 8, 2, hatDark);
-    px(ctx, 5, 2, 6, 2, hat);
-    if (dir === 'down') {
-      px(ctx, 5, 5, 6, 1, '#c09a4a');
+    // hair on top, then the hat over it
+    px(ctx, 5, 4, 6, 2, hair);
+    if (hatOn) {
+      px(ctx, 4, 4, 8, 2, hatDark);
+      px(ctx, 5, 2, 6, 2, hat);
+      if (dir === 'down') {
+        px(ctx, 5, 5, 6, 1, hat === '#e8e0d0' ? '#c8c0b0' : hatDark);
+      }
     }
   }
 }
@@ -1916,4 +1951,15 @@ export function cropTexture(cropId: string, stage: number): string {
 
 export function buildingTexture(id: string): string {
   return BUILDINGS[id] ? `b_${id}` : 'b_unknown';
+}
+
+/** Redraw the farmer's sprite frames in the chosen colours. */
+export function applyAppearance(scene: Phaser.Scene, look: AppearanceSave): void {
+  for (const dir of ['down', 'up', 'left', 'right'] as const) {
+    for (let f = 0; f < 3; f++) {
+      const key = `player_${dir}_${f}`;
+      if (scene.textures.exists(key)) scene.textures.remove(key);
+      makeTexture(scene, key, 16, 24, (ctx) => drawPlayer(ctx, dir, f, look));
+    }
+  }
 }

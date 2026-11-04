@@ -1,4 +1,5 @@
 import {
+  APPEARANCE_DEFAULT,
   AUTOMATION,
   BASE_MAX_ENERGY,
   BUFFS,
@@ -8,12 +9,17 @@ import {
   DEFAULT_SETTINGS,
   FESTIVAL_RIBBONS,
   FURNITURE,
+  HAIR_COLORS,
+  HAT_COLORS,
   ITEMS,
   LETTERS,
+  LOST_ITEM_MAX,
   MINE_MAX_FLOOR,
   MUSEUM_REWARDS,
   NPCS,
   PROFESSIONS,
+  SHIRT_COLORS,
+  SKIN_TONES,
   TOOLS,
   WEAPONS,
   levelFromXp
@@ -21,6 +27,7 @@ import {
 import { createMineRun } from './adventure';
 import { MINE_NODES } from './world';
 import type {
+  AppearanceSave,
   AutomationSave,
   ChildSave,
   CollectionSave,
@@ -298,6 +305,43 @@ function sanitizeMail(raw: unknown): SaveData['mail'] {
     }));
 }
 
+function sanitizeLostItems(raw: unknown): SaveData['lostItems'] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .filter((entry) => typeof entry.itemId === 'string' && !!ITEMS[entry.itemId as string])
+    .map((entry) => {
+      const quality =
+        entry.quality === 'silver' || entry.quality === 'gold' ? entry.quality : 'normal';
+      return {
+        itemId: entry.itemId as string,
+        qty: Math.max(1, Math.floor(toFinite(entry.qty, 1))),
+        quality: quality as Quality,
+        day: Math.max(0, Math.floor(toFinite(entry.day, 0)))
+      };
+    })
+    .slice(0, LOST_ITEM_MAX);
+}
+
+function sanitizeEvaluation(raw: unknown): SaveData['evaluation'] {
+  if (!isRecord(raw)) return null;
+  const reasons = Array.isArray(raw.reasons)
+    ? raw.reasons.filter((r): r is string => typeof r === 'string').slice(0, 12)
+    : [];
+  return {
+    candles: Math.max(0, Math.min(4, Math.floor(toFinite(raw.candles, 0)))),
+    reasons,
+    day: Math.max(0, Math.floor(toFinite(raw.day, 0)))
+  };
+}
+
+function sanitizeSummit(raw: unknown): SaveData['summitClaimed'] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => Math.floor(toFinite(entry, 0)))
+    .filter((floor) => floor >= 1 && floor <= MINE_MAX_FLOOR);
+}
+
 function sanitizeBundles(raw: unknown): SaveData['bundles'] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -443,6 +487,28 @@ function sanitizeFestivalGame(raw: unknown): FestivalGameSave {
     played: toBool(record.played, false),
     score: Math.max(0, Math.floor(toFinite(record.score, 0)))
   };
+}
+
+/** The farmer's look, clamped to the colours that actually exist. */
+function sanitizeAppearance(raw: unknown): AppearanceSave {
+  const record: Record<string, unknown> = isRecord(raw) ? raw : {};
+  const pick = (value: unknown, max: number, fallback: number): number => {
+    const n = Math.floor(toFinite(value, fallback));
+    return n >= 0 && n < max ? n : fallback;
+  };
+  return {
+    skin: pick(record.skin, SKIN_TONES.length, APPEARANCE_DEFAULT.skin),
+    hair: pick(record.hair, HAIR_COLORS.length, APPEARANCE_DEFAULT.hair),
+    shirt: pick(record.shirt, SHIRT_COLORS.length, APPEARANCE_DEFAULT.shirt),
+    hat: pickHat(record.hat)
+  };
+}
+
+/** Hat index: -1 is no hat, otherwise a real hat colour. */
+function pickHat(value: unknown): number {
+  const n = Math.floor(toFinite(value, APPEARANCE_DEFAULT.hat));
+  if (n === -1) return -1;
+  return n >= 0 && n < HAT_COLORS.length ? n : APPEARANCE_DEFAULT.hat;
 }
 
 /** Upgrades older save shapes. Exported for tests. */
@@ -631,12 +697,19 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
     buffs: sanitizeBuffs(d.buffs),
     mineRun: sanitizeMineRun(d.mineRun),
     shipping: sanitizeShipping(d.shipping),
+    lostItems: sanitizeLostItems(d.lostItems),
+    summitClaimed: sanitizeSummit(d.summitClaimed),
+    evaluation: sanitizeEvaluation(d.evaluation),
     family: sanitizeFamily(d.family),
     house: sanitizeHouse(d.house),
     museum: sanitizeMuseum(d.museum),
     pet: sanitizePet(d.pet),
     horseOwned: toBool(d.horseOwned, false),
-    festivalGame: sanitizeFestivalGame(d.festivalGame)
+    festivalGame: sanitizeFestivalGame(d.festivalGame),
+    appearance: sanitizeAppearance(d.appearance),
+    dailyLuck: Math.max(-0.05, Math.min(0.05, toFinite(d.dailyLuck, 0))),
+    dailyForecast: typeof d.dailyForecast === 'string' ? d.dailyForecast : '',
+    daysAway: Math.max(0, Math.floor(toFinite(d.daysAway, 0)))
   };
 
   return save;
@@ -703,7 +776,13 @@ export class SaveManager {
     await txDone(tx);
     db.close();
     if (!result || !result.data) return null;
-    return migrateSave(result.data);
+    const loaded = migrateSave(result.data);
+    // Count the days the farm sat unplayed, for the welcome-back gift.
+    const storedAt = Number(result.data.savedAt ?? loaded.savedAt);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const away = Number.isFinite(storedAt) ? Math.floor((Date.now() - storedAt) / dayMs) : 0;
+    loaded.daysAway = Math.max(loaded.daysAway ?? 0, away > 0 ? away : 0);
+    return loaded;
   }
 
   static async listSlots(): Promise<SaveSlotInfo[]> {

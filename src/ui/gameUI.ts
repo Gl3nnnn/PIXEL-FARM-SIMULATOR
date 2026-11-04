@@ -521,6 +521,12 @@ export class GameUI {
     stats.appendChild(this.summaryStat('Animals ready', String(summary.products)));
     if (summary.wilted > 0) stats.appendChild(this.summaryStat('Crops lost', String(summary.wilted), 'bad'));
     hero.appendChild(stats);
+    if (summary.forecast) {
+      const tv = el('div', 'tv-forecast');
+      tv.appendChild(el('span', 'tv-label', 'TV forecast'));
+      tv.appendChild(el('span', 'tv-text', summary.forecast));
+      hero.appendChild(tv);
+    }
     for (const msg of summary.messages) {
       hero.appendChild(el('p', 'summary-message', msg));
     }

@@ -14,11 +14,17 @@ Once GitHub Pages is enabled, the game is available at:
 - 75 animals with feeding, petting, happiness, health, and daily products
 - 9 kinds of animal housing, 50 farm tools with real bonuses, and 60+ placeable buildings plus the upgradable farmhouse, farm expansions, and backpack upgrades
 - Crafting recipes, a general store, and a market with deterministic daily price trends
-- 28-day seasons, weather (sun, rain, storm), day/night lighting, and lightning
+- 28-day seasons, weather (sun, rain, storm, snow, wind, fog), day/night lighting, and lightning
 - Main quests, daily quests, achievements, six skills, and unlock progression
 - **Energy**: farm work spends energy, sleep refills it, and cooked dishes restore or buff it
 - **Professions**: pick one of two paths per skill at level 5 and again at level 10
 - **Foraging**: seasonal wild plants appear on open ground each morning and can be picked up
+- **Design your farmer**: pick skin, hair, shirt and hat before a new farm starts, and your walk-around sprite matches
+- **TV forecast**: each morning rolls the luck of the day, which really moves harvest quality and festival prizes
+- **Welcome back**: come back after three days away and your neighbours leave a gift in the mailbox
+- **Guided first week**: seven letters arrive one per day at the start, each teaching one thing - seeds, watering, sleeping, a coop, the mine, the map and the menus
+- **Lost and found**: the Shipping panel buys back valuable goods that left the farm by mistake, for a small fee, for 28 days
+- **Farm evaluation**: the old farmer visits at the start of year two and lights up to four candles for what you have built
 - **Crows**: birds eat unprotected crops overnight unless a Scarecrow stands nearby
 - **Community bundles**: eight donation bundles with coins, XP and rare item rewards, plus a mailbox that delivers letters with gifts as you level up
 - Seasonal festival board with three themed contracts, plus Day 28 judging contests and ribbons
@@ -27,7 +33,7 @@ Once GitHub Pages is enabled, the game is available at:
 - Eight seasonal fish, bait, a fishing minigame with a relaxed pace option, and three fish recipes
 - A 64 × 48 tile farm laid out like a farmstead: a road grid, three fenced rows of fields (12 to unlock, every one with an upright rail fence and one gate facing its lane), two ponds to fish, and two quarries with 22 rock nodes
 - Five visitors with weekly schedules, requests, gifts, birthdays, hearts, romance, and marriage
-- **Old Mine**: 120 floors of procedural rock, ore, monsters, four weapons, a blacksmith, and an elevator every five floors
+- **Old Mine**: 120 floors of procedural rock, ore, monsters, four weapons, a blacksmith, an elevator every five floors, and a treasure room waiting at the bottom
 - **Town hub**: clinic, saloon, museum, mine entrance, shipping, and homestead all reachable from one panel
 - **Shipping Bin**: leave goods overnight and the trader sells them at market price
 - **Museum**: six artifacts to donate, with three curator reward milestones

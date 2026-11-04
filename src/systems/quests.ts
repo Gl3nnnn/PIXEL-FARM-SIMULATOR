@@ -26,6 +26,10 @@ export function metricValue(data: SaveData, metric: QuestMetric): number {
       return data.animals.length;
     case 'buildingsOwned':
       return functionalBuildingCount(data);
+    case 'deepestFloor':
+      return data.mineRun?.maxFloor ?? 0;
+    case 'museumDonations':
+      return data.museum?.donated.length ?? 0;
     default:
       return (data.stats as unknown as Record<string, number>)[metric] ?? 0;
   }

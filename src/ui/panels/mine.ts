@@ -1,5 +1,6 @@
 import { MINE_MAX_FLOOR, WEAPONS } from '../../data/definitions';
 import { audio } from '../../systems/audio';
+import { formatNumber } from '../../systems/util';
 import type { UIContext } from '../context';
 import { button, el, pill, progressBar, section } from '../uiKit';
 
@@ -178,6 +179,42 @@ export function renderMine(ctx: UIContext, root: HTMLElement): void {
     if (log) {
       content.appendChild(el('p', 'hint center mine-log', log));
     }
+
+    // The bottom of the mine holds a treasure room worth one last trip down.
+    const summit = state.summitState();
+    const treasury = section(
+      'The treasure room',
+      `Something was left behind on floor ${summit.maxFloor}.`
+    );
+    const treasuryRow = el('div', 'list-row compact');
+    const treasuryInfo = el('div', 'list-info grow');
+    treasuryInfo.appendChild(el('strong', undefined, 'The Old Miner Treasury'));
+    treasuryInfo.appendChild(
+      el(
+        'span',
+        'hint',
+        summit.claimed
+          ? 'You have already carried it all home.'
+          : summit.reached
+            ? `${formatNumber(summit.coins)} coins and the ${summit.itemName} are waiting for you.`
+            : `Reach floor ${summit.maxFloor} to open it. The deepest floor so far is ${run.maxFloor}.`
+      )
+    );
+    treasuryRow.appendChild(treasuryInfo);
+    if (summit.claimed) {
+      treasuryRow.appendChild(pill('Claimed', 'good'));
+    } else {
+      treasuryRow.appendChild(
+        button('Open the vault', {
+          small: true,
+          variant: 'gold',
+          disabled: !summit.reached,
+          onClick: () => act(state.claimSummit())
+        })
+      );
+    }
+    treasury.appendChild(treasuryRow);
+    content.appendChild(treasury);
 
     const shop = section('Blacksmith', 'Better steel makes the deeper floors survivable.');
     const grid = el('div', 'card-grid wide');

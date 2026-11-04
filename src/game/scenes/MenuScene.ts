@@ -2,7 +2,11 @@
 import { SaveManager } from '../../systems/save';
 import { createNewSave, GameState } from '../../systems/gameState';
 import { mulberry32 } from '../../systems/util';
+import { APPEARANCE_DEFAULT } from '../../data/definitions';
+import type { SaveData } from '../../types';
 import { MainMenu } from '../../ui/menu';
+import { FarmerDesigner } from '../../ui/farmerDesigner';
+import { applyAppearance } from '../textures';
 
 type Mood = 'dawn' | 'day' | 'dusk' | 'night';
 
@@ -170,17 +174,32 @@ export class MenuScene extends Phaser.Scene {
   private async handleStart(slot: number, mode: 'new' | 'continue'): Promise<void> {
     if (mode === 'new') {
       const data = createNewSave();
-      try {
-        await SaveManager.save(slot, data);
-      } catch {
-        /* storage unavailable - still playable in memory */
-      }
-      const state = new GameState(data);
-      this.launch(state, slot);
+      const designer = new FarmerDesigner({
+        scene: this,
+        onDone: (look) => {
+          if (!look) return;
+          data.appearance = look;
+          applyAppearance(this, look);
+          void this.beginFarm(slot, data);
+        }
+      });
+      designer.mount();
       return;
     }
     const data = await SaveManager.load(slot);
     if (!data) throw new Error('That save could not be loaded.');
+    applyAppearance(this, data.appearance ?? APPEARANCE_DEFAULT);
+    const state = new GameState(data);
+    this.launch(state, slot);
+  }
+
+  /** Save the brand-new farm with the chosen look, then start playing. */
+  private async beginFarm(slot: number, data: SaveData): Promise<void> {
+    try {
+      await SaveManager.save(slot, data);
+    } catch {
+      /* storage unavailable - still playable in memory */
+    }
     const state = new GameState(data);
     this.launch(state, slot);
   }

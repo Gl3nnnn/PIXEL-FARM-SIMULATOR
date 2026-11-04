@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
   ANIMALS,
+  APPEARANCE_DEFAULT,
   BUILDINGS,
   CROPS,
   FARMHOUSE,
@@ -34,6 +35,7 @@ import {
   worldToTile
 } from '../../systems/world';
 import { GameUI } from '../../ui/gameUI';
+import { applyAppearance } from '../textures';
 import type { DaySummary, Facing, Season } from '../../types';
 
 interface AnimalView {
@@ -217,6 +219,7 @@ export class GameScene extends Phaser.Scene {
     this.buildFestivalDecor();
     this.createAnimals();
     this.createPlayer();
+    applyAppearance(this, this.state.data.appearance ?? APPEARANCE_DEFAULT);
     this.setupCamera();
     this.setupInput();
     this.createLighting();
