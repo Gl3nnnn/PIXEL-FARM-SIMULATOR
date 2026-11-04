@@ -1958,7 +1958,18 @@ export function applyAppearance(scene: Phaser.Scene, look: AppearanceSave): void
   for (const dir of ['down', 'up', 'left', 'right'] as const) {
     for (let f = 0; f < 3; f++) {
       const key = `player_${dir}_${f}`;
-      if (scene.textures.exists(key)) scene.textures.remove(key);
+      const texture = scene.textures.get(key);
+      // Repaint the existing canvas in place. Removing a texture while the
+      // player sprite and its animations still reference it would destroy the
+      // frames and break both rendering and movement.
+      if (texture instanceof Phaser.Textures.CanvasTexture && texture.key === key) {
+        const ctx = texture.context;
+        ctx.clearRect(0, 0, 16, 24);
+        ctx.imageSmoothingEnabled = false;
+        drawPlayer(ctx, dir, f, look);
+        texture.refresh();
+        continue;
+      }
       makeTexture(scene, key, 16, 24, (ctx) => drawPlayer(ctx, dir, f, look));
     }
   }
