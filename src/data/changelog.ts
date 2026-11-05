@@ -14,7 +14,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'A prologue, a proper map, and a first-week guide that knows it',
     changes: [
       'Starting a new farm now opens with "The Valley That Waited", a four-chapter prologue with its own animated, hand-built scene for each beat, before you design your farmer and step onto the land.',
-      'The farmer designer now covers skin, eye colour and shape, face details, ten hair styles, five outfit styles, shirt patterns, pants, boots, five hat styles and accessories like glasses, a scarf, a bandana, a flower, earrings, a headband, a necklace or a belt, with quick-look presets, front/back/side previews, a walking animation and a Surprise me button.',
+      'The farmer designer walks through the look one step at a time - You, Face, Hair, Headwear, Outfit and Extras - so each screen stays uncluttered, while the live sprite preview and its front/back/side controls stay in view.',
+      'The designer covers a name and pronouns, three body builds, ten skin tones, eye colour and shape, face details such as freckles, blush, a scar or vitiligo, a separate facial-hair slot for stubble, a mustache, goatee or full beard, sixteen hair styles, five outfit styles, shirt patterns, pants, boots, eight hat styles including a headscarf and turban, and accessories from several glasses styles to a hearing aid and an eyepatch - with quick-look presets, a walking animation and a Surprise me button.',
+      'Your chosen name and pronouns show on the HUD and the pause screen.',
       'Press P, or tap MAP, to open the farm map in the centre of the screen. Click any spot and the map closes, then your farmer walks the whole way there.',
       'The first-week tutorial now teaches the map right after walking, and the MAP button shows its P shortcut.',
       'M stays the Market key. The map is no longer tied to it.'

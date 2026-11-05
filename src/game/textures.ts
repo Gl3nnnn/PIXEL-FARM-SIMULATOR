@@ -5,10 +5,12 @@ import {
   APPEARANCE_DEFAULT,
   BOOT_COLORS,
   BUILDINGS,
+  BUILDS,
   CROPS,
   EYE_COLORS,
   EYE_STYLES,
   FACE_DETAILS,
+  FACIAL_HAIR,
   HAIR_COLORS,
   HAIR_STYLES,
   HAT_COLORS,
@@ -242,8 +244,12 @@ function drawPlayer(
   const eyeLight = shadeHex(eye, 45);
   const eyeStyle = EYE_STYLES[look.eyeStyle ?? 0] ? (look.eyeStyle ?? 0) : 0;
   const face = FACE_DETAILS[look.face ?? 0] ? (look.face ?? 0) : 0;
+  const facialHair = FACIAL_HAIR[look.facialHair ?? 0] ? (look.facialHair ?? 0) : 0;
+  const build = BUILDS[look.build ?? 1] ? (look.build ?? 1) : 1;
   const freckle = shadeHex(skin, -32);
   const blush = shadeHex(skin, 20);
+  const vitiligo = shadeHex(skin, 28);
+  const scar = shadeHex(skin, 14);
   const shirt = SHIRT_COLORS[look.shirt] ?? SHIRT_COLORS[0];
   const shirtDark = shadeHex(shirt, -30);
   const pattern = SHIRT_PATTERNS[look.pattern ?? 0] ? (look.pattern ?? 0) : 0;
@@ -372,6 +378,17 @@ function drawPlayer(
     px(ctx, 5, 12, 1, 8, shirtDark);
     drawPattern(true);
     drawOutfit(true);
+    if (build === 0) {
+      ctx.clearRect(5, 12, 1, 8);
+      ctx.clearRect(10, 12, 1, 8);
+    } else if (build === 2) {
+      px(ctx, 4, 12, 1, 3, shirt);
+      px(ctx, 4, 15, 1, 5, pants);
+      px(ctx, 11, 12, 1, 3, shirt);
+      px(ctx, 11, 15, 1, 5, pants);
+      px(ctx, 5, 19, 1, 4, boot);
+      px(ctx, 11, 19, 1, 4, boot);
+    }
     // arm
     px(ctx, 8 + flip, 13, 2, 4, skin);
     px(ctx, 8 + flip, 13, 1, 4, skinDark);
@@ -430,6 +447,50 @@ function drawPlayer(
       px(ctx, 4, 3, 2, 1, hair);
       px(ctx, 10, 3, 2, 1, hair);
       px(ctx, 5, 5, 6, 1, hairDark);
+    } else if (hairStyle === 10) {
+      px(ctx, 3, 3, 10, 3, hair);
+      px(ctx, 2, 5, 1, 3, hair);
+      px(ctx, 13, 5, 1, 3, hair);
+      px(ctx, 4, 2, 3, 1, hairLight);
+      px(ctx, 10, 2, 2, 1, hair);
+      px(ctx, 3, 6, 1, 1, hairDark);
+      px(ctx, 12, 6, 1, 1, hairDark);
+    } else if (hairStyle === 11) {
+      px(ctx, 4, 4, 8, 2, hair);
+      px(ctx, 4, 6, 1, 4, hair);
+      px(ctx, 11, 6, 1, 4, hair);
+      px(ctx, 5, 3, 2, 1, hair);
+      px(ctx, 9, 3, 2, 1, hair);
+      px(ctx, 3, 5, 1, 1, hairDark);
+      px(ctx, 12, 5, 1, 1, hairDark);
+    } else if (hairStyle === 12) {
+      px(ctx, 5, 4, 6, 1, hair);
+      px(ctx, 4, 4, 2, 2, hair);
+      px(ctx, 9, 3, 3, 1, hair);
+      px(ctx, 11, 6, 1, 2, hair);
+      px(ctx, 5, 2, 2, 1, hairLight);
+    } else if (hairStyle === 13) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 4, 6, 1, 8, hair);
+      px(ctx, 6, 6, 1, 7, hair);
+      px(ctx, 9, 6, 1, 8, hair);
+      px(ctx, 11, 6, 1, 7, hair);
+      px(ctx, 4, 9, 1, 1, gold);
+      px(ctx, 6, 12, 1, 1, gold);
+      px(ctx, 9, 9, 1, 1, gold);
+      px(ctx, 11, 11, 1, 1, gold);
+      px(ctx, 4, 8, 1, 1, hairDark);
+      px(ctx, 6, 9, 1, 1, hairDark);
+    } else if (hairStyle === 14) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 7, 1, 3, 2, hair);
+      px(ctx, 6, 2, 4, 2, hair);
+      px(ctx, 8, 1, 1, 1, hairLight);
+      px(ctx, 11, 6, 1, 2, hair);
+    } else if (hairStyle === 15) {
+      px(ctx, 5, 3, 6, 2, hair);
+      px(ctx, 9, 2, 3, 1, hair);
+      px(ctx, 11, 4, 1, 1, hairDark);
     }
     // face details
     if (face === 1) {
@@ -440,12 +501,29 @@ function drawPlayer(
       px(ctx, eyeX - 1, 9, 1, 1, blush);
       px(ctx, eyeX, 9, 1, 1, blush);
     } else if (face === 3) {
+      px(ctx, 9, 7, 1, 1, scar);
+      px(ctx, 8, 8, 1, 1, scar);
+      px(ctx, 9, 9, 1, 1, hairDark);
+    } else if (face === 4) {
+      px(ctx, eyeX - 2, 7, 1, 2, vitiligo);
+      px(ctx, 6, 10, 1, 1, vitiligo);
+      px(ctx, 9, 8, 1, 1, vitiligo);
+    }
+    // facial hair
+    if (facialHair === 1) {
+      px(ctx, 6, 9, 4, 1, freckle);
+      px(ctx, 7, 10, 3, 1, hairDark);
+    } else if (facialHair === 2) {
+      px(ctx, 6, 9, 4, 1, hair);
+      px(ctx, 7, 9, 2, 1, hairDark);
+    } else if (facialHair === 3) {
+      px(ctx, 6, 9, 4, 1, hair);
+      px(ctx, 7, 9, 2, 1, hairDark);
+      px(ctx, 8, 10, 2, 1, hair);
+    } else if (facialHair === 4) {
       px(ctx, 5, 9, 6, 2, hair);
       px(ctx, 6, 11, 4, 1, hairDark);
       px(ctx, 5, 8, 1, 2, hair);
-    } else if (face === 4) {
-      px(ctx, 6, 9, 4, 1, freckle);
-      px(ctx, 7, 10, 3, 1, hairDark);
     }
     // accessories
     if (accessory === 1) {
@@ -477,8 +555,32 @@ function drawPlayer(
       px(ctx, 6, 11, 3, 1, gold);
       px(ctx, 7, 12, 1, 1, goldDark);
     } else if (accessory === 8) {
-      px(ctx, 5, 15, 6, 1, '#4a3020');
+      const beltX = build === 0 ? 6 : build === 2 ? 4 : 5;
+      const beltW = build === 0 ? 4 : build === 2 ? 8 : 6;
+      px(ctx, beltX, 15, beltW, 1, '#4a3020');
       px(ctx, 7, 15, 1, 1, gold);
+    } else if (accessory === 9) {
+      px(ctx, eyeX, 7, 1, 1, glass);
+      px(ctx, eyeX - 1, 8, 1, 1, glass);
+      px(ctx, eyeX + 1, 8, 1, 1, glass);
+      px(ctx, eyeX, 9, 1, 1, glass);
+    } else if (accessory === 10) {
+      px(ctx, eyeX - 1, 7, 3, 1, glass);
+      px(ctx, eyeX - 1, 9, 3, 1, glass);
+      px(ctx, eyeX - 1, 8, 1, 1, glass);
+      px(ctx, eyeX + 1, 8, 1, 1, glass);
+    } else if (accessory === 11) {
+      px(ctx, eyeX - 1, 8, 3, 1, glass);
+      px(ctx, eyeX, 8, 1, 1, '#6a7a8a');
+    } else if (accessory === 12) {
+      const ear = dir === 'left' ? 11 : 4;
+      px(ctx, ear, 9, 1, 1, '#d8b388');
+      px(ctx, ear, 10, 1, 1, '#b88a5a');
+      px(ctx, ear + (dir === 'left' ? -1 : 1), 10, 1, 1, '#d8b388');
+    } else if (accessory === 13) {
+      px(ctx, eyeX, 8, 2, 2, '#2a2a2a');
+      px(ctx, 5, 7, 6, 1, '#2a2a2a');
+      px(ctx, eyeX, 8, 1, 1, '#4a4a4a');
     }
     // hat
     if (hatOn) {
@@ -504,6 +606,18 @@ function drawPlayer(
         px(ctx, 3, 4, 8, 1, hatDark);
         px(ctx, 5, 3, 6, 1, hatLight);
         px(ctx, 8, 1, 1, 1, hatDark);
+      } else if (hatStyle === 6) {
+        px(ctx, 4, 3, 8, 3, hat);
+        px(ctx, 4, 3, 8, 1, hatLight);
+        px(ctx, 3, 5, 2, 6, hatDark);
+        px(ctx, 11, 5, 2, 7, hat);
+        px(ctx, 11, 11, 2, 4, hatDark);
+      } else if (hatStyle === 7) {
+        px(ctx, 4, 2, 8, 4, hat);
+        px(ctx, 5, 1, 6, 2, hatLight);
+        px(ctx, 4, 4, 8, 1, hatDark);
+        px(ctx, 9, 1, 2, 1, hat);
+        px(ctx, 11, 5, 1, 2, hatDark);
       } else {
         px(ctx, 3, 4, 10, 2, hatDark);
         px(ctx, 5, 2, 6, 3, hat);
@@ -527,27 +641,36 @@ function drawPlayer(
     px(ctx, 7, 12, 2, 3, shirtDark);
     drawPattern(false);
     drawOutfit(false);
+    if (build === 0) {
+      ctx.clearRect(5, 12, 1, 8);
+      ctx.clearRect(10, 12, 1, 8);
+      ctx.clearRect(4, 13, 1, 4);
+      ctx.clearRect(11, 13, 1, 4);
+    } else if (build === 2) {
+      px(ctx, 4, 12, 1, 3, shirt);
+      px(ctx, 4, 15, 1, 5, pants);
+      px(ctx, 11, 12, 1, 3, shirt);
+      px(ctx, 11, 15, 1, 5, pants);
+      px(ctx, 5, 19, 1, 4, boot);
+      px(ctx, 11, 19, 1, 4, boot);
+    }
     // arms
-    px(ctx, 4, 13, 2, 4, skin);
-    px(ctx, 11, 13, 2, 4, skin);
-    px(ctx, 4, 13, 1, 4, skinDark);
+    if (build === 0) {
+      px(ctx, 5, 13, 1, 4, skin);
+      px(ctx, 10, 13, 1, 4, skin);
+    } else if (build === 2) {
+      px(ctx, 3, 13, 2, 4, skin);
+      px(ctx, 11, 13, 2, 4, skin);
+      px(ctx, 3, 13, 1, 4, skinDark);
+    } else {
+      px(ctx, 4, 13, 2, 4, skin);
+      px(ctx, 11, 13, 2, 4, skin);
+      px(ctx, 4, 13, 1, 4, skinDark);
+    }
     // head
     px(ctx, 5, 6, 6, 6, skin);
     px(ctx, 5, 6, 1, 6, skinDark);
     if (dir === 'down') {
-      if (face === 3) {
-        px(ctx, 5, 9, 1, 2, hair);
-        px(ctx, 10, 9, 1, 2, hair);
-        px(ctx, 6, 10, 4, 1, hair);
-        px(ctx, 6, 11, 4, 1, hairDark);
-      } else if (face === 4) {
-        px(ctx, 5, 9, 1, 1, hairDark);
-        px(ctx, 10, 9, 1, 1, hairDark);
-        px(ctx, 6, 10, 4, 1, hairDark);
-      }
-      drawEye(6, 8, false);
-      drawEye(9, 8, true);
-      px(ctx, 7, 10, 2, 1, '#c88a72');
       if (face === 1) {
         px(ctx, 6, 9, 1, 1, freckle);
         px(ctx, 7, 9, 1, 1, freckle);
@@ -555,7 +678,36 @@ function drawPlayer(
       } else if (face === 2) {
         px(ctx, 6, 9, 1, 1, blush);
         px(ctx, 9, 9, 1, 1, blush);
+      } else if (face === 3) {
+        px(ctx, 9, 7, 1, 1, scar);
+        px(ctx, 8, 8, 1, 1, scar);
+        px(ctx, 9, 9, 1, 1, hairDark);
+      } else if (face === 4) {
+        px(ctx, 10, 7, 2, 1, vitiligo);
+        px(ctx, 10, 8, 1, 1, vitiligo);
+        px(ctx, 6, 10, 1, 1, vitiligo);
+        px(ctx, 9, 9, 1, 1, vitiligo);
       }
+      if (facialHair === 4) {
+        px(ctx, 5, 9, 1, 2, hair);
+        px(ctx, 10, 9, 1, 2, hair);
+        px(ctx, 6, 10, 4, 1, hair);
+        px(ctx, 6, 11, 4, 1, hairDark);
+      } else if (facialHair === 1) {
+        px(ctx, 5, 9, 1, 1, hairDark);
+        px(ctx, 10, 9, 1, 1, hairDark);
+        px(ctx, 6, 10, 4, 1, hairDark);
+      } else if (facialHair === 2) {
+        px(ctx, 6, 9, 4, 1, hair);
+        px(ctx, 7, 9, 2, 1, hairDark);
+      } else if (facialHair === 3) {
+        px(ctx, 6, 9, 4, 1, hair);
+        px(ctx, 7, 9, 2, 1, hairDark);
+        px(ctx, 7, 11, 2, 1, hair);
+      }
+      drawEye(6, 8, false);
+      drawEye(9, 8, true);
+      px(ctx, 7, 10, 2, 1, '#c88a72');
     }
     // hair
     if (hairStyle === 1) {
@@ -621,6 +773,54 @@ function drawPlayer(
       px(ctx, 10, 3, 2, 1, hair);
       px(ctx, 5, 5, 6, 1, hairDark);
       if (dir === 'up') px(ctx, 5, 6, 6, 4, hair);
+    } else if (hairStyle === 10) {
+      px(ctx, 3, 3, 10, 3, hair);
+      px(ctx, 2, 5, 1, 3, hair);
+      px(ctx, 13, 5, 1, 3, hair);
+      px(ctx, 4, 2, 3, 1, hairLight);
+      px(ctx, 10, 2, 2, 1, hair);
+      px(ctx, 3, 6, 1, 1, hairDark);
+      px(ctx, 12, 6, 1, 1, hairDark);
+      if (dir === 'up') px(ctx, 4, 6, 8, 4, hair);
+    } else if (hairStyle === 11) {
+      px(ctx, 4, 4, 8, 2, hair);
+      px(ctx, 4, 6, 1, 4, hair);
+      px(ctx, 11, 6, 1, 4, hair);
+      px(ctx, 5, 3, 2, 1, hair);
+      px(ctx, 9, 3, 2, 1, hair);
+      px(ctx, 3, 5, 1, 1, hairDark);
+      px(ctx, 12, 5, 1, 1, hairDark);
+      if (dir === 'up') px(ctx, 5, 6, 6, 3, hair);
+    } else if (hairStyle === 12) {
+      px(ctx, 5, 4, 6, 1, hair);
+      px(ctx, 4, 4, 2, 2, hair);
+      px(ctx, 9, 3, 3, 1, hair);
+      px(ctx, 5, 5, 6, 1, hairDark);
+      if (dir === 'up') px(ctx, 5, 5, 6, 2, hair);
+    } else if (hairStyle === 13) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 4, 6, 1, 8, hair);
+      px(ctx, 6, 6, 1, 7, hair);
+      px(ctx, 9, 6, 1, 8, hair);
+      px(ctx, 11, 6, 1, 7, hair);
+      px(ctx, 4, 9, 1, 1, gold);
+      px(ctx, 6, 12, 1, 1, gold);
+      px(ctx, 9, 9, 1, 1, gold);
+      px(ctx, 11, 11, 1, 1, gold);
+      px(ctx, 4, 8, 1, 1, hairDark);
+      px(ctx, 6, 9, 1, 1, hairDark);
+      if (dir === 'up') px(ctx, 5, 6, 6, 4, hair);
+    } else if (hairStyle === 14) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 7, 1, 3, 2, hair);
+      px(ctx, 6, 2, 4, 2, hair);
+      px(ctx, 8, 1, 1, 1, hairLight);
+      if (dir === 'up') px(ctx, 6, 6, 4, 2, hair);
+    } else if (hairStyle === 15) {
+      px(ctx, 5, 3, 6, 2, hair);
+      px(ctx, 9, 2, 3, 1, hair);
+      px(ctx, 11, 4, 1, 1, hairDark);
+      if (dir === 'up') px(ctx, 6, 5, 4, 2, hair);
     } else if (hairStyle === 5) {
       if (dir === 'down') px(ctx, 7, 5, 2, 1, shadeHex(skin, 14));
     } else {
@@ -661,8 +861,63 @@ function drawPlayer(
       px(ctx, 6, 11, 4, 1, gold);
       px(ctx, 7, 12, 1, 1, goldDark);
     } else if (accessory === 8) {
-      px(ctx, 5, 15, 6, 1, '#4a3020');
+      const beltX = build === 0 ? 6 : build === 2 ? 4 : 5;
+      const beltW = build === 0 ? 4 : build === 2 ? 8 : 6;
+      px(ctx, beltX, 15, beltW, 1, '#4a3020');
       px(ctx, 7, 15, 1, 1, gold);
+    } else if (accessory === 9) {
+      if (dir === 'up') {
+        px(ctx, 4, 8, 1, 2, glass);
+        px(ctx, 11, 8, 1, 2, glass);
+      } else {
+        px(ctx, 6, 7, 1, 1, glass);
+        px(ctx, 5, 8, 1, 1, glass);
+        px(ctx, 7, 8, 1, 1, glass);
+        px(ctx, 6, 9, 1, 1, glass);
+        px(ctx, 9, 7, 1, 1, glass);
+        px(ctx, 8, 8, 1, 1, glass);
+        px(ctx, 10, 8, 1, 1, glass);
+        px(ctx, 9, 9, 1, 1, glass);
+      }
+    } else if (accessory === 10) {
+      if (dir === 'up') {
+        px(ctx, 4, 7, 1, 3, glass);
+        px(ctx, 11, 7, 1, 3, glass);
+      } else {
+        px(ctx, 5, 7, 3, 1, glass);
+        px(ctx, 5, 9, 3, 1, glass);
+        px(ctx, 5, 8, 1, 1, glass);
+        px(ctx, 7, 8, 1, 1, glass);
+        px(ctx, 8, 7, 3, 1, glass);
+        px(ctx, 8, 9, 3, 1, glass);
+        px(ctx, 8, 8, 1, 1, glass);
+        px(ctx, 10, 8, 1, 1, glass);
+      }
+    } else if (accessory === 11) {
+      if (dir === 'up') {
+        px(ctx, 4, 8, 1, 1, glass);
+        px(ctx, 11, 8, 1, 1, glass);
+      } else {
+        px(ctx, 5, 7, 3, 1, glass);
+        px(ctx, 8, 7, 3, 1, glass);
+        px(ctx, 5, 8, 3, 1, glass);
+        px(ctx, 8, 8, 3, 1, glass);
+        px(ctx, 6, 8, 1, 1, '#6a7a8a');
+        px(ctx, 9, 8, 1, 1, '#6a7a8a');
+      }
+    } else if (accessory === 12) {
+      px(ctx, 4, 9, 1, 1, '#d8b388');
+      px(ctx, 4, 10, 1, 1, '#b88a5a');
+      px(ctx, 5, 10, 1, 1, '#d8b388');
+      px(ctx, 11, 9, 1, 1, '#d8b388');
+      px(ctx, 11, 10, 1, 1, '#b88a5a');
+      px(ctx, 10, 10, 1, 1, '#d8b388');
+    } else if (accessory === 13) {
+      px(ctx, 5, 7, 6, 1, '#2a2a2a');
+      if (dir !== 'up') {
+        px(ctx, 9, 8, 2, 2, '#2a2a2a');
+        px(ctx, 9, 8, 1, 1, '#4a4a4a');
+      }
     }
     // hat
     if (hatOn) {
@@ -687,6 +942,25 @@ function drawPlayer(
         px(ctx, 3, 4, 8, 1, hatDark);
         px(ctx, 5, 3, 6, 1, hatLight);
         px(ctx, 8, 1, 1, 1, hatDark);
+      } else if (hatStyle === 6) {
+        px(ctx, 4, 3, 8, 3, hat);
+        px(ctx, 4, 3, 8, 1, hatLight);
+        px(ctx, 3, 5, 2, 7, hatDark);
+        px(ctx, 11, 5, 2, 7, hat);
+        if (dir === 'up') {
+          px(ctx, 4, 6, 8, 6, hat);
+          px(ctx, 4, 12, 2, 3, hatDark);
+          px(ctx, 10, 12, 2, 3, hat);
+        } else {
+          px(ctx, 3, 11, 2, 4, hatDark);
+          px(ctx, 11, 11, 2, 4, hat);
+        }
+      } else if (hatStyle === 7) {
+        px(ctx, 4, 2, 8, 4, hat);
+        px(ctx, 5, 1, 6, 2, hatLight);
+        px(ctx, 4, 4, 8, 1, hatDark);
+        px(ctx, 9, 1, 2, 1, hat);
+        if (dir === 'up') px(ctx, 4, 5, 8, 2, hat);
       } else {
         px(ctx, 3, 4, 10, 2, hatDark);
         px(ctx, 5, 2, 6, 3, hat);

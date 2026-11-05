@@ -35,7 +35,7 @@ export const WORLD_H = 48;
 export const DAYS_PER_SEASON = 28;
 export const START_MINUTE = 6 * 60;
 export const MINUTES_PER_REAL_SECOND = 3;
-export const CURRENT_SAVE_VERSION = 14;
+export const CURRENT_SAVE_VERSION = 16;
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
 export const SKILLS = ['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as const;
@@ -371,11 +371,44 @@ export const FORAGE: ForageDef[] = [
 // ---------------------------------------------------------------------- look
 
 /** Colours and styles the farmer can pick at the start. The first entry is the default. */
-export const SKIN_TONES = ['#f0c9a0', '#e0ac82', '#c88a58', '#a86a42', '#7a4a2c', '#5a3520'];
-export const HAIR_COLORS = ['#5a3a22', '#8a6a3a', '#2a2a2a', '#c8a050', '#a8502a', '#6a3a8a'];
-export const EYE_COLORS = ['#3a2a1a', '#3a6a9a', '#3a7a4a', '#8a6a3a', '#5a4a7a', '#2a2a3a'];
+export const SKIN_TONES = [
+  '#f0c9a0',
+  '#e0ac82',
+  '#c88a58',
+  '#a86a42',
+  '#7a4a2c',
+  '#5a3520',
+  '#f7d9bd',
+  '#d19a6a',
+  '#8a5535',
+  '#3e2416'
+];
+export const HAIR_COLORS = [
+  '#5a3a22',
+  '#8a6a3a',
+  '#2a2a2a',
+  '#c8a050',
+  '#a8502a',
+  '#6a3a8a',
+  '#d0d0d0',
+  '#c85a7a',
+  '#4a7a8a'
+];
+export const EYE_COLORS = [
+  '#3a2a1a',
+  '#3a6a9a',
+  '#3a7a4a',
+  '#8a6a3a',
+  '#5a4a7a',
+  '#2a2a3a',
+  '#6a8a8a',
+  '#8a5a2a'
+];
 export const EYE_STYLES = ['Round', 'Bright', 'Sleepy', 'Wink'];
-export const FACE_DETAILS = ['None', 'Freckles', 'Blush', 'Beard', 'Stubble'];
+export const FACE_DETAILS = ['None', 'Freckles', 'Blush', 'Scar', 'Vitiligo'];
+export const FACIAL_HAIR = ['None', 'Stubble', 'Mustache', 'Goatee', 'Full beard'];
+export const BUILDS = ['Slim', 'Average', 'Broad'];
+export const PRONOUNS = ['They/Them', 'She/Her', 'He/Him', 'She/They', 'He/They'];
 export const OUTFIT_STYLES = ['Overalls', 'Apron', 'Vest', 'Tunic', 'Plain'];
 export const SHIRT_PATTERNS = ['Plain', 'Stripes', 'Check', 'Pocket', 'Star'];
 export const SHIRT_COLORS = ['#4f86c8', '#c85a4a', '#4a9a6a', '#c8a03a', '#8a5ac8', '#3a3a4a'];
@@ -392,9 +425,24 @@ export const HAIR_STYLES = [
   'Ponytail',
   'Curly',
   'Mohawk',
-  'Bob'
+  'Bob',
+  'Afro',
+  'Wavy',
+  'Pixie',
+  'Dreadlocks',
+  'Top knot',
+  'Undercut'
 ];
-export const HAT_STYLES = ['No hat', 'Straw hat', 'Cap', 'Beanie', 'Sun hat', 'Beret'];
+export const HAT_STYLES = [
+  'No hat',
+  'Straw hat',
+  'Cap',
+  'Beanie',
+  'Sun hat',
+  'Beret',
+  'Headscarf',
+  'Turban'
+];
 export const ACCESSORIES = [
   'None',
   'Glasses',
@@ -404,7 +452,12 @@ export const ACCESSORIES = [
   'Earrings',
   'Headband',
   'Necklace',
-  'Belt'
+  'Belt',
+  'Round glasses',
+  'Square glasses',
+  'Sunglasses',
+  'Hearing aid',
+  'Eyepatch'
 ];
 
 /** The look a brand-new farmer starts with. */
@@ -415,6 +468,10 @@ export const APPEARANCE_DEFAULT = {
   eye: 0,
   eyeStyle: 0,
   face: 0,
+  facialHair: 0,
+  build: 1,
+  name: '',
+  pronouns: 0,
   shirt: 0,
   pattern: 0,
   outfit: 0,

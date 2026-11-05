@@ -643,6 +643,13 @@ export interface AppearanceSave {
   eye: number;
   eyeStyle: number;
   face: number;
+  facialHair: number;
+  /** 0 slim, 1 average, 2 broad. */
+  build: number;
+  /** Player-chosen name, empty when the player skips it. */
+  name: string;
+  /** Index into PRONOUNS. */
+  pronouns: number;
   shirt: number;
   pattern: number;
   outfit: number;

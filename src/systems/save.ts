@@ -3,6 +3,7 @@ import {
   AUTOMATION,
   BASE_MAX_ENERGY,
   BUFFS,
+  BUILDS,
   BUNDLE_SETS,
   COLLECTION_SETS,
   CURRENT_SAVE_VERSION,
@@ -14,6 +15,7 @@ import {
   EYE_COLORS,
   EYE_STYLES,
   FACE_DETAILS,
+  FACIAL_HAIR,
   HAIR_COLORS,
   HAIR_STYLES,
   HAT_COLORS,
@@ -27,6 +29,7 @@ import {
   OUTFIT_STYLES,
   PANTS_COLORS,
   PROFESSIONS,
+  PRONOUNS,
   SHIRT_COLORS,
   SHIRT_PATTERNS,
   SKIN_TONES,
@@ -506,13 +509,35 @@ function sanitizeAppearance(raw: unknown): AppearanceSave {
     const n = Math.floor(toFinite(value, fallback));
     return n >= 0 && n < max ? n : fallback;
   };
+  const rawFace = Math.floor(toFinite(record.face, APPEARANCE_DEFAULT.face));
+  let face = pick(record.face, FACE_DETAILS.length, APPEARANCE_DEFAULT.face);
+  let facialHair = pick(record.facialHair, FACIAL_HAIR.length, APPEARANCE_DEFAULT.facialHair);
+  if (record.facialHair === undefined || record.facialHair === null) {
+    if (rawFace === 3) {
+      face = APPEARANCE_DEFAULT.face;
+      facialHair = 4;
+    } else if (rawFace === 4) {
+      face = APPEARANCE_DEFAULT.face;
+      facialHair = 1;
+    } else if (rawFace === 5) {
+      face = APPEARANCE_DEFAULT.face;
+      facialHair = 2;
+    } else if (rawFace === 6) {
+      face = APPEARANCE_DEFAULT.face;
+      facialHair = 3;
+    }
+  }
   return {
     skin: pick(record.skin, SKIN_TONES.length, APPEARANCE_DEFAULT.skin),
     hairStyle: pick(record.hairStyle, HAIR_STYLES.length, APPEARANCE_DEFAULT.hairStyle),
     hair: pick(record.hair, HAIR_COLORS.length, APPEARANCE_DEFAULT.hair),
     eye: pick(record.eye, EYE_COLORS.length, APPEARANCE_DEFAULT.eye),
     eyeStyle: pick(record.eyeStyle, EYE_STYLES.length, APPEARANCE_DEFAULT.eyeStyle),
-    face: pick(record.face, FACE_DETAILS.length, APPEARANCE_DEFAULT.face),
+    face,
+    facialHair,
+    build: pick(record.build, BUILDS.length, APPEARANCE_DEFAULT.build),
+    name: sanitizeName(record.name),
+    pronouns: pick(record.pronouns, PRONOUNS.length, APPEARANCE_DEFAULT.pronouns),
     shirt: pick(record.shirt, SHIRT_COLORS.length, APPEARANCE_DEFAULT.shirt),
     pattern: pick(record.pattern, SHIRT_PATTERNS.length, APPEARANCE_DEFAULT.pattern),
     outfit: pick(record.outfit, OUTFIT_STYLES.length, APPEARANCE_DEFAULT.outfit),
@@ -522,6 +547,15 @@ function sanitizeAppearance(raw: unknown): AppearanceSave {
     hatStyle: pickHatStyle(record.hatStyle, record.hat),
     accessory: pick(record.accessory, ACCESSORIES.length, APPEARANCE_DEFAULT.accessory)
   };
+}
+
+function sanitizeName(value: unknown): string {
+  if (typeof value !== 'string') return APPEARANCE_DEFAULT.name;
+  return value
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 16);
 }
 
 /** Hat index: -1 is no hat, otherwise a real hat colour. */
@@ -630,6 +664,14 @@ export function migrateSave(raw: unknown): SaveData {
   if (version < 14) {
     // v14 adds eye shapes, outfit styles and shirt patterns.
     data.version = 14;
+  }
+  if (version < 15) {
+    // v15 splits facial hair out of the face-detail slot.
+    data.version = 15;
+  }
+  if (version < 16) {
+    // v16 adds body build, a player name and pronouns.
+    data.version = 16;
   }
 
   data.version = CURRENT_SAVE_VERSION;

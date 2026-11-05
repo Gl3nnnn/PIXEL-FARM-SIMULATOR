@@ -1,8 +1,8 @@
-import { BUILDINGS, SEASON_INFO, WEATHER_INFO, xpProgress } from '../data/definitions';
+import { BUILDINGS, PRONOUNS, SEASON_INFO, WEATHER_INFO, xpProgress } from '../data/definitions';
 import { audio } from '../systems/audio';
 import type { GameState } from '../systems/gameState';
 import { formatNumber, formatTime } from '../systems/util';
-import type { DaySummary } from '../types';
+import type { DaySummary, SaveData } from '../types';
 import { iconKeyFor } from '../game/textures';
 import type { PanelBuilder, UIContext } from './context';
 import { button, confirmDialog, el, iconImg, progressBar } from './uiKit';
@@ -26,6 +26,10 @@ import { renderMuseum } from './panels/museum';
 import { renderHomestead } from './panels/homestead';
 import { npcLine } from '../systems/npcs';
 import type Phaser from 'phaser';
+
+function farmerName(data: SaveData): string {
+  return data.appearance.name.trim() || 'Farmer';
+}
 
 export interface GameUIHandlers {
   save(): Promise<void> | void;
@@ -1075,7 +1079,7 @@ export class GameUI {
     this.clockEl.innerHTML = `<span class="chip-label">Time</span><strong>${formatTime(d.minute)}</strong>`;
     this.weatherEl.innerHTML = `<span class="chip-label">Weather</span><strong>${WEATHER_INFO[d.weather].name}</strong>`;
     const xp = xpProgress(this.state.totalXp());
-    this.levelEl.textContent = `Farmer Lv ${xp.level}`;
+    this.levelEl.textContent = `${farmerName(d)} Lv ${xp.level}`;
     this.levelBar.style.width = `${Math.max(2, Math.min(100, (xp.into / Math.max(1, xp.need)) * 100))}%`;
     this.renderHotbar();
     this.refreshEnergyChip();
@@ -1274,6 +1278,8 @@ export class GameUI {
 
     const xp = xpProgress(this.state.totalXp());
     const stats = el('div', 'pause-stats');
+    const pronouns = PRONOUNS[this.state.data.appearance.pronouns] ?? PRONOUNS[0];
+    stats.appendChild(el('span', undefined, `${farmerName(this.state.data)} - ${pronouns}`));
     stats.appendChild(el('span', undefined, `Farmer level ${xp.level}`));
     stats.appendChild(el('span', undefined, `${formatNumber(this.state.data.coins)} coins`));
     stats.appendChild(

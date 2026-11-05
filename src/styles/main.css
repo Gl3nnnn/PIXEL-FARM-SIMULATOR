@@ -4375,11 +4375,99 @@ select {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 10px;
   border-radius: 14px;
   background: radial-gradient(circle at 50% 80%, rgba(120, 170, 120, 0.22), rgba(0, 0, 0, 0.24));
   border: 1px solid rgba(240, 220, 170, 0.16);
+}
+
+.farmer-step-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.farmer-step-dot {
+  padding: 5px 10px;
+  border: 1px solid rgba(240, 220, 170, 0.24);
+  border-radius: 999px;
+  background: transparent;
+  color: #9fb09a;
+  font: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+.farmer-step-dot:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2ead6;
+}
+
+.farmer-step-dot.is-active {
+  border-color: #7cb663;
+  background: rgba(124, 182, 99, 0.22);
+  color: #f6ffdf;
+}
+
+.farmer-step-dot.is-done {
+  border-color: rgba(240, 220, 170, 0.38);
+  color: #cfd8c4;
+}
+
+.farmer-step-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+  animation: farmer-step-in 0.18s ease;
+}
+
+.farmer-step-head {
+  margin-bottom: 8px;
+}
+
+.farmer-step-count {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #d9b35a;
+}
+
+.farmer-step-title {
+  margin: 2px 0 2px;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  color: #f6e6b8;
+}
+
+.farmer-step-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #a9b8a2;
+}
+
+.farmer-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@keyframes farmer-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .farmer-view-toggle {
@@ -4445,6 +4533,27 @@ select {
   gap: 10px;
   margin-bottom: 10px;
   flex-wrap: wrap;
+}
+
+.farmer-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(240, 220, 170, 0.24);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #f2ead6;
+  font: inherit;
+  font-size: 12px;
+}
+
+.farmer-name-input::placeholder {
+  color: #82907f;
+}
+
+.farmer-name-input:focus {
+  outline: 2px solid rgba(124, 182, 99, 0.55);
+  outline-offset: 1px;
 }
 
 .farmer-label {
@@ -4522,9 +4631,14 @@ select {
 
 .farmer-actions {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
   margin-top: 16px;
+}
+
+.farmer-actions > .btn:first-child {
+  margin-right: auto;
 }
 
 /* ---------------------------------------------------------------- tv forecast */

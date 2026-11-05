@@ -38,6 +38,10 @@ describe('saves', () => {
       eye: 1,
       eyeStyle: 3,
       face: 2,
+      facialHair: 3,
+      build: 0,
+      name: 'Alex',
+      pronouns: 3,
       shirt: 4,
       pattern: 1,
       outfit: 2,
@@ -320,6 +324,10 @@ describe('phase save data', () => {
       eye: APPEARANCE_DEFAULT.eye,
       eyeStyle: APPEARANCE_DEFAULT.eyeStyle,
       face: APPEARANCE_DEFAULT.face,
+      facialHair: APPEARANCE_DEFAULT.facialHair,
+      build: APPEARANCE_DEFAULT.build,
+      name: APPEARANCE_DEFAULT.name,
+      pronouns: APPEARANCE_DEFAULT.pronouns,
       pattern: APPEARANCE_DEFAULT.pattern,
       outfit: APPEARANCE_DEFAULT.outfit,
       pants: APPEARANCE_DEFAULT.pants,
@@ -334,5 +342,34 @@ describe('phase save data', () => {
     });
     expect(straw.appearance.hat).toBe(4);
     expect(straw.appearance.hatStyle).toBe(1);
+  });
+
+  it('moves legacy beard and stubble into the facial-hair slot', () => {
+    const beard = migrateSave({
+      version: 14,
+      appearance: { face: 3 },
+      player: { x: 100, y: 200, facing: 'down' }
+    });
+    expect(beard.appearance.face).toBe(APPEARANCE_DEFAULT.face);
+    expect(beard.appearance.facialHair).toBe(4);
+
+    const stubble = migrateSave({
+      version: 14,
+      appearance: { face: 4 },
+      player: { x: 100, y: 200, facing: 'down' }
+    });
+    expect(stubble.appearance.face).toBe(APPEARANCE_DEFAULT.face);
+    expect(stubble.appearance.facialHair).toBe(1);
+  });
+
+  it('cleans up the player name and keeps identity choices', () => {
+    const migrated = migrateSave({
+      version: 15,
+      appearance: { name: '  Ada   Lovelace  ', pronouns: 2, build: 2 },
+      player: { x: 100, y: 200, facing: 'down' }
+    });
+    expect(migrated.appearance.name).toBe('Ada Lovelace');
+    expect(migrated.appearance.pronouns).toBe(2);
+    expect(migrated.appearance.build).toBe(2);
   });
 });
