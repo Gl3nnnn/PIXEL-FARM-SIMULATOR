@@ -29,6 +29,28 @@ describe('saves', () => {
     expect(restored.version).toBe(CURRENT_SAVE_VERSION);
   });
 
+  it('round-trips the expanded farmer look', () => {
+    const save = createNewSave();
+    save.appearance = {
+      skin: 3,
+      hairStyle: 7,
+      hair: 2,
+      eye: 1,
+      eyeStyle: 3,
+      face: 2,
+      shirt: 4,
+      pattern: 1,
+      outfit: 2,
+      pants: 5,
+      boots: 3,
+      hat: 4,
+      hatStyle: 5,
+      accessory: 7
+    };
+    const restored = deserializeSave(serializeSave(save));
+    expect(restored.appearance).toEqual(save.appearance);
+  });
+
   it('migrates v1 inventories to the quality-aware format', () => {
     const migrated = migrateSave({
       version: 1,
@@ -296,6 +318,10 @@ describe('phase save data', () => {
       hat: -1,
       hatStyle: 0,
       eye: APPEARANCE_DEFAULT.eye,
+      eyeStyle: APPEARANCE_DEFAULT.eyeStyle,
+      face: APPEARANCE_DEFAULT.face,
+      pattern: APPEARANCE_DEFAULT.pattern,
+      outfit: APPEARANCE_DEFAULT.outfit,
       pants: APPEARANCE_DEFAULT.pants,
       boots: APPEARANCE_DEFAULT.boots,
       accessory: APPEARANCE_DEFAULT.accessory

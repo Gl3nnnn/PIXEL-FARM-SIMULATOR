@@ -4401,9 +4401,42 @@ select {
   justify-content: center;
 }
 
+.farmer-preview-wrap {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+}
+
 .farmer-preview {
+  position: relative;
+  z-index: 1;
   image-rendering: pixelated;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
+.farmer-preview-shadow {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 62px;
+  height: 14px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+}
+
+.farmer-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.farmer-preset {
+  border-color: rgba(240, 220, 170, 0.38);
 }
 
 .farmer-row {
@@ -4415,9 +4448,9 @@ select {
 }
 
 .farmer-label {
-  width: 66px;
+  width: 74px;
   flex: 0 0 auto;
-  font-size: 12.5px;
+  font-size: 12px;
   color: #cfd8c4;
 }
 

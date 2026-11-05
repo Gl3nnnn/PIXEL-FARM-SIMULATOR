@@ -12,6 +12,8 @@ import {
   ACCESSORIES,
   BOOT_COLORS,
   EYE_COLORS,
+  EYE_STYLES,
+  FACE_DETAILS,
   HAIR_COLORS,
   HAIR_STYLES,
   HAT_COLORS,
@@ -22,9 +24,11 @@ import {
   MINE_MAX_FLOOR,
   MUSEUM_REWARDS,
   NPCS,
+  OUTFIT_STYLES,
   PANTS_COLORS,
   PROFESSIONS,
   SHIRT_COLORS,
+  SHIRT_PATTERNS,
   SKIN_TONES,
   TOOLS,
   WEAPONS,
@@ -507,7 +511,11 @@ function sanitizeAppearance(raw: unknown): AppearanceSave {
     hairStyle: pick(record.hairStyle, HAIR_STYLES.length, APPEARANCE_DEFAULT.hairStyle),
     hair: pick(record.hair, HAIR_COLORS.length, APPEARANCE_DEFAULT.hair),
     eye: pick(record.eye, EYE_COLORS.length, APPEARANCE_DEFAULT.eye),
+    eyeStyle: pick(record.eyeStyle, EYE_STYLES.length, APPEARANCE_DEFAULT.eyeStyle),
+    face: pick(record.face, FACE_DETAILS.length, APPEARANCE_DEFAULT.face),
     shirt: pick(record.shirt, SHIRT_COLORS.length, APPEARANCE_DEFAULT.shirt),
+    pattern: pick(record.pattern, SHIRT_PATTERNS.length, APPEARANCE_DEFAULT.pattern),
+    outfit: pick(record.outfit, OUTFIT_STYLES.length, APPEARANCE_DEFAULT.outfit),
     pants: pick(record.pants, PANTS_COLORS.length, APPEARANCE_DEFAULT.pants),
     boots: pick(record.boots, BOOT_COLORS.length, APPEARANCE_DEFAULT.boots),
     hat: pickHat(record.hat),
@@ -614,6 +622,14 @@ export function migrateSave(raw: unknown): SaveData {
   if (version < 12) {
     // v12 expands the farmer look; sanitizeAppearance fills the new choices.
     data.version = 12;
+  }
+  if (version < 13) {
+    // v13 adds face details and more hair/accessory choices.
+    data.version = 13;
+  }
+  if (version < 14) {
+    // v14 adds eye shapes, outfit styles and shirt patterns.
+    data.version = 14;
   }
 
   data.version = CURRENT_SAVE_VERSION;

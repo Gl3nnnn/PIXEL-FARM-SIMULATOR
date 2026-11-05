@@ -20,7 +20,7 @@ Once GitHub Pages is enabled, the game is available at:
 - **Professions**: pick one of two paths per skill at level 5 and again at level 10
 - **Foraging**: seasonal wild plants appear on open ground each morning and can be picked up
 - **Prologue**: a new farm opens with "The Valley That Waited", a four-chapter story with a unique animated scene for each chapter, before you design your farmer
-- **Design your farmer**: pick skin, hair style and colour, eyes, shirt, overalls, boots, hats and accessories before a new farm starts, with front/back/side previews and a Surprise me button
+- **Design your farmer**: pick skin, hair style and colour, eye colour and shape, face details, outfit style, shirt pattern, pants, boots, hats and accessories before a new farm starts, with quick presets, front/back/side previews, a walking animation and a Surprise me button
 - **TV forecast**: each morning rolls the luck of the day, which really moves harvest quality and festival prizes
 - **Welcome back**: come back after three days away and your neighbours leave a gift in the mailbox
 - **Guided first week**: seven letters arrive one per day at the start, each teaching one thing - seeds, watering, sleeping, a coop, the mine, the map and the menus

@@ -641,7 +641,11 @@ export interface AppearanceSave {
   hairStyle: number;
   hair: number;
   eye: number;
+  eyeStyle: number;
+  face: number;
   shirt: number;
+  pattern: number;
+  outfit: number;
   pants: number;
   boots: number;
   /** Hat colour index; -1 means no hat. */

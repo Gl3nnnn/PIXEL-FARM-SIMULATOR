@@ -35,7 +35,7 @@ export const WORLD_H = 48;
 export const DAYS_PER_SEASON = 28;
 export const START_MINUTE = 6 * 60;
 export const MINUTES_PER_REAL_SECOND = 3;
-export const CURRENT_SAVE_VERSION = 12;
+export const CURRENT_SAVE_VERSION = 14;
 
 export const SEASONS: Season[] = ['spring', 'summer', 'fall', 'winter'];
 export const SKILLS = ['farming', 'animal', 'crafting', 'business', 'fishing', 'mining'] as const;
@@ -374,13 +374,38 @@ export const FORAGE: ForageDef[] = [
 export const SKIN_TONES = ['#f0c9a0', '#e0ac82', '#c88a58', '#a86a42', '#7a4a2c', '#5a3520'];
 export const HAIR_COLORS = ['#5a3a22', '#8a6a3a', '#2a2a2a', '#c8a050', '#a8502a', '#6a3a8a'];
 export const EYE_COLORS = ['#3a2a1a', '#3a6a9a', '#3a7a4a', '#8a6a3a', '#5a4a7a', '#2a2a3a'];
+export const EYE_STYLES = ['Round', 'Bright', 'Sleepy', 'Wink'];
+export const FACE_DETAILS = ['None', 'Freckles', 'Blush', 'Beard', 'Stubble'];
+export const OUTFIT_STYLES = ['Overalls', 'Apron', 'Vest', 'Tunic', 'Plain'];
+export const SHIRT_PATTERNS = ['Plain', 'Stripes', 'Check', 'Pocket', 'Star'];
 export const SHIRT_COLORS = ['#4f86c8', '#c85a4a', '#4a9a6a', '#c8a03a', '#8a5ac8', '#3a3a4a'];
 export const PANTS_COLORS = ['#3f6a4a', '#4a5a7a', '#6a4a3a', '#5a5a5a', '#6a5a2a', '#3a5a5a'];
 export const BOOT_COLORS = ['#5a4632', '#3a2a1a', '#6a3a2a', '#4a4a4a', '#7a5a3a'];
 export const HAT_COLORS = ['#d9b35a', '#b84a3a', '#3a6ab8', '#4a8a4a', '#e8e0d0', '#6a3a2a'];
-export const HAIR_STYLES = ['Short', 'Tousled', 'Long', 'Bun', 'Braids', 'Bald'];
-export const HAT_STYLES = ['No hat', 'Straw hat', 'Cap', 'Beanie'];
-export const ACCESSORIES = ['None', 'Glasses', 'Scarf', 'Bandana', 'Flower'];
+export const HAIR_STYLES = [
+  'Short',
+  'Tousled',
+  'Long',
+  'Bun',
+  'Braids',
+  'Bald',
+  'Ponytail',
+  'Curly',
+  'Mohawk',
+  'Bob'
+];
+export const HAT_STYLES = ['No hat', 'Straw hat', 'Cap', 'Beanie', 'Sun hat', 'Beret'];
+export const ACCESSORIES = [
+  'None',
+  'Glasses',
+  'Scarf',
+  'Bandana',
+  'Flower',
+  'Earrings',
+  'Headband',
+  'Necklace',
+  'Belt'
+];
 
 /** The look a brand-new farmer starts with. */
 export const APPEARANCE_DEFAULT = {
@@ -388,7 +413,11 @@ export const APPEARANCE_DEFAULT = {
   hairStyle: 0,
   hair: 0,
   eye: 0,
+  eyeStyle: 0,
+  face: 0,
   shirt: 0,
+  pattern: 0,
+  outfit: 0,
   pants: 0,
   boots: 0,
   hat: 0,
