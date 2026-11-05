@@ -9,14 +9,20 @@ import {
   DEFAULT_SETTINGS,
   FESTIVAL_RIBBONS,
   FURNITURE,
+  ACCESSORIES,
+  BOOT_COLORS,
+  EYE_COLORS,
   HAIR_COLORS,
+  HAIR_STYLES,
   HAT_COLORS,
+  HAT_STYLES,
   ITEMS,
   LETTERS,
   LOST_ITEM_MAX,
   MINE_MAX_FLOOR,
   MUSEUM_REWARDS,
   NPCS,
+  PANTS_COLORS,
   PROFESSIONS,
   SHIRT_COLORS,
   SKIN_TONES,
@@ -498,9 +504,15 @@ function sanitizeAppearance(raw: unknown): AppearanceSave {
   };
   return {
     skin: pick(record.skin, SKIN_TONES.length, APPEARANCE_DEFAULT.skin),
+    hairStyle: pick(record.hairStyle, HAIR_STYLES.length, APPEARANCE_DEFAULT.hairStyle),
     hair: pick(record.hair, HAIR_COLORS.length, APPEARANCE_DEFAULT.hair),
+    eye: pick(record.eye, EYE_COLORS.length, APPEARANCE_DEFAULT.eye),
     shirt: pick(record.shirt, SHIRT_COLORS.length, APPEARANCE_DEFAULT.shirt),
-    hat: pickHat(record.hat)
+    pants: pick(record.pants, PANTS_COLORS.length, APPEARANCE_DEFAULT.pants),
+    boots: pick(record.boots, BOOT_COLORS.length, APPEARANCE_DEFAULT.boots),
+    hat: pickHat(record.hat),
+    hatStyle: pickHatStyle(record.hatStyle, record.hat),
+    accessory: pick(record.accessory, ACCESSORIES.length, APPEARANCE_DEFAULT.accessory)
   };
 }
 
@@ -509,6 +521,16 @@ function pickHat(value: unknown): number {
   const n = Math.floor(toFinite(value, APPEARANCE_DEFAULT.hat));
   if (n === -1) return -1;
   return n >= 0 && n < HAT_COLORS.length ? n : APPEARANCE_DEFAULT.hat;
+}
+
+/** v12 added hat styles. Older saves only stored a hat colour, with -1 for none. */
+function pickHatStyle(rawStyle: unknown, rawHat: unknown): number {
+  const style = Math.floor(toFinite(rawStyle, NaN));
+  if (style >= 0 && style < HAT_STYLES.length) return style;
+  const legacyHat = Math.floor(toFinite(rawHat, APPEARANCE_DEFAULT.hat));
+  return legacyHat === -1 || legacyHat < 0 || legacyHat >= HAT_COLORS.length
+    ? 0
+    : APPEARANCE_DEFAULT.hatStyle;
 }
 
 /** Upgrades older save shapes. Exported for tests. */
@@ -588,6 +610,10 @@ export function migrateSave(raw: unknown): SaveData {
       data.festivalGame = { season: 'spring', year: 1, played: false, score: 0 };
     }
     data.version = 11;
+  }
+  if (version < 12) {
+    // v12 expands the farmer look; sanitizeAppearance fills the new choices.
+    data.version = 12;
   }
 
   data.version = CURRENT_SAVE_VERSION;

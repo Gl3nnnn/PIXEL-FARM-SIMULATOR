@@ -635,19 +635,20 @@ export interface PlayerSave {
   facing: Facing;
 }
 
-/** The farmer's look: indexes into APPEARANCE, with hat -1 for none. */
+/** The farmer's look: indexes into the matching appearance colour/style lists. */
 export interface AppearanceSave {
   skin: number;
+  hairStyle: number;
   hair: number;
+  eye: number;
   shirt: number;
+  pants: number;
+  boots: number;
+  /** Hat colour index; -1 means no hat. */
   hat: number;
-}
-
-export interface AppearanceSave {
-  skin: number;
-  hair: number;
-  shirt: number;
-  hat: number;
+  /** 0 is no hat, then the styles in HAT_STYLES. */
+  hatStyle: number;
+  accessory: number;
 }
 
 export interface SaveData {

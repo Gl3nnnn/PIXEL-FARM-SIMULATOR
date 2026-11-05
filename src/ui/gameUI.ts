@@ -106,6 +106,7 @@ export class GameUI {
   private moveAccum = 0;
   private clockTimer: number | null = null;
   private tutorialMoved = false;
+  private tutorialMapOpened = false;
   private unsubs: Array<() => void> = [];
   private buildMode = false;
   private fishingOverlay: HTMLElement | null = null;
@@ -145,6 +146,7 @@ export class GameUI {
 
   private readonly tutorialSteps: TutorialStep[] = [
     { text: 'Walk around your farm', hint: 'Use WASD / arrow keys (or the joystick).', check: (ui) => ui.tutorialMoved },
+    { text: 'Open the farm map', hint: 'Press P (or tap MAP) to see the whole farm and walk anywhere.', check: (ui) => ui.tutorialMapOpened },
     { text: 'Till some soil', hint: 'Select the Hoe and click a field tile.', check: (ui) => ui.state.data.stats.tills > 0 },
     { text: 'Plant a seed', hint: 'Pick a seed from the hotbar and click tilled soil.', check: (ui) => ui.state.data.stats.planted > 0 },
     { text: 'Water your crop', hint: 'Select the Watering Can and click the planted tile.', check: (ui) => ui.state.data.stats.waters > 0 },
@@ -343,8 +345,8 @@ export class GameUI {
     touch.append(this.joystickBase, actionBtn);
     const mapBtn = el('button', 'action-btn map-btn');
     mapBtn.type = 'button';
-    mapBtn.textContent = 'MAP';
-    mapBtn.setAttribute('aria-label', 'Open the farm map');
+    mapBtn.textContent = 'MAP (P)';
+    mapBtn.setAttribute('aria-label', 'Open the farm map (P)');
     mapBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       audio.resume();
@@ -478,6 +480,12 @@ export class GameUI {
       this.tutorialMoved = true;
       this.updateTutorial();
     }
+  }
+
+  noteMapOpened(): void {
+    if (this.state.data.tutorialDone || this.tutorialMapOpened) return;
+    this.tutorialMapOpened = true;
+    this.updateTutorial();
   }
 
   buildPlaced(): void {
@@ -1380,7 +1388,7 @@ export class GameUI {
       return;
     }
     if (e.key === '?') {
-      this.notify('Controls: WASD or arrows move. Click or drag with a tool. G harvest, F feed, E collect. Mouse wheel zooms. 1-0 pick items. H shop, M market, I inventory, B build, Q quests, L almanac, T people, C craft, Y town, N mine, V shipping, O homestead. Esc menu.', 'info');
+      this.notify('Controls: WASD or arrows move. Click or drag with a tool. G harvest, F feed, E collect. Mouse wheel zooms. 1-0 pick items. H shop, M market, P map, I inventory, B build, Q quests, L almanac, T people, C craft, Y town, N mine, V shipping, O homestead. Esc menu.', 'info');
       return;
     }
     if (e.key >= '0' && e.key <= '9') {

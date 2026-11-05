@@ -6,6 +6,7 @@ import { APPEARANCE_DEFAULT } from '../../data/definitions';
 import type { SaveData } from '../../types';
 import { MainMenu } from '../../ui/menu';
 import { FarmerDesigner } from '../../ui/farmerDesigner';
+import { StoryIntro } from '../../ui/storyIntro';
 import { applyAppearance } from '../textures';
 
 type Mood = 'dawn' | 'day' | 'dusk' | 'night';
@@ -174,16 +175,10 @@ export class MenuScene extends Phaser.Scene {
   private async handleStart(slot: number, mode: 'new' | 'continue'): Promise<void> {
     if (mode === 'new') {
       const data = createNewSave();
-      const designer = new FarmerDesigner({
-        scene: this,
-        onDone: (look) => {
-          if (!look) return;
-          data.appearance = look;
-          applyAppearance(this, look);
-          void this.beginFarm(slot, data);
-        }
+      const story = new StoryIntro({
+        onDone: () => this.openDesigner(slot, data)
       });
-      designer.mount();
+      story.mount();
       return;
     }
     const data = await SaveManager.load(slot);
@@ -191,6 +186,22 @@ export class MenuScene extends Phaser.Scene {
     applyAppearance(this, data.appearance ?? APPEARANCE_DEFAULT);
     const state = new GameState(data);
     this.launch(state, slot);
+  }
+
+  private openDesigner(slot: number, data: SaveData): void {
+    const designer = new FarmerDesigner({
+      scene: this,
+      onDone: (look) => {
+        if (!look) {
+          this.menu?.cancelStart();
+          return;
+        }
+        data.appearance = look;
+        applyAppearance(this, look);
+        void this.beginFarm(slot, data);
+      }
+    });
+    designer.mount();
   }
 
   /** Save the brand-new farm with the chosen look, then start playing. */

@@ -1,13 +1,19 @@
 import Phaser from 'phaser';
 import {
   ANIMALS,
+  ACCESSORIES,
   APPEARANCE_DEFAULT,
+  BOOT_COLORS,
   BUILDINGS,
   CROPS,
+  EYE_COLORS,
   HAIR_COLORS,
+  HAIR_STYLES,
   HAT_COLORS,
+  HAT_STYLES,
   ITEMS,
   NPCS,
+  PANTS_COLORS,
   SEASONS,
   SEASON_INFO,
   SHIRT_COLORS,
@@ -224,52 +230,129 @@ function drawPlayer(
   px(ctx, 0, 0, 16, 24, 'rgba(0,0,0,0)');
   const skin = SKIN_TONES[look.skin] ?? SKIN_TONES[0];
   const skinDark = shadeHex(skin, -24);
-  const hatOn = look.hat >= 0 && look.hat < HAT_COLORS.length;
-  const hat = hatOn ? HAT_COLORS[look.hat] : '';
-  const hatDark = hatOn ? shadeHex(hat, -28) : '';
+  const hairStyle = HAIR_STYLES[look.hairStyle ?? 0] ? (look.hairStyle ?? 0) : 0;
   const hair = HAIR_COLORS[look.hair] ?? HAIR_COLORS[0];
+  const hairLight = shadeHex(hair, 20);
+  const hairDark = shadeHex(hair, -26);
+  const eye = EYE_COLORS[look.eye ?? 0] ?? EYE_COLORS[0];
   const shirt = SHIRT_COLORS[look.shirt] ?? SHIRT_COLORS[0];
   const shirtDark = shadeHex(shirt, -30);
-  const overall = '#3f6a4a';
-  const boot = '#5a4632';
+  const pants = PANTS_COLORS[look.pants ?? 0] ?? PANTS_COLORS[0];
+  const pantsDark = shadeHex(pants, -28);
+  const boot = BOOT_COLORS[look.boots ?? 0] ?? BOOT_COLORS[0];
+  const bootDark = shadeHex(boot, -22);
+  const accessory = ACCESSORIES[look.accessory ?? 0] ? (look.accessory ?? 0) : 0;
+  const legacyHatStyle = look.hat >= 0 ? 1 : 0;
+  const hatStyle = HAT_STYLES[look.hatStyle ?? legacyHatStyle]
+    ? (look.hatStyle ?? legacyHatStyle)
+    : 0;
+  const hatOn = hatStyle > 0 && look.hat >= 0 && look.hat < HAT_COLORS.length;
+  const hat = hatOn ? HAT_COLORS[look.hat] : '';
+  const hatDark = hatOn ? shadeHex(hat, -28) : '';
+  const hatLight = hatOn ? shadeHex(hat, 20) : '';
+  const scarf = '#c25a44';
+  const scarfLight = shadeHex(scarf, 20);
+  const bandana = '#b84a3a';
+  const bandanaLight = shadeHex(bandana, 20);
+  const glass = '#2a1a0a';
   const stride = frame === 0 ? 0 : frame === 1 ? 1 : -1;
 
   if (dir === 'left' || dir === 'right') {
     const flip = dir === 'left' ? -1 : 1;
+    const eyeX = 9 + Math.max(0, flip);
     // legs
     px(ctx, 6 + (frame === 1 ? 1 : 0), 19, 2, 4, boot);
     px(ctx, 9 - (frame === 2 ? 1 : 0), 19, 2, 4, boot);
     // body
     px(ctx, 5, 12, 6, 8, shirt);
-    px(ctx, 5, 15, 6, 4, overall);
+    px(ctx, 5, 15, 6, 4, pants);
+    px(ctx, 5, 15, 6, 1, pantsDark);
     px(ctx, 5, 12, 1, 8, shirtDark);
     // arm
     px(ctx, 8 + flip, 13, 2, 4, skin);
+    px(ctx, 8 + flip, 13, 1, 4, skinDark);
     // head
     px(ctx, 5, 6, 6, 6, skin);
     px(ctx, 5, 6, 1, 6, skinDark);
-    px(ctx, 9 + Math.max(0, flip), 8, 1, 1, '#3a2a1a');
-    // side hair
-    px(ctx, 5, 4, 6, 2, hair);
-    px(ctx, 11, 6, 1, 3, hair);
+    px(ctx, eyeX, 8, 1, 1, eye);
+    // hair
+    if (hairStyle === 0) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 11, 6, 1, 3, hair);
+    } else if (hairStyle === 1) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 9, 2, 2, 2, hair);
+      px(ctx, 4, 4, 2, 1, hairDark);
+      px(ctx, 11, 6, 1, 3, hair);
+    } else if (hairStyle === 2) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 11, 6, 2, 8, hair);
+      px(ctx, 12, 9, 1, 4, hairDark);
+    } else if (hairStyle === 3) {
+      px(ctx, 5, 4, 6, 1, hair);
+      px(ctx, 7, 2, 3, 3, hair);
+      px(ctx, 8, 2, 1, 1, hairLight);
+      px(ctx, 11, 6, 1, 3, hair);
+    } else if (hairStyle === 4) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 11, 6, 1, 8, hair);
+      px(ctx, 11, 9, 1, 1, hairDark);
+      px(ctx, 11, 12, 1, 1, hairDark);
+      px(ctx, 11, 14, 1, 1, '#d9a94f');
+    }
+    // accessories
+    if (accessory === 1) {
+      px(ctx, eyeX - 1, 8, 1, 1, glass);
+      px(ctx, eyeX + 1, 8, 1, 1, glass);
+      px(ctx, eyeX, 7, 1, 1, glass);
+    } else if (accessory === 2) {
+      px(ctx, 5, 11, 6, 1, scarf);
+      px(ctx, 11, 12, 1, 4, scarf);
+      px(ctx, 11, 12, 1, 1, scarfLight);
+    } else if (accessory === 3) {
+      px(ctx, 4, 4, 8, 2, bandana);
+      px(ctx, 5, 4, 6, 1, bandanaLight);
+      px(ctx, 11, 5, 2, 2, bandana);
+    } else if (accessory === 4) {
+      const fx = dir === 'left' ? 4 : 11;
+      px(ctx, fx, 6, 1, 1, '#f2c86a');
+      px(ctx, fx - 1, 7, 1, 1, '#f2c86a');
+      px(ctx, fx + 1, 7, 1, 1, '#f2c86a');
+      px(ctx, fx, 8, 1, 1, '#c85a6a');
+    }
     // hat
     if (hatOn) {
-      px(ctx, 4, 4, 8, 2, hatDark);
-      px(ctx, 5, 2, 6, 2, hat);
-      px(ctx, 11, 5, 2, 1, hatDark);
+      if (hatStyle === 2) {
+        px(ctx, 4, 4, 8, 2, hatDark);
+        px(ctx, 5, 2, 6, 2, hat);
+        px(ctx, 7, 2, 2, 1, hatLight);
+        px(ctx, 11, 4, 2, 1, hatDark);
+      } else if (hatStyle === 3) {
+        px(ctx, 4, 4, 8, 2, hatDark);
+        px(ctx, 5, 2, 6, 2, hat);
+        px(ctx, 5, 3, 6, 1, hatLight);
+        px(ctx, 7, 0, 2, 2, hatDark);
+      } else {
+        px(ctx, 3, 4, 10, 2, hatDark);
+        px(ctx, 5, 2, 6, 3, hat);
+        px(ctx, 5, 2, 6, 1, hatLight);
+        px(ctx, 3, 4, 10, 1, hatLight);
+        px(ctx, 11, 5, 2, 1, hatDark);
+      }
     }
   } else {
     // legs
     px(ctx, 6, 19, 2, 4, boot);
     px(ctx, 9, 19, 2, 4, boot);
     if (frame !== 0) {
-      px(ctx, 6 + (stride > 0 ? 1 : 0), 19, 2, 1, '#463526');
+      px(ctx, 6 + (stride > 0 ? 1 : 0), 19, 2, 1, bootDark);
       px(ctx, 9 + (stride < 0 ? -1 : 0), 21, 2, 2, boot);
     }
     // body
     px(ctx, 5, 12, 6, 8, shirt);
-    px(ctx, 5, 15, 6, 4, overall);
-    px(ctx, 7, 12, 2, 5, shirtDark);
+    px(ctx, 5, 15, 6, 4, pants);
+    px(ctx, 5, 15, 6, 1, pantsDark);
+    px(ctx, 7, 12, 2, 3, shirtDark);
     // arms
     px(ctx, 4, 13, 2, 4, skin);
     px(ctx, 11, 13, 2, 4, skin);
@@ -278,19 +361,84 @@ function drawPlayer(
     px(ctx, 5, 6, 6, 6, skin);
     px(ctx, 5, 6, 1, 6, skinDark);
     if (dir === 'down') {
-      px(ctx, 6, 8, 1, 1, '#3a2a1a');
-      px(ctx, 9, 8, 1, 1, '#3a2a1a');
+      px(ctx, 6, 8, 1, 1, eye);
+      px(ctx, 9, 8, 1, 1, eye);
       px(ctx, 7, 10, 2, 1, '#c88a72');
-    } else {
-      px(ctx, 7, 7, 2, 3, hair);
     }
-    // hair on top, then the hat over it
-    px(ctx, 5, 4, 6, 2, hair);
+    // hair
+    if (hairStyle === 1) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 8, 2, 2, 2, hair);
+      px(ctx, 4, 4, 2, 1, hairDark);
+      if (dir === 'up') px(ctx, 6, 7, 4, 2, hair);
+    } else if (hairStyle === 2) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 4, 6, 1, 7, hair);
+      px(ctx, 11, 6, 1, 7, hair);
+      if (dir === 'up') px(ctx, 5, 7, 6, 4, hair);
+    } else if (hairStyle === 3) {
+      px(ctx, 5, 4, 6, 1, hair);
+      px(ctx, 7, 2, 3, 3, hair);
+      px(ctx, 8, 2, 1, 1, hairLight);
+      if (dir === 'up') px(ctx, 6, 7, 4, 1, hair);
+    } else if (hairStyle === 4) {
+      px(ctx, 5, 4, 6, 2, hair);
+      px(ctx, 4, 6, 1, 9, hair);
+      px(ctx, 11, 6, 1, 9, hair);
+      px(ctx, 4, 9, 1, 1, hairDark);
+      px(ctx, 4, 12, 1, 1, hairDark);
+      px(ctx, 11, 9, 1, 1, hairDark);
+      px(ctx, 11, 12, 1, 1, hairDark);
+      px(ctx, 4, 14, 1, 1, '#d9a94f');
+      px(ctx, 11, 14, 1, 1, '#d9a94f');
+      if (dir === 'up') px(ctx, 6, 7, 4, 2, hair);
+    } else if (hairStyle === 5) {
+      if (dir === 'down') px(ctx, 7, 5, 2, 1, shadeHex(skin, 14));
+    } else {
+      px(ctx, 5, 4, 6, 2, hair);
+      if (dir === 'up') px(ctx, 6, 7, 4, 2, hair);
+    }
+    // accessories
+    if (accessory === 1 && dir === 'down') {
+      px(ctx, 5, 8, 1, 1, glass);
+      px(ctx, 7, 8, 1, 1, glass);
+      px(ctx, 8, 8, 1, 1, glass);
+      px(ctx, 10, 8, 1, 1, glass);
+      px(ctx, 6, 7, 1, 1, glass);
+      px(ctx, 9, 7, 1, 1, glass);
+    } else if (accessory === 2) {
+      px(ctx, 5, 11, 6, 1, scarf);
+      px(ctx, 10, 12, 2, 3, scarf);
+      px(ctx, 10, 12, 1, 3, scarfLight);
+      px(ctx, 6, 11, 3, 1, scarfLight);
+    } else if (accessory === 3) {
+      px(ctx, 4, 4, 8, 2, bandana);
+      px(ctx, 5, 4, 6, 1, bandanaLight);
+      px(ctx, 11, 5, 2, 2, bandana);
+    } else if (accessory === 4) {
+      px(ctx, 4, 6, 1, 1, '#f2c86a');
+      px(ctx, 3, 7, 1, 1, '#f2c86a');
+      px(ctx, 5, 7, 1, 1, '#f2c86a');
+      px(ctx, 4, 8, 1, 1, '#c85a6a');
+    }
+    // hat
     if (hatOn) {
-      px(ctx, 4, 4, 8, 2, hatDark);
-      px(ctx, 5, 2, 6, 2, hat);
-      if (dir === 'down') {
-        px(ctx, 5, 5, 6, 1, hat === '#e8e0d0' ? '#c8c0b0' : hatDark);
+      if (hatStyle === 2) {
+        px(ctx, 4, 4, 8, 2, hatDark);
+        px(ctx, 5, 2, 6, 2, hat);
+        px(ctx, 7, 2, 2, 1, hatLight);
+        if (dir === 'down') px(ctx, 5, 5, 6, 1, hatDark);
+      } else if (hatStyle === 3) {
+        px(ctx, 4, 4, 8, 2, hatDark);
+        px(ctx, 5, 2, 6, 2, hat);
+        px(ctx, 5, 3, 6, 1, hatLight);
+        px(ctx, 7, 0, 2, 2, hatDark);
+      } else {
+        px(ctx, 3, 4, 10, 2, hatDark);
+        px(ctx, 5, 2, 6, 3, hat);
+        px(ctx, 5, 2, 6, 1, hatLight);
+        px(ctx, 3, 4, 10, 1, hatLight);
+        if (dir === 'down') px(ctx, 5, 5, 6, 1, hatDark);
       }
     }
   }

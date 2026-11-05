@@ -4351,7 +4351,7 @@ select {
 }
 
 .farmer-card {
-  width: min(440px, 100%);
+  width: min(500px, 100%);
   max-height: 100%;
   overflow-y: auto;
   padding: 20px 22px 18px;
@@ -4372,12 +4372,33 @@ select {
 
 .farmer-stage {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 16px;
   padding: 10px;
   border-radius: 14px;
   background: radial-gradient(circle at 50% 80%, rgba(120, 170, 120, 0.22), rgba(0, 0, 0, 0.24));
   border: 1px solid rgba(240, 220, 170, 0.16);
+}
+
+.farmer-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.farmer-view-btn {
+  min-height: 24px;
+  padding: 3px 9px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.farmer-preview-tools {
+  display: flex;
+  justify-content: center;
 }
 
 .farmer-preview {
@@ -4394,9 +4415,51 @@ select {
 }
 
 .farmer-label {
-  width: 52px;
-  font-size: 13px;
+  width: 66px;
+  flex: 0 0 auto;
+  font-size: 12.5px;
   color: #cfd8c4;
+}
+
+.farmer-section {
+  margin: 14px 0 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #d9b35a;
+}
+
+.farmer-choices {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.farmer-choice {
+  padding: 4px 9px;
+  border: 1px solid rgba(240, 220, 170, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cfd8c4;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.08s ease, border-color 0.08s ease, color 0.08s ease;
+}
+
+.farmer-choice:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.farmer-choice.is-picked {
+  border-color: #223d1c;
+  background: linear-gradient(180deg, #7cb663, #528c45);
+  color: #f6ffdf;
+  text-shadow: 0 1px 0 #223d1c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .farmer-swatches {
@@ -4454,4 +4517,763 @@ select {
   font-size: 13px;
   line-height: 1.45;
   color: #e6f2f8;
+}
+
+/* ---------------------------------------------------------------- farm map modal */
+.farm-map-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 10, 5, 0.66);
+  backdrop-filter: blur(2px);
+}
+
+.farm-map-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 94vw;
+  max-height: 94vh;
+  padding: 16px 18px 18px;
+  border-radius: 14px;
+  border: 2px solid var(--line-strong);
+  background: linear-gradient(180deg, var(--parchment-2), var(--parchment-deep));
+  box-shadow: 0 22px 60px var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  color: var(--ink);
+}
+
+.farm-map-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.farm-map-title {
+  font-size: var(--text-lg);
+  color: var(--wood-dark);
+  letter-spacing: 0.02em;
+}
+
+.farm-map-hint {
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+}
+
+.farm-map-canvas {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(80vw, 660px);
+  max-height: min(68vh, 500px);
+  border-radius: 8px;
+  border: 2px solid rgba(74, 47, 24, 0.5);
+  image-rendering: pixelated;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ------------------------------------------------------------ story prologue */
+.story-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: clamp(28px, 7vh, 72px) clamp(14px, 4vw, 48px);
+  background:
+    radial-gradient(circle at 50% 52%, rgba(26, 42, 30, 0.44), rgba(5, 9, 7, 0.9) 72%),
+    linear-gradient(180deg, rgba(5, 9, 7, 0.72), rgba(5, 9, 7, 0.5));
+  backdrop-filter: blur(2px);
+}
+
+.story-letterbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: clamp(18px, 5vh, 54px);
+  z-index: 2;
+  background: #050806;
+}
+
+.story-letterbox.top {
+  top: 0;
+  animation: story-bar-top 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.story-letterbox.bottom {
+  bottom: 0;
+  animation: story-bar-bottom 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.story-skip {
+  position: absolute;
+  top: 10px;
+  right: clamp(16px, 3vw, 40px);
+  z-index: 4;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #b9ad92;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.story-skip:hover,
+.story-skip:focus-visible {
+  color: #f6e6b8;
+  background: rgba(246, 230, 184, 0.08);
+}
+
+.story-motes {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.story-mote {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffe2a0;
+  box-shadow: 0 0 9px 2px rgba(255, 215, 140, 0.45);
+  opacity: 0;
+  animation-name: story-mote;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.story-card {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  width: min(1000px, 96vw);
+  height: min(720px, 86vh);
+  min-height: min(600px, 80vh);
+  overflow: hidden;
+  border: 1px solid rgba(224, 178, 84, 0.32);
+  border-radius: 20px;
+  background: linear-gradient(155deg, rgba(22, 35, 27, 0.975), rgba(9, 15, 12, 0.985));
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  color: #eee4cf;
+  outline: none;
+  animation: story-card-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.story-art {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #111a16;
+}
+
+.story-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 68%, rgba(9, 15, 12, 0.5)),
+    linear-gradient(90deg, transparent 68%, rgba(9, 15, 12, 0.62));
+}
+
+.story-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 45%;
+  will-change: transform, opacity;
+  animation:
+    story-art-in 0.7s ease-out both,
+    story-art-drift 30s ease-in-out infinite alternate;
+}
+
+.story-sun {
+  animation: story-sun-breathe 7s ease-in-out infinite;
+}
+
+.story-lantern {
+  animation: story-lantern 2.6s ease-in-out infinite;
+}
+
+.story-moth {
+  animation: story-moth 3.2s ease-in-out infinite;
+}
+
+.story-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: story-glow-pulse 4.6s ease-in-out infinite;
+}
+
+.story-cloud {
+  animation: story-cloud-drift 24s ease-in-out infinite alternate;
+}
+
+.story-cloud:nth-child(2n) {
+  animation-duration: 34s;
+  animation-delay: -7s;
+}
+
+.story-cloud:nth-child(3n) {
+  animation-duration: 44s;
+  animation-delay: -16s;
+}
+
+.story-bird {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: story-bird-fly 9s ease-in-out infinite;
+}
+
+.story-bird:nth-child(2n) {
+  animation-duration: 11s;
+  animation-delay: -2.8s;
+}
+
+.story-bird:nth-child(3n) {
+  animation-duration: 13s;
+  animation-delay: -5.4s;
+}
+
+.story-walker {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: story-walker-bob 1.9s ease-in-out infinite;
+}
+
+.story-grass {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: story-grass-sway 5.5s ease-in-out infinite alternate;
+}
+
+.story-sign {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: story-sign-creak 8s ease-in-out infinite;
+}
+
+.story-curtain {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: story-curtain-sway 7s ease-in-out infinite alternate;
+}
+
+.story-tree {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: story-tree-sway 9s ease-in-out infinite alternate;
+}
+
+.story-tail {
+  transform-box: fill-box;
+  transform-origin: 5% 10%;
+  animation: story-tail-wag 3.4s ease-in-out infinite alternate;
+}
+
+.story-sprout {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: story-sprout-sway 4s ease-in-out infinite alternate;
+}
+
+.story-sprout:nth-child(2n) {
+  animation-duration: 5.2s;
+  animation-delay: -1.4s;
+}
+
+.story-sprout:nth-child(3n) {
+  animation-duration: 6s;
+  animation-delay: -2.8s;
+}
+
+.story-farmer {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: story-farmer-breathe 4.6s ease-in-out infinite;
+}
+
+.story-rays {
+  animation: story-rays-breathe 9s ease-in-out infinite;
+}
+
+.story-dust {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: story-dust-rise 7s ease-in-out infinite;
+}
+
+.story-dust:nth-child(2n) {
+  animation-duration: 9s;
+  animation-delay: -2.4s;
+}
+
+.story-dust:nth-child(3n) {
+  animation-duration: 11s;
+  animation-delay: -4.5s;
+}
+
+.story-copy {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: clamp(26px, 4vw, 48px) clamp(24px, 4vw, 52px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(224, 178, 84, 0.4) transparent;
+}
+
+.story-overline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #c9b07a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.story-overline-line {
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #c9b07a);
+}
+
+.story-kicker {
+  margin-top: clamp(24px, 5vh, 56px);
+  color: #e0b254;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.story-title {
+  margin-top: 10px;
+  color: #f7ecd2;
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  font-size: clamp(32px, 3.4vw, 48px);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.55);
+}
+
+.story-text {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 22px;
+  color: #d8d0bd;
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  font-size: clamp(15px, 1.25vw, 18px);
+  line-height: 1.72;
+}
+
+.story-paragraph:first-child::first-letter {
+  float: left;
+  padding: 5px 10px 0 0;
+  color: #e8c46a;
+  font-size: 3.15em;
+  line-height: 0.78;
+}
+
+.story-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: clamp(24px, 4vh, 42px);
+}
+
+.story-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.story-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(232, 196, 106, 0.42);
+  border-radius: 50%;
+  background: rgba(232, 196, 106, 0.18);
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.story-dot.is-active {
+  background: #e8c46a;
+  box-shadow: 0 0 11px rgba(232, 196, 106, 0.7);
+  transform: scale(1.22);
+}
+
+.story-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.story-back.is-hidden {
+  display: none;
+}
+
+.story-next {
+  min-width: 154px;
+  letter-spacing: 0.04em;
+}
+
+.story-key-hint {
+  margin-top: 12px;
+  color: #7f8a78;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.story-anim .story-kicker,
+.story-anim .story-title,
+.story-anim .story-paragraph {
+  animation: story-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.story-anim .story-title {
+  animation-delay: 0.05s;
+}
+
+.story-anim .story-paragraph:nth-child(1) {
+  animation-delay: 0.11s;
+}
+
+.story-anim .story-paragraph:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.story-anim .story-paragraph:nth-child(3) {
+  animation-delay: 0.25s;
+}
+
+@keyframes story-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes story-art-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes story-art-drift {
+  from {
+    transform: scale(1.01) translate3d(0.3%, 0.2%, 0);
+  }
+  to {
+    transform: scale(1.055) translate3d(-0.7%, -0.8%, 0);
+  }
+}
+
+@keyframes story-moth {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate3d(2px, -3px, 0);
+  }
+}
+
+@keyframes story-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes story-cloud-drift {
+  from {
+    transform: translateX(-12px);
+  }
+  to {
+    transform: translateX(16px);
+  }
+}
+
+@keyframes story-bird-fly {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(13px, -5px, 0);
+  }
+}
+
+@keyframes story-walker-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes story-grass-sway {
+  from {
+    transform: rotate(-2.2deg);
+  }
+  to {
+    transform: rotate(2.6deg);
+  }
+}
+
+@keyframes story-sign-creak {
+  0%,
+  100% {
+    transform: rotate(-1deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+}
+
+@keyframes story-curtain-sway {
+  from {
+    transform: rotate(-1.5deg);
+  }
+  to {
+    transform: rotate(1.8deg);
+  }
+}
+
+@keyframes story-tree-sway {
+  from {
+    transform: rotate(-0.8deg);
+  }
+  to {
+    transform: rotate(1.1deg);
+  }
+}
+
+@keyframes story-tail-wag {
+  from {
+    transform: rotate(-9deg);
+  }
+  to {
+    transform: rotate(11deg);
+  }
+}
+
+@keyframes story-sprout-sway {
+  from {
+    transform: rotate(-3.5deg);
+  }
+  to {
+    transform: rotate(4.5deg);
+  }
+}
+
+@keyframes story-farmer-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes story-rays-breathe {
+  0%,
+  100% {
+    opacity: 0.06;
+  }
+  50% {
+    opacity: 0.14;
+  }
+}
+
+@keyframes story-dust-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.7);
+  }
+  18% {
+    opacity: 0.85;
+  }
+  78% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 12px), -28px, 0) scale(1.1);
+  }
+}
+
+@keyframes story-bar-top {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes story-bar-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes story-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes story-mote {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.8);
+  }
+  18% {
+    opacity: 0.9;
+  }
+  82% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 20px), -120px, 0) scale(1.1);
+  }
+}
+
+@keyframes story-sun-breathe {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes story-lantern {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 820px) {
+  .story-intro {
+    padding: 48px 12px;
+  }
+
+  .story-card {
+    grid-template-columns: 1fr;
+    height: min(100%, 760px);
+    max-height: none;
+    min-height: 0;
+  }
+
+  .story-art {
+    height: clamp(200px, 40vh, 320px);
+    flex-shrink: 0;
+  }
+
+  .story-copy {
+    padding: 22px 20px 24px;
+  }
+
+  .story-kicker {
+    margin-top: 18px;
+  }
+
+  .story-title {
+    font-size: clamp(28px, 7vw, 38px);
+  }
+
+  .story-text {
+    margin-top: 16px;
+    font-size: 15px;
+    line-height: 1.64;
+  }
+
+  .story-footer {
+    padding-top: 22px;
+  }
+
+  .story-key-hint {
+    display: none;
+  }
+}
+
+@media (max-height: 640px) and (min-width: 821px) {
+  .story-card {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .story-copy {
+    padding: 26px 38px;
+  }
+
+  .story-kicker {
+    margin-top: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-intro * {
+    animation: none !important;
+  }
 }

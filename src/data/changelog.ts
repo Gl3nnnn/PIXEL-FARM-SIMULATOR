@@ -1,4 +1,4 @@
-export const GAME_VERSION = '3.2.0';
+export const GAME_VERSION = '3.4.0';
 
 export interface ChangelogEntry {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '3.4.0',
+    date: '2026-11-17',
+    title: 'A prologue, a proper map, and a first-week guide that knows it',
+    changes: [
+      'Starting a new farm now opens with "The Valley That Waited", a four-chapter prologue with its own animated, hand-built scene for each beat, before you design your farmer and step onto the land.',
+      'The farmer designer now covers hair styles, eye colour, overalls, boots, three hat styles and accessories like glasses, a scarf, a bandana or a flower, with front, back and side previews and a Surprise me button.',
+      'Press P, or tap MAP, to open the farm map in the centre of the screen. Click any spot and the map closes, then your farmer walks the whole way there.',
+      'The first-week tutorial now teaches the map right after walking, and the MAP button shows its P shortcut.',
+      'M stays the Market key. The map is no longer tied to it.'
+    ]
+  },
   {
     version: '3.3.0',
     date: '2026-11-16',
@@ -40,7 +52,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'The Build panel has a Manage Buildings section: move anything you placed to a new spot, or remove it for half its cost back. Your farmhouse and any building with an animal inside are protected.',
       'Seeds now sow every empty tilled tile within reach in one click, and three new planting tools widen that patch. Press R by a field gate to harvest the whole field at once.',
       'Winter finally looks like winter: Snow, plus Windy and Fog days, each with its own sky, particles and light. Snow melts into the soil so nothing dries overnight.',
-      'Press M for a minimap of the whole farm, then click anywhere on it and your farmer walks the whole way there - round ponds, through gates, around trees - with the route dotted on the ground. Press H, or the HOME button, to jump back to your farmhouse.',
+      'Press P for a minimap of the whole farm, then click anywhere on it and your farmer walks the whole way there - round ponds, through gates, around trees - with the route dotted on the ground. Press H, or the HOME button, to jump back to your farmhouse.',
       'Three new tools for sowing: Seed Pouch, Seeder Gloves and Master Broadcaster.'
     ]
   },

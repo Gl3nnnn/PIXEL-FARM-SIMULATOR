@@ -19,7 +19,8 @@ Once GitHub Pages is enabled, the game is available at:
 - **Energy**: farm work spends energy, sleep refills it, and cooked dishes restore or buff it
 - **Professions**: pick one of two paths per skill at level 5 and again at level 10
 - **Foraging**: seasonal wild plants appear on open ground each morning and can be picked up
-- **Design your farmer**: pick skin, hair, shirt and hat before a new farm starts, and your walk-around sprite matches
+- **Prologue**: a new farm opens with "The Valley That Waited", a four-chapter story with a unique animated scene for each chapter, before you design your farmer
+- **Design your farmer**: pick skin, hair style and colour, eyes, shirt, overalls, boots, hats and accessories before a new farm starts, with front/back/side previews and a Surprise me button
 - **TV forecast**: each morning rolls the luck of the day, which really moves harvest quality and festival prizes
 - **Welcome back**: come back after three days away and your neighbours leave a gift in the mailbox
 - **Guided first week**: seven letters arrive one per day at the start, each teaching one thing - seeds, watering, sleeping, a coop, the mine, the map and the menus
@@ -57,7 +58,7 @@ Once GitHub Pages is enabled, the game is available at:
 | Town / Old Mine / Shipping / Homestead | `Y` / `N` / `V` / `O` |
 | Museum | `X` or from the Town panel |
 | Fish / mine | Select the fishing rod or pickaxe, then click water or a quarry rock |
-| Map / home | Press **M** for the minimap, then click a spot to walk there · press **H** to return to the farmhouse |
+| Map / home | Press **P** for the minimap, then click a spot to walk there · press **H** to return to the farmhouse |
 | Field harvest | Stand by a field gate and press **R** to harvest every ripe crop on that field |
 | Enter the shipping bin or farmhouse | Click the building on the farm |
 | Pause | `Esc` |

@@ -40,6 +40,7 @@ export class MainMenu {
   private slots: SaveSlotInfo[] = [];
   private settings: Settings = loadSettings();
   private busy = false;
+  private startButtonState: Array<{ button: HTMLButtonElement; disabled: boolean }> = [];
 
   constructor(handlers: MainMenuHandlers) {
     this.handlers = handlers;
@@ -71,22 +72,32 @@ export class MainMenu {
   private async start(slot: number, mode: 'new' | 'continue'): Promise<void> {
     if (this.busy) return;
     this.busy = true;
-    this.root.querySelectorAll('button').forEach((b) => {
-      (b as HTMLButtonElement).disabled = true;
-    });
+    this.startButtonState = Array.from(this.root.querySelectorAll<HTMLButtonElement>('button')).map(
+      (button) => ({ button, disabled: button.disabled })
+    );
+    for (const entry of this.startButtonState) entry.button.disabled = true;
     const status = this.root.querySelector('.menu-status');
-    if (status) status.textContent = 'Loading your farm…';
+    if (status) status.textContent = 'Loading your farm�?�';
     audio.init();
     audio.play('click');
     try {
       await this.handlers.onStart(slot, mode);
     } catch (err) {
-      this.busy = false;
-      this.root.querySelectorAll('button').forEach((b) => {
-        (b as HTMLButtonElement).disabled = false;
-      });
+      this.cancelStart();
       if (status) status.textContent = `Could not start game: ${String(err)}`;
     }
+  }
+
+  /** Re-enable the menu when the player backs out of a new-game setup screen. */
+  cancelStart(): void {
+    if (!this.busy) return;
+    this.busy = false;
+    for (const entry of this.startButtonState) {
+      if (entry.button.isConnected) entry.button.disabled = entry.disabled;
+    }
+    this.startButtonState = [];
+    const status = this.root.querySelector('.menu-status');
+    if (status) status.textContent = 'Local saves are stored on this device. Back up or restore them from Load Game.';
   }
 
   private render(): void {

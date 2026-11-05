@@ -105,10 +105,9 @@ export class GameScene extends Phaser.Scene {
   private weatherPuddles: Phaser.GameObjects.Image[] = [];
   private fogLayer!: Phaser.GameObjects.Graphics;
   private windStreaks!: Phaser.GameObjects.Graphics;
-  private miniMap!: Phaser.GameObjects.Graphics;
-  private miniDot!: Phaser.GameObjects.Graphics;
   private miniOpen = false;
-  private miniOrigin = { x: 0, y: 0 };
+  private miniModal: HTMLDivElement | null = null;
+  private miniEsc?: (event: KeyboardEvent) => void;
   private walkPath: Array<{ x: number; y: number }> = [];
   private walkTile: { x: number; y: number } | null = null;
   private walkGfx?: Phaser.GameObjects.Graphics;
@@ -1239,8 +1238,6 @@ export class GameScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.state.paused || this.sleeping) return;
-      // A click on the open map walks there instead of acting on the farm.
-      if (this.miniOpen && this.minimapTileAt(pointer.x, pointer.y)) return;
       const wp = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       if (pointer.rightButtonDown()) {
         if (this.manageUid) {
@@ -2125,6 +2122,7 @@ export class GameScene extends Phaser.Scene {
     this.animalTimer?.remove();
     this.wanderTimer?.remove();
     this.stormTimer?.remove();
+    this.closeMinimap();
     this.ui?.destroy();
   }
 
@@ -2278,59 +2276,88 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createMinimap(): void {
-    this.miniMap = this.add.graphics().setScrollFactor(0).setDepth(930).setVisible(false);
-    this.miniDot = this.add.graphics().setScrollFactor(0).setDepth(931).setVisible(false);
-    this.input.keyboard!.on('keydown-M', () => this.toggleMinimap());
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.miniOpen || this.state.paused) return;
-      const spot = this.minimapTileAt(pointer.x, pointer.y);
-      if (!spot) return;
-      this.startWalkTo(spot.x, spot.y);
-    });
-  }
-
-  private minimapMetrics(): { size: number; scale: number; x: number; y: number } {
-    const size = Math.min(180, this.scale.width * 0.34);
-    const scale = size / Math.max(WORLD_W, WORLD_H);
-    const x = this.scale.width - size - 14;
-    const y = 14;
-    return { size, scale, x, y };
-  }
-
-  private minimapTileAt(px: number, py: number): { x: number; y: number } | null {
-    const m = this.minimapMetrics();
-    const w = WORLD_W * m.scale;
-    const h = WORLD_H * m.scale;
-    if (px < m.x || py < m.y || px > m.x + w || py > m.y + h) return null;
-    const tx = clamp(Math.floor((px - m.x) / m.scale), 0, WORLD_W - 1);
-    const ty = clamp(Math.floor((py - m.y) / m.scale), 0, WORLD_H - 1);
-    return { x: tx, y: ty };
+    this.input.keyboard!.on('keydown-P', () => this.toggleMinimap());
   }
 
   private toggleMinimap(): void {
-    this.miniOpen = !this.miniOpen;
-    this.miniMap.setVisible(this.miniOpen);
-    this.miniDot.setVisible(this.miniOpen);
-    if (this.miniOpen) {
-      this.drawMinimap();
-      this.ui.notify('Minimap open. Click a spot to walk there, or press M to close.', 'info');
-    }
+    if (this.miniOpen) this.closeMinimap();
+    else this.openMinimap();
   }
 
-  private drawMinimap(): void {
-    const m = this.minimapMetrics();
-    this.miniOrigin = { x: m.x, y: m.y };
-    const g = this.miniMap;
-    g.clear();
-    g.fillStyle(0x0d1b12, 0.92);
-    g.fillRoundedRect(m.x - 6, m.y - 6, WORLD_W * m.scale + 12, WORLD_H * m.scale + 12, 6);
-    g.lineStyle(2, 0xc8d8b8, 0.75);
-    g.strokeRoundedRect(m.x - 6, m.y - 6, WORLD_W * m.scale + 12, WORLD_H * m.scale + 12, 6);
+  private openMinimap(): void {
+    if (this.miniOpen || this.state.paused || this.sleeping) return;
+    this.miniOpen = true;
 
-    const cell = Math.max(1, Math.ceil(m.scale));
-    const step = Math.max(1, Math.floor(1 / m.scale));
-    for (let y = 0; y < WORLD_H; y += step) {
-      for (let x = 0; x < WORLD_W; x += step) {
+    const modal = document.createElement('div');
+    modal.className = 'farm-map-modal';
+
+    const card = document.createElement('div');
+    card.className = 'farm-map-card';
+
+    const head = document.createElement('div');
+    head.className = 'farm-map-head';
+    const title = document.createElement('h2');
+    title.className = 'farm-map-title';
+    title.textContent = 'Farm map';
+    const hint = document.createElement('p');
+    hint.className = 'farm-map-hint';
+    hint.textContent = 'Click anywhere on the map to walk there. Press P or Esc to close.';
+    head.append(title, hint);
+
+    const cell = 12;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'farm-map-canvas';
+    canvas.width = WORLD_W * cell;
+    canvas.height = WORLD_H * cell;
+    this.drawMinimapCanvas(canvas, cell);
+
+    card.append(head, canvas);
+    modal.appendChild(card);
+
+    modal.addEventListener('pointerdown', (event) => {
+      if (event.target === modal) {
+        this.closeMinimap();
+        return;
+      }
+      if (event.target !== canvas) return;
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const tx = clamp(Math.floor(((event.clientX - rect.left) / rect.width) * WORLD_W), 0, WORLD_W - 1);
+      const ty = clamp(Math.floor(((event.clientY - rect.top) / rect.height) * WORLD_H), 0, WORLD_H - 1);
+      this.closeMinimap();
+      this.startWalkTo(tx, ty);
+    });
+
+    document.body.appendChild(modal);
+    this.miniModal = modal;
+    this.ui?.noteMapOpened();
+    this.miniEsc = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeMinimap();
+    };
+    window.addEventListener('keydown', this.miniEsc, true);
+  }
+
+  private closeMinimap(): void {
+    this.miniOpen = false;
+    if (this.miniEsc) {
+      window.removeEventListener('keydown', this.miniEsc, true);
+      this.miniEsc = undefined;
+    }
+    this.miniModal?.remove();
+    this.miniModal = null;
+  }
+
+  private drawMinimapCanvas(canvas: HTMLCanvasElement, cell: number): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    const colorOf = (value: number): string => `#${value.toString(16).padStart(6, '0')}`;
+
+    for (let y = 0; y < WORLD_H; y++) {
+      for (let x = 0; x < WORLD_W; x++) {
         let color = 0x4e7a3a;
         if (isWaterTile(x, y)) color = 0x3f7fa8;
         else if (isPathTile(x, y)) color = 0xb09a6a;
@@ -2341,44 +2368,30 @@ export class GameScene extends Phaser.Scene {
           const plot = plotIndexAt(x, y);
           if (plot >= 0) color = plot < this.state.data.unlockedPlots ? 0x8a6a3a : 0x5a4a34;
         }
-        g.fillStyle(color, 1);
-        g.fillRect(m.x + x * m.scale, m.y + y * m.scale, cell, cell);
+        ctx.fillStyle = colorOf(color);
+        ctx.fillRect(x * cell, y * cell, cell, cell);
       }
     }
+
     for (const b of this.state.data.buildings) {
       const def = BUILDINGS[b.id];
       if (!def) continue;
-      g.fillStyle(b.id === 'farmhouse' ? 0xe8c46a : 0xc8b088, 1);
-      g.fillRect(m.x + b.x * m.scale, m.y + b.y * m.scale, def.w * m.scale, def.h * m.scale);
+      ctx.fillStyle = colorOf(b.id === 'farmhouse' ? 0xe8c46a : 0xc8b088);
+      ctx.fillRect(b.x * cell, b.y * cell, def.w * cell, def.h * cell);
+      ctx.strokeStyle = 'rgba(30, 20, 10, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(b.x * cell, b.y * cell, def.w * cell, def.h * cell);
     }
-  }
 
-  private updateMinimapCursor(): void {
-    if (!this.miniOpen) return;
-    const m = this.minimapMetrics();
-    const cam = this.cameras.main;
-    const view = cam.worldView;
-    const d = this.miniDot;
-    d.clear();
-    d.lineStyle(1.5, 0xf4e9c8, 0.85);
-    d.strokeRect(
-      m.x + (view.x / TILE) * m.scale,
-      m.y + (view.y / TILE) * m.scale,
-      (view.width / TILE) * m.scale,
-      (view.height / TILE) * m.scale
-    );
-    d.fillStyle(0xff5a4a, 1);
-    d.fillCircle(m.x + (this.player.x / TILE) * m.scale, m.y + (this.player.y / TILE) * m.scale, 3);
-    // The chosen route, drawn on the map while a walk is under way.
-    if (this.walkTile && this.walkPath.length > 0) {
-      d.lineStyle(1.5, 0xffe9a8, 0.9);
-      d.beginPath();
-      d.moveTo(m.x + (this.player.x / TILE) * m.scale, m.y + (this.player.y / TILE) * m.scale);
-      for (const step of this.walkPath) {
-        d.lineTo(m.x + (step.x + 0.5) * m.scale, m.y + (step.y + 0.5) * m.scale);
-      }
-      d.strokePath();
-    }
+    const px = (this.player.x / TILE + 0.5) * cell;
+    const py = (this.player.y / TILE + 0.5) * cell;
+    ctx.beginPath();
+    ctx.arc(px, py, Math.max(3, cell * 0.45), 0, Math.PI * 2);
+    ctx.fillStyle = '#ff5a4a';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff4d8';
+    ctx.stroke();
   }
 
   // ------------------------------------------------------- walk where you click
@@ -2581,7 +2594,6 @@ export class GameScene extends Phaser.Scene {
     this.state.data.player = { x: this.player.x, y: this.player.y, facing: this.facing };
     this.cameras.main.centerOn(this.player.x, this.player.y);
     audio.play('click');
-    if (this.miniOpen) this.updateMinimapCursor();
   }
 
   private createFogAndWind(): void {
@@ -2774,7 +2786,6 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (!this.player) return;
     const dt = Math.min(delta, 80) / 1000;
-    if (this.miniOpen) this.updateMinimapCursor();
 
     if (!this.state.paused && !this.sleeping) {
       const boots = this.state.data.upgrades.boots ?? 0;
@@ -2790,19 +2801,21 @@ export class GameScene extends Phaser.Scene {
 
       let ix = 0;
       let iy = 0;
-      if (this.cursors.left.isDown || this.wasd.A.isDown) ix -= 1;
-      if (this.cursors.right.isDown || this.wasd.D.isDown) ix += 1;
-      if (this.cursors.up.isDown || this.wasd.W.isDown) iy -= 1;
-      if (this.cursors.down.isDown || this.wasd.S.isDown) iy += 1;
-      const joy = this.ui?.getJoystick();
-      if (joy && (Math.abs(joy.x) > 0.18 || Math.abs(joy.y) > 0.18)) {
-        ix = joy.x;
-        iy = joy.y;
+      if (!this.miniOpen) {
+        if (this.cursors.left.isDown || this.wasd.A.isDown) ix -= 1;
+        if (this.cursors.right.isDown || this.wasd.D.isDown) ix += 1;
+        if (this.cursors.up.isDown || this.wasd.W.isDown) iy -= 1;
+        if (this.cursors.down.isDown || this.wasd.S.isDown) iy += 1;
+        const joy = this.ui?.getJoystick();
+        if (joy && (Math.abs(joy.x) > 0.18 || Math.abs(joy.y) > 0.18)) {
+          ix = joy.x;
+          iy = joy.y;
+        }
       }
       // Clicking the map starts a walk; any key or the joystick takes the wheel back.
-      if (Math.abs(ix) > 0.05 || Math.abs(iy) > 0.05) {
+      if (!this.miniOpen && (Math.abs(ix) > 0.05 || Math.abs(iy) > 0.05)) {
         if (this.walkTile) this.stopWalk();
-      } else if (this.walkTile) {
+      } else if (!this.miniOpen && this.walkTile) {
         this.updateWalk(dt);
         this.player.setFlipX(this.facing === 'left');
         this.player.setDepth(this.player.y);

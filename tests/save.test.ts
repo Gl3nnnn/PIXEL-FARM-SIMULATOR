@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, CURRENT_SAVE_VERSION } from '../src/data/definitions';
+import { APPEARANCE_DEFAULT, CURRENT_SAVE_VERSION, DEFAULT_SETTINGS } from '../src/data/definitions';
 import { createNewSave } from '../src/systems/gameState';
 import { generateSeasonal } from '../src/systems/festivals';
 import {
@@ -280,5 +280,33 @@ describe('phase save data', () => {
     expect(migrated.mineNodes).toEqual({});
     expect(migrated.npcs).toEqual({});
     expect(migrated.spouseId).toBeNull();
+  });
+
+  it('migrates v11 hat colours to the new hat style slot', () => {
+    const bald = migrateSave({
+      version: 11,
+      appearance: { skin: 2, hair: 1, shirt: 3, hat: -1 },
+      player: { x: 100, y: 200, facing: 'down' }
+    });
+    expect(bald.version).toBe(CURRENT_SAVE_VERSION);
+    expect(bald.appearance).toMatchObject({
+      skin: 2,
+      hair: 1,
+      shirt: 3,
+      hat: -1,
+      hatStyle: 0,
+      eye: APPEARANCE_DEFAULT.eye,
+      pants: APPEARANCE_DEFAULT.pants,
+      boots: APPEARANCE_DEFAULT.boots,
+      accessory: APPEARANCE_DEFAULT.accessory
+    });
+
+    const straw = migrateSave({
+      version: 11,
+      appearance: { hat: 4 },
+      player: { x: 100, y: 200, facing: 'down' }
+    });
+    expect(straw.appearance.hat).toBe(4);
+    expect(straw.appearance.hatStyle).toBe(1);
   });
 });
