@@ -91,7 +91,7 @@ import {
   readSeasonalContract,
   seasonalBoardMatches
 } from './festivals';
-import { marketMultiplier } from './market';
+import { hotDemandItem, hotDemandMultiplier, marketMultiplier } from './market';
 import {
   inBounds,
   isFenceTile,
@@ -172,6 +172,7 @@ const EMPTY_STATS: Stats = {
   planted: 0,
   animalsOwned: 0,
   goldHarvests: 0,
+  luckyHarvests: 0,
   daysPlayed: 0,
   carrotsHarvested: 0,
   eggsCollected: 0,
@@ -281,6 +282,8 @@ export function createNewSave(): SaveData {
 export class GameState {
   data: SaveData;
   emitter = new Emitter();
+  /** Harvests taken in a row without a break, for the combo bonus. */
+  private harvestCombo = 0;
   /** True while a menu is open; the world simulation is paused. */
   paused = false;
   rng: () => number;
@@ -1027,7 +1030,7 @@ export class GameState {
     return !!def && tile.crop.growth >= def.growthDays;
   }
 
-  harvestAt(x: number, y: number): ActionResult & { items?: number } {
+  harvestAt(x: number, y: number): ActionResult & { items?: number; lucky?: boolean; combo?: number } {
     if (!this.isWithinInteraction(x, y)) return { ok: false, message: 'Move closer to harvest.' };
     const tile = this.tileAt(x, y);
     if (!tile?.crop) return { ok: false, message: 'Nothing to harvest here.' };
@@ -1052,6 +1055,21 @@ export class GameState {
     if (quality === 'gold') this.data.stats.goldHarvests += 1;
     this.addXp('farming', 6 + yieldQty, false);
 
+    // A rare surprise on top of the ordinary harvest, then the chain bonus.
+    const lucky = this.rollLucky();
+    if (lucky) {
+      const bonus = Math.max(25, this.sellPrice(def.harvestId, quality) * 2);
+      this.data.coins += bonus;
+      this.data.stats.coinsEarned += bonus;
+      this.data.stats.luckyHarvests += 1;
+    }
+    const combo = this.bumpCombo();
+    const comboCoins = this.comboBonus();
+    if (comboCoins > 0) {
+      this.data.coins += comboCoins;
+      this.data.stats.coinsEarned += comboCoins;
+    }
+
     if (def.regrowDays > 0) {
       tile.crop.growth = Math.max(0, def.growthDays - def.regrowDays);
       tile.crop.regrows += 1;
@@ -1066,13 +1084,18 @@ export class GameState {
     }
 
     const label = quality === 'normal' ? '' : ` ${quality}`;
+    let extra = '';
+    if (lucky) extra += ' Lucky golden harvest: double coins!';
+    if (comboCoins > 0) extra += ` ${combo} in a row: +${comboCoins} coins.`;
     this.emitChange();
-    this.emit('harvest', { x, y, cropId: def.id, qty: yieldQty, quality });
+    this.emit('harvest', { x, y, cropId: def.id, qty: yieldQty, quality, lucky, combo });
     this.checkProgress();
     return {
       ok: true,
       items: yieldQty,
-      message: `Harvested ${yieldQty} ${def.name}${label}!`
+      lucky,
+      combo,
+      message: `Harvested ${yieldQty} ${def.name}${label}!${extra}`
     };
   }
 
@@ -1151,6 +1174,20 @@ export class GameState {
       if (def.id === 'carrots') this.data.stats.carrotsHarvested += yieldQty;
       if (quality === 'gold') this.data.stats.goldHarvests += 1;
       this.addXp('farming', 6 + yieldQty, false);
+      // The same surprise and chain bonus as a single harvest.
+      const lucky = this.rollLucky();
+      if (lucky) {
+        const bonus = Math.max(25, this.sellPrice(def.harvestId, quality) * 2);
+        this.data.coins += bonus;
+        this.data.stats.coinsEarned += bonus;
+        this.data.stats.luckyHarvests += 1;
+      }
+      this.bumpCombo();
+      const comboCoins = this.comboBonus();
+      if (comboCoins > 0) {
+        this.data.coins += comboCoins;
+        this.data.stats.coinsEarned += comboCoins;
+      }
       kinds.add(def.id);
       if (def.regrowDays > 0) {
         tile.crop.growth = Math.max(0, def.growthDays - def.regrowDays);
@@ -1164,7 +1201,7 @@ export class GameState {
         tile.fertilized = false;
         this.cleanupTile(spot.x, spot.y);
       }
-      this.emit('harvest', { x: spot.x, y: spot.y, cropId: def.id, qty: yieldQty, quality });
+      this.emit('harvest', { x: spot.x, y: spot.y, cropId: def.id, qty: yieldQty, quality, lucky });
       harvested += 1;
     }
     if (harvested === 0) {
@@ -1198,6 +1235,41 @@ export class GameState {
     return 'normal';
   }
 
+  /**
+   * Rare surprise harvests: a small chance, a little better with luck, that one
+   * crop pays double coins. This is the pull that makes every harvest worth doing.
+   */
+  private luckyChance(): number {
+    const luck =
+      this.toolBonus('luck') +
+      this.professionSum('luck') +
+      this.buffSum('luck') +
+      houseBonus(this.data.house ?? { furniture: [] }, 'luck') +
+      (this.data.dailyLuck ?? 0);
+    return 0.018 + Math.max(0, Math.min(0.05, luck * 0.5));
+  }
+
+  private rollLucky(): boolean {
+    return this.rng() < this.luckyChance();
+  }
+
+  /** One more harvest in the chain. */
+  private bumpCombo(): number {
+    this.harvestCombo += 1;
+    return this.harvestCombo;
+  }
+
+  /** Coins paid for a chain of harvests. Three in a row starts the bonus. */
+  private comboBonus(): number {
+    if (this.harvestCombo < 3) return 0;
+    return Math.min(60, (this.harvestCombo - 2) * 4);
+  }
+
+  /** The current harvest chain length, for the HUD. */
+  comboCount(): number {
+    return this.harvestCombo;
+  }
+
   // ---------------------------------------------------------------- economy
 
   buyItem(itemId: string, qty: number): ActionResult {
@@ -1226,11 +1298,21 @@ export class GameState {
     if (!def) return 0;
     const base = def.sell || def.price;
     const bonus = 1 + this.professionSum('sellPrice');
-    return Math.max(1, Math.round(base * QUALITY_MULTIPLIER[quality] * this.marketTrend(itemId) * bonus));
+    return Math.max(
+      1,
+      Math.round(
+        base * QUALITY_MULTIPLIER[quality] * this.marketTrend(itemId) * bonus * hotDemandMultiplier(itemId, this.data)
+      )
+    );
   }
 
   marketTrend(itemId: string): number {
     return marketMultiplier(itemId, this.data);
+  }
+
+  /** The crop the town pays double for today. */
+  hotItem(): string {
+    return hotDemandItem(this.data);
   }
 
   sellStack(index: number, qty: number): ActionResult & { total?: number } {
@@ -1456,6 +1538,47 @@ export class GameState {
 
   nextPlot() {
     return PLOTS[this.data.unlockedPlots] ?? null;
+  }
+
+  /**
+   * The nearest thing just out of reach, as a bar the HUD can always show.
+   * Whichever is closer to finishing wins: the next field, or the next level.
+   */
+  nextUnlock(): { label: string; have: number; need: number } | null {
+    const candidates: Array<{ label: string; have: number; need: number }> = [];
+    const plot = this.nextPlot();
+    if (plot && plot.cost > 0) {
+      candidates.push({ label: plot.name, have: this.data.coins, need: plot.cost });
+    }
+    const xp = xpProgress(this.totalXp());
+    if (xp.need > 0) {
+      candidates.push({ label: `Level ${xp.level + 1}`, have: xp.into, need: xp.need });
+    }
+    let best: { label: string; have: number; need: number } | null = null;
+    let bestFraction = -1;
+    for (const item of candidates) {
+      const fraction = Math.min(1, item.have / Math.max(1, item.need));
+      if (fraction > bestFraction) {
+        best = item;
+        bestFraction = fraction;
+      }
+    }
+    return best;
+  }
+
+  /** What the morning has waiting: ripe crops, animal goods, and the hot item. */
+  todayHighlights(): { readyCrops: number; readyAnimals: number; hotItem: string } {
+    let readyCrops = 0;
+    for (const tile of Object.values(this.data.tiles)) {
+      if (!tile.crop) continue;
+      const def = CROPS[tile.crop.id];
+      if (def && tile.crop.growth >= def.growthDays) readyCrops += 1;
+    }
+    return {
+      readyCrops,
+      readyAnimals: this.data.animals.filter((animal) => animal.productReady).length,
+      hotItem: this.hotItem()
+    };
   }
 
   expandLand(): ActionResult {
@@ -2994,6 +3117,8 @@ export class GameState {
     const seasonChanged = d.season !== previousSeason;
     d.weather = this.weatherForSeason(d.season);
     d.stats.daysPlayed += 1;
+    // A new morning ends any harvest chain the farmer was building.
+    this.harvestCombo = 0;
     this.ensureSeasonalBoard();
     if (seasonChanged) {
       d.festival = null;

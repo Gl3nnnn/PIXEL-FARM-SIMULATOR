@@ -49,6 +49,7 @@ export function renderStats(ctx: UIContext, root: HTMLElement): void {
   const life = section('Lifetime totals');
   life.appendChild(statRow('Crops harvested', formatNumber(d.stats.harvests)));
   life.appendChild(statRow('Gold harvests', formatNumber(d.stats.goldHarvests)));
+  life.appendChild(statRow('Lucky harvests', formatNumber(d.stats.luckyHarvests)));
   life.appendChild(statRow('Goods sold', formatNumber(d.stats.cropsSold)));
   life.appendChild(statRow('Products collected', formatNumber(d.stats.productsCollected)));
   life.appendChild(statRow('Coins earned', formatNumber(d.stats.coinsEarned)));

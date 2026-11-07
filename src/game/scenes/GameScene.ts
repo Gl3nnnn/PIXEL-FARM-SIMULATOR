@@ -1469,7 +1469,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const wasMature = this.state.cropMature(x, y);
-    let result: { ok: boolean; message?: string; items?: number; tiles?: number } = { ok: false };
+    let result: { ok: boolean; message?: string; items?: number; tiles?: number; lucky?: boolean; combo?: number } = { ok: false };
     let sfx: 'till' | 'water' | 'plant' | 'harvest' | 'error' = 'error';
     let particle: 'soil' | 'water' | 'sparkle' | null = null;
 
@@ -1508,6 +1508,13 @@ export class GameScene extends Phaser.Scene {
       if (wasMature) {
         this.floatText(`+${result.items ?? 1}`, 0xffe080, wx, wy - 22);
         this.spawnImpactRing(wx, wy, 0xffedaa);
+        // A rare lucky harvest gets its own bigger shout.
+        if (result.lucky) {
+          this.floatText('LUCKY! x2 coins', 0xfff4a0, wx, wy - 52);
+          this.spawnActionParticles(x, y, 'sparkle');
+        }
+        const combo = this.state.comboCount();
+        if (combo >= 3) this.floatText(`${combo} in a row`, 0xbfe08a, wx, wy - 72);
       } else if (item === 'hoe' && (result.tiles ?? 0) > 1) {
         this.floatText(`${result.tiles} tilled`, 0xd8c08a, wx, wy - 20);
       } else if (item === 'watering_can' && (result.tiles ?? 0) > 1) {

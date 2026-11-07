@@ -14,6 +14,19 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
     toolbar.appendChild(el('div', 'inline-coins', `${formatNumber(state.data.coins)} coins`));
     content.appendChild(toolbar);
 
+    // The town pays double for one crop today: the reason to sell now.
+    const hotId = state.hotItem();
+    const hotDef = ITEMS[hotId];
+    if (hotDef) {
+      const hot = el('div', 'hot-demand-card');
+      const text = el('div', 'hot-demand-text');
+      text.appendChild(el('span', 'hot-demand-eyebrow', 'Hot demand today'));
+      text.appendChild(el('strong', 'hot-demand-name', `${hotDef.name} pays double`));
+      text.appendChild(el('span', 'hint', 'Only today do these pay 2x.'));
+      hot.append(text, iconImg(ctx.icon(hotId), 44, hotDef.name));
+      content.appendChild(hot);
+    }
+
     const sec = section('Your goods', 'Silver and gold quality items sell for more.');
     const list = el('div', 'list');
     let any = false;
@@ -36,6 +49,7 @@ export function renderMarket(ctx: UIContext, root: HTMLElement): void {
           pill(`${trend > 0 ? '+' : ''}${trend}% today`, trend > 0 ? 'good' : 'warn')
         );
       }
+      if (stack.itemId === hotId) tags.appendChild(pill('Hot 2x', 'good'));
       if (stack.locked) tags.appendChild(pill('Locked', 'warn'));
       info.appendChild(tags);
       row.appendChild(info);

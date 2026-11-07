@@ -146,6 +146,7 @@ function sanitizeStats(raw: unknown): Stats {
     planted: Math.max(0, toFinite(stats.planted, 0)),
     animalsOwned: Math.max(0, toFinite(stats.animalsOwned, 0)),
     goldHarvests: Math.max(0, toFinite(stats.goldHarvests, 0)),
+    luckyHarvests: Math.max(0, toFinite(stats.luckyHarvests, 0)),
     daysPlayed: Math.max(0, toFinite(stats.daysPlayed, 0)),
     carrotsHarvested: Math.max(0, toFinite(stats.carrotsHarvested, 0)),
     eggsCollected: Math.max(0, toFinite(stats.eggsCollected, 0)),

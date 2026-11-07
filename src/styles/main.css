@@ -4187,7 +4187,7 @@ select {
 
 .energy-chip .energy-bar {
   flex: 1;
-  min-width: 64px;
+  min-width: 40px;
   height: 8px;
   border-radius: 999px;
   background: rgba(6, 18, 10, 0.7);
@@ -4210,6 +4210,103 @@ select {
 .energy-chip.low .energy-label {
   color: #ffb08a;
   opacity: 1;
+}
+
+.energy-chip.empty .energy-fill {
+  background: #8a3a2a;
+}
+
+.energy-chip.empty .energy-label::after {
+  content: ' · sleep';
+  color: #ffb08a;
+}
+
+/* The closest thing just out of reach, always in view. */
+.next-unlock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #cfe0b8;
+}
+
+.next-unlock.hidden {
+  display: none;
+}
+
+.next-unlock .next-unlock-label {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+  min-width: 0;
+}
+
+.next-unlock .next-unlock-bar {
+  flex: 1;
+  min-width: 24px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(6, 18, 10, 0.7);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.next-unlock .next-unlock-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f0b84a, #ffe28a);
+  transition: width 200ms ease;
+}
+
+.next-unlock strong {
+  font-variant-numeric: tabular-nums;
+  color: #ffe28a;
+  white-space: nowrap;
+}
+
+/* Hot demand of the day at the market. */
+.hot-demand-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 184, 74, 0.55);
+  background:
+    linear-gradient(180deg, rgba(240, 184, 74, 0.18), rgba(240, 184, 74, 0.04)),
+    rgba(30, 22, 10, 0.72);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
+.hot-demand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hot-demand-eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #f0b84a;
+}
+
+.hot-demand-name {
+  font-size: 15px;
+  color: #ffe28a;
+}
+
+.hot-demand-card .hint {
+  font-size: 11px;
+  opacity: 0.8;
 }
 
 .community-body {

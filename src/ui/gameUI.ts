@@ -1,4 +1,4 @@
-import { BUILDINGS, PRONOUNS, SEASON_INFO, WEATHER_INFO, xpProgress } from '../data/definitions';
+import { BUILDINGS, ITEMS, PRONOUNS, SEASON_INFO, WEATHER_INFO, xpProgress } from '../data/definitions';
 import { audio } from '../systems/audio';
 import type { GameState } from '../systems/gameState';
 import { formatNumber, formatTime } from '../systems/util';
@@ -86,6 +86,7 @@ export class GameUI {
   private clockEl!: HTMLElement;
   private weatherEl!: HTMLElement;
   private energyEl!: HTMLElement;
+  private nextUnlockEl!: HTMLElement;
   private levelEl!: HTMLElement;
   private levelBar!: HTMLElement;
   private saveEl!: HTMLElement;
@@ -209,7 +210,10 @@ export class GameUI {
     const xpWrap = el('div', 'level-bar');
     this.levelBar = el('div', 'level-fill');
     xpWrap.appendChild(this.levelBar);
-    middle.append(levelTop, xpWrap, this.energyEl);
+    this.energyEl = el('div', 'energy-chip');
+    this.energyEl.title = 'Energy left today. Sleep refills it.';
+    this.nextUnlockEl = el('div', 'next-unlock');
+    middle.append(levelTop, xpWrap, this.energyEl, this.nextUnlockEl);
 
     const right = el('div', 'hud-cluster hud-buttons');
     const mk = (label: string, panel: string, key?: string) => {
@@ -605,11 +609,32 @@ export class GameUI {
       this.handlers.sleep();
     };
     if (chores.unwateredCrops === 0 && chores.unfedAnimals === 0) {
+      const waiting = this.state.todayHighlights();
+      const nice: string[] = [];
+      if (waiting.readyCrops > 0) {
+        nice.push(`${waiting.readyCrops} ripe crop${waiting.readyCrops === 1 ? '' : 's'}`);
+      }
+      const hotDef = ITEMS[waiting.hotItem];
+      if (hotDef) nice.push(`hot item: ${hotDef.name}`);
+      if (nice.length > 0) {
+        this.toast(`Waiting after you sleep: ${nice.join(', ')}.`, 'info');
+      }
       proceed();
       return;
     }
     const parts: string[] = [];
     const effects: string[] = [];
+    // A taste of what is waiting on the other side of sleep.
+    const nextDoor = this.state.todayHighlights();
+    const preview: string[] = [];
+    if (nextDoor.readyCrops > 0) {
+      preview.push(`${nextDoor.readyCrops} ripe crop${nextDoor.readyCrops === 1 ? '' : 's'} to harvest`);
+    }
+    if (nextDoor.readyAnimals > 0) {
+      preview.push(`${nextDoor.readyAnimals} animal good${nextDoor.readyAnimals === 1 ? '' : 's'} to collect`);
+    }
+    const hotName = nextDoor.hotItem;
+    if (hotName) preview.push('a new hot item at the market');
     if (chores.unwateredCrops > 0) {
       parts.push(
         `${chores.unwateredCrops} crop${chores.unwateredCrops === 1 ? ' still needs' : 's still need'} water`
@@ -623,10 +648,11 @@ export class GameUI {
       effects.push('unfed animals lose happiness');
     }
     const warning = effects.join(' and ');
+    const teaser = preview.length > 0 ? ` Waiting after you sleep: ${preview.join(', ')}.` : '';
     confirmDialog(
       this.root,
       'End the day?',
-      `${parts.join(' and ')}. ${warning.charAt(0).toUpperCase()}${warning.slice(1)}. Sleep anyway?`,
+      `${parts.join(' and ')}. ${warning.charAt(0).toUpperCase()}${warning.slice(1)}.${teaser} Sleep anyway?`,
       'Sleep anyway',
       proceed
     );
@@ -1105,6 +1131,7 @@ export class GameUI {
     this.refreshReminderBadge();
     this.renderHotbar();
     this.refreshEnergyChip();
+    this.refreshNextUnlock();
     this.updateTutorial();
   }
 
@@ -1130,6 +1157,22 @@ export class GameUI {
     badge.setAttribute('aria-label', `${count} ${label}`);
   }
 
+  /** A small bar that always shows the closest thing just out of reach. */
+  private refreshNextUnlock(): void {
+    if (!this.nextUnlockEl) return;
+    const next = this.state.nextUnlock();
+    if (!next) {
+      this.nextUnlockEl.classList.add('hidden');
+      return;
+    }
+    this.nextUnlockEl.classList.remove('hidden');
+    const pct = Math.max(0, Math.min(100, (next.have / Math.max(1, next.need)) * 100));
+    this.nextUnlockEl.innerHTML =
+      `<span class="next-unlock-label">${next.label}</span>` +
+      `<span class="next-unlock-bar"><span class="next-unlock-fill" style="width:${pct}%"></span></span>` +
+      `<strong>${formatNumber(Math.floor(next.have))}/${formatNumber(next.need)}</strong>`;
+  }
+
   private refreshEnergyChip(): void {
     if (!this.energyEl) return;
     const cur = this.state.energy();
@@ -1140,6 +1183,8 @@ export class GameUI {
       `<span class="energy-label">Energy</span>` +
       `<span class="energy-bar"><span class="energy-fill" style="width:${pct}%"></span></span>` +
       `<strong>${cur}/${max}</strong>`;
+    this.energyEl.classList.toggle('empty', cur <= 0);
+    this.energyEl.setAttribute('aria-label', `${cur} of ${max} energy left today`);
   }
 
   private refreshClock(): void {

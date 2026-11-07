@@ -615,6 +615,8 @@ export interface Stats {
   planted: number;
   animalsOwned: number;
   goldHarvests: number;
+  /** Rare surprise harvests that paid double coins. */
+  luckyHarvests: number;
   daysPlayed: number;
   carrotsHarvested: number;
   eggsCollected: number;
