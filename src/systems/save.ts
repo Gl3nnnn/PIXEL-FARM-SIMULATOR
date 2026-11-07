@@ -38,6 +38,7 @@ import {
   levelFromXp
 } from '../data/definitions';
 import { createMineRun } from './adventure';
+import { defaultEngagement } from './engagement';
 import { MINE_NODES } from './world';
 import type {
   AppearanceSave,
@@ -56,7 +57,9 @@ import type {
   SaveSlotInfo,
   SeasonalSave,
   Settings,
-  Stats
+  Stats,
+  EngagementSave,
+  WeeklySave
 } from '../types';
 
 const DB_NAME = 'pixel-farm-simulator';
@@ -244,6 +247,35 @@ function sanitizeMineNodes(raw: unknown): SaveData['mineNodes'] {
     };
   }
   return result;
+}
+
+function sanitizeEngagement(raw: unknown): EngagementSave {
+  if (!isRecord(raw)) return defaultEngagement();
+  return {
+    loginDate: typeof raw.loginDate === 'string' ? raw.loginDate : '',
+    loginStreak: Math.max(0, Math.floor(toFinite(raw.loginStreak, 0))),
+    loginClaimDate: typeof raw.loginClaimDate === 'string' ? raw.loginClaimDate : '',
+    weekly: sanitizeWeekly(raw.weekly)
+  };
+}
+
+function sanitizeWeekly(raw: unknown): WeeklySave | null {
+  if (!isRecord(raw)) return null;
+  if (!Array.isArray(raw.list)) return null;
+  const list = raw.list
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+    .map((entry) => ({
+      id: typeof entry.id === 'string' ? entry.id : '',
+      claimed: toBool(entry.claimed, false)
+    }))
+    .filter((entry) => entry.id.length > 0);
+  if (list.length === 0) return null;
+  return {
+    week: Math.max(0, Math.floor(toFinite(raw.week, 0))),
+    list,
+    startStats: sanitizeStats(raw.startStats),
+    bonusClaimed: toBool(raw.bonusClaimed, false)
+  };
 }
 
 function sanitizeSeasonal(raw: unknown): SeasonalSave | null {
@@ -793,7 +825,8 @@ export function sanitizeSave(raw: Record<string, unknown>): SaveData {
     appearance: sanitizeAppearance(d.appearance),
     dailyLuck: Math.max(-0.05, Math.min(0.05, toFinite(d.dailyLuck, 0))),
     dailyForecast: typeof d.dailyForecast === 'string' ? d.dailyForecast : '',
-    daysAway: Math.max(0, Math.floor(toFinite(d.daysAway, 0)))
+    daysAway: Math.max(0, Math.floor(toFinite(d.daysAway, 0))),
+    engagement: sanitizeEngagement(d.engagement)
   };
 
   return save;

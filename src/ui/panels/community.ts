@@ -320,6 +320,21 @@ function renderMail(ctx: UIContext, root: HTMLElement): void {
           }
         })
       );
+    } else if (!entry.read) {
+      footer.appendChild(
+        button('Read', {
+          small: true,
+          variant: 'ghost',
+          onClick: () => {
+            const res = state.markLetterRead(def.id);
+            ctx.toast(res.message ?? '', 'info');
+            ctx.requestSave();
+            ctx.refresh();
+            root.innerHTML = '';
+            renderMail(ctx, root);
+          }
+        })
+      );
     }
     card.appendChild(footer);
     root.appendChild(card);

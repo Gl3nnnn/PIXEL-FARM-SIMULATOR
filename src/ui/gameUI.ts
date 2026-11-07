@@ -78,6 +78,10 @@ export class GameUI {
   private hud!: HTMLElement;
   private hotbar!: HTMLElement;
   private coinsEl!: HTMLElement;
+  private questBadge!: HTMLElement;
+  private moreBadge!: HTMLElement;
+  /** Small counters inside the More menu, on the People, Town and Community entries. */
+  private moreItemBadges: { people?: HTMLElement; town?: HTMLElement; mail?: HTMLElement } = {};
   private dateEl!: HTMLElement;
   private clockEl!: HTMLElement;
   private weatherEl!: HTMLElement;
@@ -222,6 +226,11 @@ export class GameUI {
       b.setAttribute('aria-label', label);
       b.append(el('span', 'hud-btn-label', label));
       if (key) b.appendChild(el('span', 'keycap', key));
+      if (panel === 'quests') {
+        this.questBadge = el('span', 'reminder-badge hidden');
+        this.questBadge.setAttribute('aria-live', 'polite');
+        b.appendChild(this.questBadge);
+      }
       return b;
     };
     right.append(
@@ -247,13 +256,23 @@ export class GameUI {
     this.navMoreButton.setAttribute('aria-expanded', 'false');
     this.navMoreButton.setAttribute('aria-haspopup', 'menu');
     this.navMoreButton.append(el('span', 'hud-btn-label', 'More'));
+    this.moreBadge = el('span', 'reminder-badge hidden');
+    this.moreBadge.setAttribute('aria-live', 'polite');
+    this.navMoreButton.appendChild(this.moreBadge);
     this.navMoreMenu = el('div', 'nav-more-menu hidden');
     this.navMoreMenu.setAttribute('role', 'menu');
-    const moreItem = (label: string, panel: string, key?: string) => {
+    const moreItem = (label: string, panel: string, key?: string, badge?: 'people' | 'town' | 'mail') => {
       const item = el('button', 'nav-more-item');
       item.type = 'button';
       item.setAttribute('role', 'menuitem');
-      item.append(el('span', undefined, label));
+      const labelWrap = el('span', 'nav-more-label');
+      labelWrap.appendChild(el('span', undefined, label));
+      if (badge) {
+        const count = el('span', 'nav-more-count hidden');
+        labelWrap.appendChild(count);
+        this.moreItemBadges[badge] = count;
+      }
+      item.appendChild(labelWrap);
       if (key) item.appendChild(el('span', 'keycap', key));
       item.addEventListener('click', () => {
         audio.play('click');
@@ -263,11 +282,11 @@ export class GameUI {
       this.navMoreMenu.appendChild(item);
     };
     moreItem('Animals', 'animals');
-    moreItem('Community', 'community', 'U');
+    moreItem('Community', 'community', 'U', 'mail');
     moreItem('Workshop', 'craft', 'C');
     moreItem('Almanac', 'almanac', 'L');
-    moreItem('People', 'people', 'T');
-    moreItem('Town', 'town', 'Y');
+    moreItem('People', 'people', 'T', 'people');
+    moreItem('Town', 'town', 'Y', 'town');
     moreItem('Old Mine', 'mine', 'N');
     moreItem('Shipping', 'shipping', 'V');
     moreItem('Homestead', 'home', 'O');
@@ -508,6 +527,8 @@ export class GameUI {
   }
 
   async requestSave(): Promise<void> {
+    // The data has just changed, so refresh the Quests badge now.
+    this.refreshReminderBadge();
     this.setSaveStatus('Saving…');
     try {
       await this.handlers.save();
@@ -1081,9 +1102,32 @@ export class GameUI {
     const xp = xpProgress(this.state.totalXp());
     this.levelEl.textContent = `${farmerName(d)} Lv ${xp.level}`;
     this.levelBar.style.width = `${Math.max(2, Math.min(100, (xp.into / Math.max(1, xp.need)) * 100))}%`;
+    this.refreshReminderBadge();
     this.renderHotbar();
     this.refreshEnergyChip();
     this.updateTutorial();
+  }
+
+  /**
+   * Red dots on the Quests and More buttons: how many rewards are waiting.
+   * Quests counts the whole journal, More counts what sits behind its menu.
+   */
+  private refreshReminderBadge(): void {
+    this.paintBadge(this.questBadge, this.state.rewardsReady().total, 'rewards ready to claim');
+    const more = this.state.moreRewardsReady();
+    this.paintBadge(this.moreBadge, more.total, 'rewards ready in the More menu');
+    this.navMoreButton?.classList.toggle('has-badge', more.total > 0);
+    this.paintBadge(this.moreItemBadges.people, more.people, 'visitor requests ready');
+    this.paintBadge(this.moreItemBadges.town, more.town, 'town rewards ready');
+    this.paintBadge(this.moreItemBadges.mail, more.mail, 'unread letters in the mailbox');
+  }
+
+  /** Draws one reminder dot: the count, the hidden state and its spoken label. */
+  private paintBadge(badge: HTMLElement | undefined, count: number, label: string): void {
+    if (!badge) return;
+    badge.textContent = count > 9 ? '9+' : String(count);
+    badge.classList.toggle('hidden', count === 0);
+    badge.setAttribute('aria-label', `${count} ${label}`);
   }
 
   private refreshEnergyChip(): void {

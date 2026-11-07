@@ -662,6 +662,32 @@ export interface AppearanceSave {
   accessory: number;
 }
 
+/** One goal on the weekly board. */
+export interface WeeklyEntrySave {
+  id: string;
+  claimed: boolean;
+}
+
+/** The weekly goal board. A new board starts every seven in-game days. */
+export interface WeeklySave {
+  /** Week number counted from the first day of the game. */
+  week: number;
+  list: WeeklyEntrySave[];
+  /** Stats when the week began, so progress counts only this week. */
+  startStats: Stats;
+  bonusClaimed: boolean;
+}
+
+/** Login streak, daily gift and weekly goals: the reasons to come back. */
+export interface EngagementSave {
+  /** Real calendar day (YYYY-MM-DD) that the login streak last counted. */
+  loginDate: string;
+  loginStreak: number;
+  /** Real calendar day (YYYY-MM-DD) the login gift was last claimed. */
+  loginClaimDate: string;
+  weekly: WeeklySave | null;
+}
+
 export interface SaveData {
   version: number;
   createdAt: number;
@@ -740,6 +766,8 @@ export interface SaveData {
   dailyForecast: string;
   /** Days since the farm was last played, 0 when you played yesterday. */
   daysAway: number;
+  /** Login streak, daily gift and weekly goals. */
+  engagement: EngagementSave;
 }
 
 export interface Settings {

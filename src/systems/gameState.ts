@@ -72,7 +72,8 @@ import type {
   Stats,
   TileSave,
   ToolEffect,
-  Weather
+  Weather,
+  WeeklySave
 } from '../types';
 import {
   functionalBuildingCount,
@@ -104,6 +105,17 @@ import {
   tileToWorld
 } from './world';
 import { absoluteDay, dayOfWeek } from './calendar';
+import {
+  WEEKLY_BONUS,
+  advanceLoginStreak,
+  defaultEngagement,
+  generateWeekly,
+  localDateKey,
+  loginGiftAmount,
+  readWeeklyGoal,
+  weekNumber,
+  weeklyGoalProgress
+} from './engagement';
 import { collectionSetState, collectionTotal, recordCollection } from './collections';
 import { eligibleFish, selectFish } from './fishing';
 import { MINE_NODE_MAX_HP, mineNodeById, miningLoot, nodeHp } from './mining';
@@ -259,6 +271,7 @@ export function createNewSave(): SaveData {
     dailyLuck: 0,
     dailyForecast: '',
     daysAway: 0,
+    engagement: defaultEngagement(),
     lostItems: [],
     summitClaimed: [],
     evaluation: null
@@ -286,6 +299,7 @@ export class GameState {
     }
     this.ensureSeasonalBoard();
     this.ensureFestivalDay();
+    this.ensureEngagement();
     this.ensureNpcs();
     this.ensureLifeState();
     this.ensureDailyLife();
@@ -514,6 +528,16 @@ export class GameState {
   /** Letters waiting in the mailbox. */
   unreadMail(): number {
     return (this.data.mail ?? []).filter((m) => !m.read).length;
+  }
+
+  /** Marks a letter read without taking anything, so its unread dot clears. */
+  markLetterRead(id: string): ActionResult {
+    const entry = (this.data.mail ?? []).find((m) => m.id === id);
+    if (!entry) return { ok: false, message: 'That letter has not arrived yet.' };
+    if (entry.read) return { ok: false, message: 'That letter is already read.' };
+    entry.read = true;
+    this.emitChange();
+    return { ok: true, message: 'Letter read.' };
   }
 
   claimLetter(id: string): ActionResult {
@@ -3074,6 +3098,7 @@ export class GameState {
       messages.push(`${FESTIVALS[d.season].name} judging is open today!`);
     }
     d.daily = generateDaily(d.day, d.stats, this.rng);
+    this.ensureEngagement();
     const newLetters = this.deliverLetters();
     if (newLetters.length > 0) messages.push(`New mail: ${newLetters.join(', ')}.`);
     this.checkProgress();
@@ -3420,6 +3445,165 @@ export class GameState {
 
   setPlayer(x: number, y: number, facing: SaveData['player']['facing']): void {
     this.data.player = { x, y, facing };
+  }
+
+  /**
+   * Keeps the login streak and the weekly board current. The streak counts
+   * real calendar days, so coming back tomorrow keeps it alive.
+   */
+  private ensureEngagement(): WeeklySave {
+    if (!this.data.engagement) this.data.engagement = defaultEngagement();
+    const eng = this.data.engagement;
+    advanceLoginStreak(eng, new Date());
+    const week = weekNumber(this.data.season, this.data.year, this.data.day);
+    const board =
+      eng.weekly && eng.weekly.week === week ? eng.weekly : generateWeekly(week, this.data.stats);
+    eng.weekly = board;
+    return board;
+  }
+
+  /** Today's login gift: how big it is and whether it is already claimed. */
+  loginGiftState(): { streak: number; claimedToday: boolean; coins: number; xp: number } {
+    this.ensureEngagement();
+    const eng = this.data.engagement;
+    const amount = loginGiftAmount(eng.loginStreak);
+    return {
+      streak: eng.loginStreak,
+      claimedToday: eng.loginClaimDate === localDateKey(new Date()),
+      coins: amount.coins,
+      xp: amount.xp
+    };
+  }
+
+  /** Hands over today's login gift, once per real day. */
+  claimLoginGift(): ActionResult {
+    this.ensureEngagement();
+    const eng = this.data.engagement;
+    const today = localDateKey(new Date());
+    if (eng.loginClaimDate === today) {
+      return { ok: false, message: "Today's gift is already claimed. Come back tomorrow." };
+    }
+    const amount = loginGiftAmount(eng.loginStreak);
+    eng.loginClaimDate = today;
+    this.data.coins += amount.coins;
+    this.data.stats.coinsEarned += amount.coins;
+    this.grantXp(amount.xp);
+    this.emitChange();
+    this.emit('loginGift', { coins: amount.coins });
+    const days = eng.loginStreak === 1 ? 'day' : 'days';
+    return {
+      ok: true,
+      message: `Login gift! +${amount.coins} coins. Streak: ${eng.loginStreak} ${days}.`
+    };
+  }
+
+  /** This week's goal board. A fresh board replaces the old one when the week turns. */
+  weeklyBoard(): WeeklySave {
+    return this.ensureEngagement();
+  }
+
+  /** Hands over the reward for one finished weekly goal. */
+  claimWeeklyGoal(id: string): ActionResult {
+    const board = this.weeklyBoard();
+    const entry = board.list.find((item) => item.id === id);
+    const goal = readWeeklyGoal(id);
+    if (!entry || !goal) return { ok: false, message: 'Unknown weekly goal.' };
+    if (entry.claimed) return { ok: false, message: 'Goal reward already claimed.' };
+    if (weeklyGoalProgress(this.data, goal, board.startStats) < goal.target) {
+      return { ok: false, message: 'Goal is not complete yet.' };
+    }
+    entry.claimed = true;
+    this.data.coins += goal.coins;
+    this.data.stats.coinsEarned += goal.coins;
+    this.grantXp(goal.xp);
+    this.emitChange();
+    this.emit('weeklyClaimed', { id, coins: goal.coins });
+    return { ok: true, message: `Goal complete! +${goal.coins} coins.` };
+  }
+
+  /**
+   * Counts the rewards waiting to be claimed, split by where they are. The red
+   * reminder badge on the Quests button shows the total.
+   */
+  rewardsReady(): {
+    daily: number;
+    main: number;
+    seasonal: number;
+    weekly: number;
+    login: number;
+    total: number;
+  } {
+    let daily = 0;
+    for (const entry of this.data.daily?.list ?? []) {
+      const info = this.dailyState(entry.id);
+      if (info?.complete && !info.claimed) daily += 1;
+    }
+    let main = 0;
+    for (const quest of MAIN_QUESTS) {
+      const info = this.mainQuestState(quest);
+      if (info.complete && !info.claimed) main += 1;
+    }
+    let seasonal = 0;
+    for (const entry of this.data.seasonal?.list ?? []) {
+      const info = this.seasonalContractState(entry.id);
+      if (info?.complete && !info.claimed) seasonal += 1;
+    }
+    if (this.seasonalBoardState()?.bonusReady) seasonal += 1;
+    let weekly = 0;
+    const board = this.weeklyBoard();
+    for (const entry of board.list) {
+      const goal = readWeeklyGoal(entry.id);
+      if (!goal || entry.claimed) continue;
+      if (weeklyGoalProgress(this.data, goal, board.startStats) >= goal.target) weekly += 1;
+    }
+    if (board.list.length > 0 && board.list.every((entry) => entry.claimed) && !board.bonusClaimed) {
+      weekly += 1;
+    }
+    const login = this.loginGiftState().claimedToday ? 0 : 1;
+    const total = daily + main + seasonal + weekly + login;
+    return { daily, main, seasonal, weekly, login, total };
+  }
+
+  /**
+   * Counts the rewards waiting behind the More menu, so its own red dot can
+   * point at them. People covers visitor requests you can hand in right now;
+   * Town covers the museum rewards, the festival prize and the mine treasury;
+   * Mail covers unread letters waiting in the Community mailbox.
+   */
+  moreRewardsReady(): { people: number; town: number; mail: number; total: number } {
+    const people = this.npcList().filter(
+      (entry) => entry.requestReady && !entry.request.completed
+    ).length;
+    const mail = this.unreadMail();
+
+    let town = 0;
+    for (const reward of this.museumState().rewards) {
+      if (reward.unlocked && !reward.claimed) town += 1;
+    }
+    const festival = this.data.festival;
+    if (festival && festival.submitted && !festival.claimed && festival.tier !== 'none') {
+      town += 1;
+    }
+    const summit = this.summitState();
+    if (summit.reached && !summit.claimed) town += 1;
+
+    return { people, town, mail, total: people + town + mail };
+  }
+
+  /** Hands over the weekly bonus once all three goals are claimed. */
+  claimWeeklyBonus(): ActionResult {
+    const board = this.weeklyBoard();
+    if (board.bonusClaimed) return { ok: false, message: 'Weekly bonus already claimed.' };
+    if (!board.list.every((entry) => entry.claimed)) {
+      return { ok: false, message: 'Claim all three weekly goals first.' };
+    }
+    board.bonusClaimed = true;
+    this.data.coins += WEEKLY_BONUS.coins;
+    this.data.stats.coinsEarned += WEEKLY_BONUS.coins;
+    this.grantXp(WEEKLY_BONUS.xp);
+    this.emitChange();
+    this.emit('weeklyBonusClaimed', { coins: WEEKLY_BONUS.coins });
+    return { ok: true, message: `Weekly bonus! +${WEEKLY_BONUS.coins} coins.` };
   }
 
   dailyBuildingsOwned(): number {

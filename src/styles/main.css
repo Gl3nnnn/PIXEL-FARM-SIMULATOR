@@ -1756,6 +1756,88 @@ select {
   border-left: 5px solid var(--gold);
 }
 
+/* Red reminder dot on the Quests button: how many rewards are waiting. */
+.hud-btn {
+  position: relative;
+}
+
+.hud-btn .reminder-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff4d2;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e8604a 0%, #b5301f 100%);
+  color: #fff8ec;
+  font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, sans-serif;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(60, 10, 4, 0.5);
+  box-shadow: 0 2px 4px rgba(20, 8, 4, 0.45);
+  pointer-events: none;
+  z-index: 2;
+  animation: reminder-pulse 1.8s ease-in-out infinite;
+}
+
+.hud-btn .reminder-badge.hidden {
+  display: none;
+}
+
+@keyframes reminder-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn .reminder-badge {
+    animation: none;
+  }
+}
+
+/* Login gift row: a warm card, so today's gift is easy to spot. */
+.quest-row.login-gift:not(.claimed) {
+  background: linear-gradient(180deg, #fff9e4 0%, #f5df9f 100%);
+  border-left: 5px solid #d08a2a;
+  box-shadow:
+    inset 0 0 0 1px rgba(224, 178, 84, 0.5),
+    0 2px 0 rgba(90, 62, 26, 0.18);
+}
+
+.quest-row.login-gift.claimed {
+  background: #efe5c6;
+  border-left-color: #bcae8f;
+  box-shadow: none;
+}
+
+.quest-row.login-gift strong {
+  font-size: 14px;
+}
+
+/* Weekly tab header: a green card, so weekly goals read differently from the
+   gold seasonal contracts above it. */
+.weekly-head {
+  border-left-color: #5d9444;
+  border-color: #a9c489;
+  background: linear-gradient(180deg, #eef8dd 0%, #d8eab8 100%);
+}
+
+.weekly-head strong {
+  font-size: 14px;
+  color: #33501f;
+}
+
 .festival-head .row-actions {
   flex-wrap: wrap;
 }
@@ -2779,6 +2861,34 @@ select {
   font-size: 9px;
   line-height: 1;
   opacity: 0.65;
+}
+
+.nav-more-button.has-badge::after {
+  display: none;
+}
+
+/* A tiny red count beside a More-menu entry, so the dot on the button leads
+   somewhere: People shows the requests you can hand in, Town the rewards. */
+.nav-more-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-more-count {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e8604a 0%, #b5301f 100%);
+  color: #fff8ec;
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(60, 10, 4, 0.5);
 }
 
 .nav-more-button[aria-expanded='true'] {

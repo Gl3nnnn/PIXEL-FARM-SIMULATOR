@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS, DAILY_TEMPLATES, MAIN_QUESTS } from '../../data/definitions';
 import { audio } from '../../systems/audio';
 import { readSeasonalContract } from '../../systems/festivals';
+import { LOGIN_GIFT, WEEKLY_BONUS, readWeeklyGoal, weekDaysLeft, weeklyGoalProgress } from '../../systems/engagement';
 import { metricValue } from '../../systems/quests';
 import type { UIContext } from '../context';
 import {
@@ -35,7 +36,8 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
           'Seasonal',
           dailyReady.length > 0 ? `Daily (${dailyReady.length})` : 'Daily',
           mainReady.length > 0 ? `Main Quests (${mainReady.length})` : 'Main Quests',
-          'Achievements'
+          'Achievements',
+          'Weekly'
         ],
         tab,
         (i) => {
@@ -216,6 +218,41 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
         );
       }
     } else if (tab === 1) {
+      const gift = state.loginGiftState();
+      const giftRow = el('div', `quest-row login-gift${gift.claimedToday ? ' claimed' : ' complete'}`);
+      const giftText = el('div', 'list-info grow');
+      giftText.appendChild(el('strong', undefined, 'Login Gift'));
+      giftText.appendChild(
+        el(
+          'span',
+          'hint',
+          `Come back every real day to grow your streak. Up to +${LOGIN_GIFT.maxStreakDays * LOGIN_GIFT.coinsPerStreakDay}g extra at ${LOGIN_GIFT.maxStreakDays} days in a row.`
+        )
+      );
+      giftRow.appendChild(giftText);
+      const giftActions = el('div', 'row-actions');
+      giftActions.appendChild(pill(`${gift.streak}-day streak`, 'good'));
+      giftActions.appendChild(pill(`+${gift.coins}g`, 'gold'));
+      if (gift.claimedToday) {
+        giftActions.appendChild(pill('Claimed today', 'good'));
+      } else {
+        giftActions.appendChild(
+          button('Claim gift', {
+            small: true,
+            variant: 'primary',
+            onClick: () => {
+              const result = state.claimLoginGift();
+              ctx.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+              audio.play(result.ok ? 'coin' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+      }
+      giftRow.appendChild(giftActions);
+      content.appendChild(giftRow);
+
       const daily = state.data.daily;
       if (!daily) {
         content.appendChild(emptyState('No daily quests available. Sleep to start a new day.'));
@@ -291,7 +328,7 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
         row.appendChild(actions);
         content.appendChild(row);
       }
-    } else {
+    } else if (tab === 3) {
       for (const ach of ACHIEVEMENTS) {
         const unlocked = state.data.achievements.includes(ach.id);
         const progress = metricValue(state.data, ach.metric);
@@ -313,6 +350,103 @@ export function renderQuests(ctx: UIContext, root: HTMLElement): void {
         content.appendChild(row);
       }
       content.appendChild(el('p', 'hint center', 'Achievements unlock automatically and reward coins instantly.'));
+    } else {
+      const board = state.weeklyBoard();
+      const d = state.data;
+      const weekInfo = el('div', 'festival-head weekly-head');
+      const weekText = el('div', 'list-info grow');
+      weekText.appendChild(el('strong', undefined, `Weekly goals · Week ${board.week + 1}`));
+      weekText.appendChild(
+        el('span', 'hint', 'Three goals a week. Finish all three for a bonus.')
+      );
+      weekInfo.appendChild(weekText);
+      const weekPills = el('div', 'row-actions');
+      weekPills.appendChild(
+        pill(`${weekDaysLeft(d.season, d.year, d.day)} days left`, 'gold')
+      );
+      weekPills.appendChild(
+        pill(`${board.list.filter((e) => e.claimed).length}/${board.list.length} claimed`, 'good')
+      );
+      weekInfo.appendChild(weekPills);
+      content.appendChild(weekInfo);
+
+      for (const entry of board.list) {
+        const goal = readWeeklyGoal(entry.id);
+        if (!goal) continue;
+        const progress = weeklyGoalProgress(d, goal, board.startStats);
+        const complete = progress >= goal.target;
+        const row = el('div', `quest-row${entry.claimed ? ' claimed' : complete ? ' complete' : ''}`);
+        const text = el('div', 'list-info grow');
+        text.appendChild(el('strong', undefined, goal.title));
+        text.appendChild(el('span', 'hint', goal.desc));
+        text.appendChild(
+          progressBar(
+            Math.min(progress, goal.target),
+            goal.target,
+            `${Math.min(progress, goal.target)}/${goal.target}`
+          )
+        );
+        row.appendChild(text);
+        const actions = el('div', 'row-actions');
+        actions.appendChild(pill(`+${goal.coins}g`, 'gold'));
+        if (entry.claimed) {
+          actions.appendChild(pill('Claimed', 'good'));
+        } else {
+          actions.appendChild(
+            button('Claim', {
+              small: true,
+              variant: 'primary',
+              disabled: !complete,
+              onClick: () => {
+                const result = state.claimWeeklyGoal(entry.id);
+                ctx.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+                audio.play(result.ok ? 'coin' : 'error');
+                if (result.ok) ctx.requestSave();
+                render();
+              }
+            })
+          );
+        }
+        row.appendChild(actions);
+        content.appendChild(row);
+      }
+
+      const allClaimed = board.list.length > 0 && board.list.every((e) => e.claimed);
+      const bonus = el(
+        'div',
+        `quest-row festival-bonus${board.bonusClaimed ? ' claimed' : allClaimed ? ' complete' : ''}`
+      );
+      const bonusText = el('div', 'list-info grow');
+      bonusText.appendChild(el('strong', undefined, 'Weekly Bonus'));
+      bonusText.appendChild(
+        el('span', 'hint', `Claim all three goals for +${WEEKLY_BONUS.coins}g and +${WEEKLY_BONUS.xp} XP.`)
+      );
+      bonus.appendChild(bonusText);
+      const bonusActions = el('div', 'row-actions');
+      bonusActions.appendChild(pill(`+${WEEKLY_BONUS.coins}g`, 'gold'));
+      if (board.bonusClaimed) {
+        bonusActions.appendChild(pill('Bonus claimed', 'good'));
+      } else {
+        bonusActions.appendChild(
+          button('Claim bonus', {
+            small: true,
+            variant: 'primary',
+            disabled: !allClaimed,
+            onClick: () => {
+              const result = state.claimWeeklyBonus();
+              ctx.toast(result.message ?? '', result.ok ? 'reward' : 'error');
+              audio.play(result.ok ? 'coin' : 'error');
+              if (result.ok) ctx.requestSave();
+              render();
+            }
+          })
+        );
+      }
+      bonus.appendChild(bonusActions);
+      content.appendChild(bonus);
+      content.appendChild(
+        el('p', 'hint center', 'A new set of weekly goals starts every seven days.')
+      );
     }
 
     const footer = el('div', 'panel-footer');
